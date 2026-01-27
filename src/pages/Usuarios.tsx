@@ -104,8 +104,13 @@ const Usuarios = () => {
         };
       });
 
+      // Filtrar pending invites que já têm profile ativo (proteção contra duplicatas)
+      const activeEmails = new Set(profiles.map(p => p.email?.toLowerCase()).filter(Boolean));
+      const filteredPendingInvites = (pendingInvites || [])
+        .filter(invite => !activeEmails.has(invite.email?.toLowerCase()));
+
       // Map pending invites
-      const pendingUsers: UserWithRole[] = (pendingInvites || []).map(invite => ({
+      const pendingUsers: UserWithRole[] = filteredPendingInvites.map(invite => ({
         id: invite.id,
         email: invite.email,
         nome_completo: invite.nome_completo,
