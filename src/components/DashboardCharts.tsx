@@ -44,11 +44,7 @@ const ETAPA_COLORS: Record<string, string> = {
   "Nutrir": "hsl(204, 70%, 53%)"
 };
 
-const PERFIL_COLORS = [
-  "hsl(156, 26%, 17%)", // Verde escuro
-  "hsl(85, 100%, 40%)", // Verde vibrante
-  "hsl(156, 40%, 35%)"  // Verde médio
-];
+// PERFIL_COLORS removido - não utilizado no contexto atual
 
 const INVESTIMENTO_COLORS = [
   "hsl(85, 100%, 40%)",   // Verde vibrante
@@ -153,16 +149,27 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
       .sort((a, b) => b.count - a.count);
   }, [filteredLeads]);
 
-  // Dados para distribuição por perfil
-  const perfilData = useMemo(() => {
-    const perfis: Record<string, number> = {};
+  // Dados para Total Investido por Faixa
+  const totalPorFaixaData = useMemo(() => {
+    const faixas: Record<string, number> = {
+      "até R$10 mil": 0,
+      "de R$10 mil a R$50 mil": 0,
+      "de R$50 mil a R$100 mil": 0,
+      "acima de R$100 mil": 0
+    };
     
     filteredLeads.forEach(lead => {
-      const perfil = lead.perfil || "Não especificado";
-      perfis[perfil] = (perfis[perfil] || 0) + 1;
+      const valor = parseFloat(lead.valor_produto) || 0;
+      
+      if (valor <= 10000) faixas["até R$10 mil"] += valor;
+      else if (valor <= 50000) faixas["de R$10 mil a R$50 mil"] += valor;
+      else if (valor <= 100000) faixas["de R$50 mil a R$100 mil"] += valor;
+      else faixas["acima de R$100 mil"] += valor;
     });
 
-    return Object.entries(perfis).map(([name, value]) => ({ name, value }));
+    return Object.entries(faixas)
+      .filter(([_, value]) => value > 0)
+      .map(([name, value]) => ({ name, value }));
   }, [filteredLeads]);
 
   // Dados para distribuição por faixa de investimento
@@ -387,28 +394,32 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
           </CardContent>
         </Card>
 
-        {/* Gráfico de Pizza - Distribuição por Perfil */}
+        {/* Gráfico de Pizza - Total Investido por Faixa */}
         <Card className="col-span-1">
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg font-semibold text-foreground">Distribuição por Perfil</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Leads por tipo de cliente</p>
+            <CardTitle className="text-lg font-semibold text-foreground">Total Investido por Faixa</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">Valor total em cada faixa de investimento</p>
           </CardHeader>
           <CardContent className="pt-0">
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={perfilData}
+                  data={totalPorFaixaData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
-                  label={({ name, percent, cx, cy, midAngle, innerRadius, outerRadius }) => {
+                  label={({ name, value, percent, cx, cy, midAngle, outerRadius }) => {
                     const RADIAN = Math.PI / 180;
                     const radius = outerRadius + 25;
                     const x = cx + radius * Math.cos(-midAngle * RADIAN);
                     const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    
+                    const valorFormatado = value >= 1000000 
+                      ? `R$ ${(value / 1000000).toFixed(1)}M` 
+                      : `R$ ${(value / 1000).toFixed(0)}k`;
                     
                     return (
                       <text 
@@ -417,19 +428,23 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
                         fill="hsl(var(--foreground))"
                         textAnchor={x > cx ? 'start' : 'end'} 
                         dominantBaseline="central"
-                        className="text-sm font-medium"
+                        className="text-xs font-medium"
                       >
-                        {`${name}: ${(percent * 100).toFixed(0)}%`}
+                        {`${valorFormatado} (${(percent * 100).toFixed(0)}%)`}
                       </text>
                     );
                   }}
                   labelLine={{ stroke: 'hsl(var(--border))' }}
                 >
-                  {perfilData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={PERFIL_COLORS[index % PERFIL_COLORS.length]} />
+                  {totalPorFaixaData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={INVESTIMENTO_COLORS[index % INVESTIMENTO_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip 
+                  formatter={(value: number) => [
+                    `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                    'Total Investido'
+                  ]}
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
