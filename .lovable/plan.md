@@ -1,126 +1,129 @@
 
 
-# Plano: Corrigir Sistema de Convites
+# Plano: Corrigir Sistema de Convites (DEFINITIVO)
 
-## Problema Identificado
+## Problema Encontrado
 
-O arquivo `supabase/config.toml` está incompleto. Falta a configuração das Edge Functions que existe no projeto que funciona.
+Os logs do Supabase confirmam:
+- OPTIONS retorna 200 ✅
+- POST retorna 401 ❌ com "Missing authorization header"
 
-**Atual (incompleto):**
-```text
-project_id = "omilhfohvstqsonhyuxp"
-```
+Isso acontece porque:
+1. O projeto usa **signing-keys** (sistema novo do Supabase)
+2. Com signing-keys, o `verify_jwt = true` no config.toml **não funciona corretamente**
+3. O gateway do Supabase rejeita o token ANTES de chegar à função
 
-**Correto (como no outro projeto):**
-```text
+No outro projeto, isso funciona porque provavelmente ainda está no sistema antigo de JWT.
+
+---
+
+## Solução (Recomendada pela Documentação do Supabase)
+
+### 1. Mudar `supabase/config.toml`
+
+```toml
 project_id = "omilhfohvstqsonhyuxp"
 
 [functions.webhook-lead]
 verify_jwt = false
 
 [functions.invite-user]
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-invite-email]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete-user]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete-user-by-email]
-verify_jwt = true
+verify_jwt = false
 ```
 
----
+### 2. Adicionar Validação Manual na Edge Function
 
-## O Que Vou Fazer
+No arquivo `supabase/functions/invite-user/index.ts`, adicionar verificação do JWT usando `getUser()` (que já existe no código mas precisa retornar erro se falhar):
 
-### 1. Atualizar `supabase/config.toml`
+Após a linha que verifica o OPTIONS, adicionar:
 
-Adicionar a configuracao de todas as Edge Functions existentes no projeto.
+```typescript
+// Validar autenticação manualmente
+const authHeader = req.headers.get("Authorization");
+if (!authHeader?.startsWith("Bearer ")) {
+  return new Response(
+    JSON.stringify({ error: "Não autorizado" }),
+    { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+  );
+}
+```
 
-### 2. Simplificar `src/components/CreateUserDialog.tsx`
+E modificar a parte que extrai o usuário para falhar se não houver autenticação:
 
-Remover a logica complexa de retry que foi adicionada e voltar para uma chamada simples e direta, igual ao outro projeto que funciona.
+```typescript
+const token = authHeader.replace("Bearer ", "");
+const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
-**Remover:**
-- Funcao `invokeWithRetry` com logica de retry
-- Imports de `FunctionsHttpError`, `FunctionsRelayError`, `FunctionsFetchError`
-- Estado `loadingMessage`
-- Funcao `delay`
+if (userError || !user) {
+  return new Response(
+    JSON.stringify({ error: "Token inválido" }),
+    { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+  );
+}
 
-**Manter:**
-- Chamada direta `supabase.functions.invoke('invite-user', { body })`
-- Tratamento de erro simples
-- Log de atividade
+const invitedBy = user.id;
+```
 
 ---
 
 ## Arquivos a Modificar
 
-| Arquivo | Alteracao |
+| Arquivo | Alteração |
 |---------|-----------|
-| `supabase/config.toml` | Adicionar configuracao de todas as Edge Functions |
-| `src/components/CreateUserDialog.tsx` | Simplificar - remover retry e usar chamada direta |
+| `supabase/config.toml` | Mudar `verify_jwt` para `false` em todas as funções |
+| `supabase/functions/invite-user/index.ts` | Adicionar validação manual do JWT |
 
 ---
 
-## Codigo Simplificado do handleSubmit
+## Por Que Isso Vai Funcionar
+
+1. Com `verify_jwt = false`, o gateway do Supabase passa TODAS as requisições para a função
+2. A função valida o JWT manualmente usando `getUser()`
+3. Se inválido, retorna 401 COM os headers CORS (o browser recebe a resposta corretamente)
+4. Se válido, processa o convite normalmente
+
+---
+
+## Fluxo Corrigido
 
 ```text
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (!formData.email || !formData.nome_completo) {
-    toast.error("Preencha todos os campos obrigatorios");
-    return;
-  }
-
-  setIsLoading(true);
-
-  try {
-    const { data, error } = await supabase.functions.invoke('invite-user', {
-      body: {
-        email: formData.email,
-        nome_completo: formData.nome_completo,
-        telefone: formData.telefone || undefined,
-        role: formData.role,
-      },
-    });
-
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-
-    await logActivity(
-      'user_created',
-      `Convite enviado para: ${formData.nome_completo} (${formData.email})`,
-      { new_user_email: formData.email, role: formData.role }
-    );
-
-    toast.success("Convite enviado com sucesso!");
-    setOpen(false);
-    setFormData({ email: "", nome_completo: "", telefone: "", role: "user" });
-    onUserCreated();
-  } catch (error: any) {
-    console.error("Erro ao enviar convite:", error);
-    
-    const msg = error.message || "";
-    if (msg.includes("ja esta cadastrado") || msg.includes("already been registered")) {
-      toast.error("Este email ja esta cadastrado no sistema");
-    } else if (msg.includes("convite pendente")) {
-      toast.error("Ja existe um convite pendente para este email");
-    } else {
-      toast.error(msg || "Erro ao enviar convite");
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
+Browser -> POST /invite-user
+              |
+              v
+    [verify_jwt = false]
+    Requisição chega na função
+              |
+              v
+    [Função valida JWT com getUser()]
+              |
+         [Válido?]
+          /      \
+        Sim       Não
+         |         |
+         v         v
+    [Processa   [401 + CORS headers]
+     convite]   
+         |
+         v
+    [200 OK + email enviado]
 ```
 
 ---
 
 ## Resultado Esperado
 
-Apos essas alteracoes, o sistema de convites ficara identico ao do outro projeto que funciona corretamente.
+Após essas alterações:
+1. Requisições chegarão à Edge Function
+2. JWT será validado dentro da função
+3. Convites serão enviados com sucesso
+4. Erro "Failed to fetch" será eliminado
 
