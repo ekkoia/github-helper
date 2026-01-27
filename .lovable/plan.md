@@ -1,92 +1,95 @@
 
-# Plano: Verticalizar Formulario de Novo Lead
+# Plano: Adicionar Campo "Origem do Lead"
 
 ## Resumo
-Modificar o layout do formulario de novo lead para ser mais estreito e vertical, tornando-o mais amigavel e menos largo na tela.
+Adicionar um novo campo no formulário de criação de lead para identificar a origem/fonte do lead (Instagram, Meta, campanha de mensagem, formulário nativo, etc).
 
 ---
 
-## Alteracoes Necessarias
+## Alterações Necessárias
 
-### 1. Reduzir Largura do Dialog
-**Arquivos:** `src/pages/LeadsTable.tsx` e `src/pages/Kanban.tsx`
+### 1. Criar Nova Coluna no Banco de Dados
+**Migração SQL necessária**
 
-Alterar a classe do DialogContent:
-- De: `max-w-4xl` (896px de largura)
-- Para: `max-w-md` (448px de largura)
+Criar a coluna `origem` na tabela `leads`:
+- Tipo: `text`
+- Nullable: sim (opcional)
+- Sem valor default
 
-Isso tornara o modal mais compacto e centralizado na tela.
+### 2. Atualizar Schema de Validação
+**Arquivo:** `src/lib/validations.ts`
 
-### 2. Verticalizar o LeadForm
+Adicionar campo `origem` ao schema:
+- Tipo: string opcional
+- Limite de 100 caracteres
+
+### 3. Atualizar LeadForm
 **Arquivo:** `src/components/LeadForm.tsx`
 
-Remover os grids de 2 colunas para empilhar todos os campos verticalmente:
-- Telefone e E-mail: remover `grid grid-cols-1 md:grid-cols-2` e colocar cada campo em seu proprio bloco
-- Qtd Cotas e Valor Investido: idem, colocar cada campo em seu proprio bloco
+- Adicionar campo Select para origem (antes de Observações)
+- Opções pré-definidas:
+  - Instagram Ads
+  - Facebook Ads
+  - WhatsApp
+  - Formulário Nativo Meta
+  - Campanha de Mensagem
+  - Indicação
+  - Site/Landing Page
+  - Outro
+- Incluir no defaultValues e submitData
+
+### 4. Atualizar Edge Function webhook-lead
+**Arquivo:** `supabase/functions/webhook-lead/index.ts`
+
+- Adicionar suporte ao campo `origem` no payload do webhook
 
 ---
 
-## Layout Resultante
+## Layout do Campo
+
+O campo será posicionado após "Valor Investido" e antes de "Observações":
 
 ```text
 +---------------------------+
-|       Novo Lead       [X] |
-+---------------------------+
-| Nome Completo *           |
-| [_______________________] |
-|                           |
-| Telefone *                |
-| [_______________________] |
-|                           |
-| E-mail *                  |
-| [_______________________] |
-|                           |
-| Qtd Cotas                 |
-| [_______________________] |
-|                           |
+| ...                       |
 | Valor Investido (R$)      |
 | [_______________________] |
 |                           |
+| Origem do Lead            |
+| [▼ Selecione a origem   ] |
+|                           |
 | Observacoes               |
 | [_______________________] |
-| [_______________________] |
-|                           |
-|    [Cancelar] [Criar Lead]|
+| ...                       |
 +---------------------------+
 ```
 
 ---
 
-## Detalhes Tecnicos
+## Detalhes Técnicos
 
-### LeadForm.tsx - Mudancas
-```text
-Antes (linhas 108-124):
-- <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
--   <div>Telefone</div>
--   <div>E-mail</div>
-- </div>
+### Migração SQL
+```sql
+ALTER TABLE leads
+ADD COLUMN origem text;
 
-Depois:
-- <div>Telefone</div>
-- <div>E-mail</div>
+COMMENT ON COLUMN leads.origem IS 'Origem/fonte do lead (Instagram, Meta, etc)';
 ```
 
-O mesmo sera aplicado para Qtd Cotas e Valor Investido (linhas 126-148).
+### Opções de Origem (Sugeridas)
+| Valor | Descrição |
+|-------|-----------|
+| `instagram_ads` | Instagram Ads |
+| `facebook_ads` | Facebook Ads |
+| `whatsapp` | WhatsApp |
+| `meta_form` | Formulário Nativo Meta |
+| `campanha_mensagem` | Campanha de Mensagem |
+| `indicacao` | Indicação |
+| `site` | Site/Landing Page |
+| `outro` | Outro |
 
-### DialogContent - Mudancas
-```text
-Antes:
-- className="max-w-4xl max-h-[90vh] overflow-y-auto"
-
-Depois:
-- className="max-w-md max-h-[90vh] overflow-y-auto"
-```
-
----
-
-## Arquivos a Modificar
-
-1. `src/components/LeadForm.tsx` - Remover grids horizontais
-2. `src/pages/LeadsTable.tsx` - Reduzir largura do Dialog
-3. `src/pages/Kanban.tsx` - Reduzir largura do Dialog
+### Arquivos a Modificar
+1. **Migração SQL** - Criar coluna `origem`
+2. `src/lib/validations.ts` - Adicionar campo ao schema
+3. `src/components/LeadForm.tsx` - Adicionar Select de origem
+4. `supabase/functions/webhook-lead/index.ts` - Aceitar campo origem no webhook
