@@ -8,7 +8,7 @@ import { CalendarIcon } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { parseVolume } from "@/lib/volumeParser";
+
 import { 
   LineChart, 
   Line,
@@ -50,9 +50,11 @@ const PERFIL_COLORS = [
   "hsl(156, 40%, 35%)"  // Verde médio
 ];
 
-const GRAO_COLORS = [
-  "hsl(85, 100%, 40%)", // Soja - verde vibrante
-  "hsl(43, 98%, 54%)"   // Milho - amarelo
+const INVESTIMENTO_COLORS = [
+  "hsl(85, 100%, 40%)",   // Verde vibrante
+  "hsl(43, 98%, 54%)",    // Amarelo
+  "hsl(24, 100%, 63%)",   // Laranja
+  "hsl(156, 26%, 17%)"    // Verde escuro
 ];
 
 export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
@@ -163,21 +165,27 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
     return Object.entries(perfis).map(([name, value]) => ({ name, value }));
   }, [filteredLeads]);
 
-  // Dados para volume por grão
-  const graoData = useMemo(() => {
-    const graos: Record<string, number> = {};
+  // Dados para distribuição por faixa de investimento
+  const investimentoData = useMemo(() => {
+    const faixas: Record<string, number> = {
+      "até R$10 mil": 0,
+      "de R$10 mil a R$50 mil": 0,
+      "de R$50 mil a R$100 mil": 0,
+      "acima de R$100 mil": 0
+    };
     
     filteredLeads.forEach(lead => {
-      if (lead.tipo_grao && lead.volume) {
-        const volume = parseVolume(lead.volume);
-        graos[lead.tipo_grao] = (graos[lead.tipo_grao] || 0) + volume;
-      }
+      const valor = parseFloat(lead.valor_produto) || 0;
+      
+      if (valor <= 10000) faixas["até R$10 mil"]++;
+      else if (valor <= 50000) faixas["de R$10 mil a R$50 mil"]++;
+      else if (valor <= 100000) faixas["de R$50 mil a R$100 mil"]++;
+      else if (valor > 100000) faixas["acima de R$100 mil"]++;
     });
 
-    return Object.entries(graos).map(([name, value]) => ({ 
-      name, 
-      value: Math.round(value) 
-    }));
+    return Object.entries(faixas)
+      .filter(([_, value]) => value > 0)
+      .map(([name, value]) => ({ name, value }));
   }, [filteredLeads]);
 
   const handlePeriodChange = (value: string) => {
@@ -440,20 +448,24 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
           </CardContent>
         </Card>
 
-        {/* Gráfico de Barras Verticais - Volume por Grão */}
+        {/* Gráfico de Barras Verticais - Leads por Faixa de Investimento */}
         <Card className="col-span-1">
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg font-semibold text-foreground">Volume Total por Grão</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Sacas negociadas por tipo</p>
+            <CardTitle className="text-lg font-semibold text-foreground">Leads por Faixa de Investimento</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">Distribuição por valor pretendido</p>
           </CardHeader>
           <CardContent className="pt-0">
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={graoData}>
+              <BarChart data={investimentoData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis 
                   dataKey="name" 
                   stroke="hsl(var(--muted-foreground))"
-                  style={{ fontSize: '12px' }}
+                  style={{ fontSize: '11px' }}
+                  interval={0}
+                  angle={-15}
+                  textAnchor="end"
+                  height={60}
                 />
                 <YAxis 
                   stroke="hsl(var(--muted-foreground))"
@@ -472,11 +484,10 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
                   labelStyle={{
                     color: 'hsl(var(--popover-foreground))'
                   }}
-                  formatter={(value: number) => value.toLocaleString('pt-BR')}
                 />
-                <Bar dataKey="value" name="Volume (sacas)">
-                  {graoData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={GRAO_COLORS[index % GRAO_COLORS.length]} />
+                <Bar dataKey="value" name="Quantidade de Leads">
+                  {investimentoData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={INVESTIMENTO_COLORS[index % INVESTIMENTO_COLORS.length]} />
                   ))}
                 </Bar>
               </BarChart>
