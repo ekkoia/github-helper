@@ -96,6 +96,32 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    // IMPORTANTE: Inserir pending_invite ANTES de generateLink
+    // Isso garante que o trigger handle_new_user encontre o pending_invite
+    // e NÃO crie o profile automaticamente
+    const { error: pendingError } = await supabaseAdmin
+      .from("pending_invites")
+      .insert({
+        email,
+        nome_completo,
+        telefone,
+        role,
+        invited_by: invitedBy,
+      });
+
+    if (pendingError) {
+      console.error("Error creating pending invite:", pendingError);
+      return new Response(
+        JSON.stringify({ error: "Erro ao criar convite pendente" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    console.log("Pending invite created for:", email);
+
     // Generate invite link with redirect to set-password page
     const redirectUrl = `${siteUrl}/set-password`;
 
@@ -115,6 +141,8 @@ serve(async (req: Request): Promise<Response> => {
 
     if (linkError) {
       console.error("Error generating invite link:", linkError);
+      // Se falhar, remover o pending_invite criado
+      await supabaseAdmin.from("pending_invites").delete().eq("email", email);
       return new Response(
         JSON.stringify({ error: linkError.message }),
         {
@@ -131,6 +159,8 @@ serve(async (req: Request): Promise<Response> => {
 
     if (!inviteLink) {
       console.error("No action_link in response");
+      // Se falhar, remover o pending_invite criado
+      await supabaseAdmin.from("pending_invites").delete().eq("email", email);
       return new Response(
         JSON.stringify({ error: "Erro ao gerar link de convite" }),
         {
@@ -141,22 +171,6 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     console.log("Generated invite link:", inviteLink);
-
-    // Insert into pending_invites table
-    const { error: pendingError } = await supabaseAdmin
-      .from("pending_invites")
-      .insert({
-        email,
-        nome_completo,
-        telefone,
-        role,
-        invited_by: invitedBy,
-      });
-
-    if (pendingError) {
-      console.error("Error creating pending invite:", pendingError);
-      // Don't fail the whole request, the invite was sent
-    }
 
     // Send custom invite email via Resend with the correct invite link
     try {
