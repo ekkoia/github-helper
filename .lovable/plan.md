@@ -1,89 +1,93 @@
 
-# Plano: Dinamizar as Etapas do Funil
+# Plano: Simplificar Formulário de Novo Lead
 
-## Resumo do Problema
-As etapas do funil estão funcionando corretamente no banco de dados (as alterações foram salvas), mas o sistema não reflete essas mudanças porque o código usa listas fixas (hardcoded) em vez de carregar as etapas dinamicamente do banco.
-
-## Solução
-Criar um sistema centralizado que carregue as etapas do banco de dados e as disponibilize para todos os componentes que precisam delas.
+## Resumo
+Modificar o modal de criação de lead para exibir apenas os campos essenciais: Nome Completo, Telefone, E-mail, Qtd Cotas, Valor Investido e Observações, reaproveitando as colunas existentes no banco de dados.
 
 ---
 
-## Etapas da Implementação
+## Mapeamento de Campos
 
-### 1. Criar Hook Centralizado para Etapas do Funil
-**Arquivo:** `src/hooks/useFunilEtapas.ts`
-
-Criar um hook React Query que:
-- Busca as etapas ativas da tabela `funil_etapas`
-- Ordena por campo `ordem`
-- Gera automaticamente o mapeamento de cores
-- Disponibiliza cache para evitar múltiplas requisições
-
-### 2. Atualizar o Schema de Validação
-**Arquivo:** `src/lib/validations.ts`
-
-- Remover a validação estrita de enum para `etapa_funil`
-- Usar `z.string()` com validação customizada ou aceitar qualquer string (a validação será feita no Select)
-
-### 3. Atualizar LeadForm
-**Arquivo:** `src/components/LeadForm.tsx`
-
-- Remover constante `ETAPAS_FUNIL` hardcoded
-- Importar e usar o hook `useFunilEtapas`
-- Renderizar etapas dinamicamente no Select
-
-### 4. Atualizar FiltersSidebar
-**Arquivo:** `src/components/FiltersSidebar.tsx`
-
-- Remover constante `ETAPAS_FUNIL` hardcoded
-- Receber as etapas como prop ou usar o hook
-- Renderizar filtros dinamicamente
-
-### 5. Atualizar Kanban
-**Arquivo:** `src/pages/Kanban.tsx`
-
-- Remover constantes `ETAPAS_FUNIL` e `ETAPAS_CORES` hardcoded
-- Usar o hook `useFunilEtapas`
-- Gerar colunas dinamicamente baseado nas etapas ativas
-
-### 6. Atualizar LeadsTable
-**Arquivo:** `src/pages/LeadsTable.tsx`
-
-- Remover objeto `ETAPAS_CORES` hardcoded
-- Usar cores dinâmicas do hook ou prop
-
-### 7. Atualizar Edge Function webhook-lead
-**Arquivo:** `supabase/functions/webhook-lead/index.ts`
-
-- Consultar etapas válidas do banco antes de validar
-- Ou remover validação estrita (aceitar qualquer etapa)
+| Campo no Formulario | Coluna no Banco | Tipo |
+|---------------------|-----------------|------|
+| Nome Completo | `nome_completo` | text |
+| Telefone | `telefone` | text |
+| E-mail | `email` | text |
+| Qtd Cotas | `volume` | text |
+| Valor Investido | `valor_produto` | numeric |
+| Observacoes | `observacoes` | text |
 
 ---
 
-## Detalhes Técnicos
+## Arquivos a Modificar
 
-### Estrutura do Hook
+### 1. src/lib/validations.ts
+- Simplificar o schema `leadSchema` removendo campos nao utilizados
+- Manter apenas: `nome_completo`, `telefone`, `email`, `volume` (Qtd Cotas), `valor_produto` (Valor Investido), `etapa_funil`, `observacoes`
+- Ajustar labels nos erros para refletir novos nomes (ex: "Qtd Cotas")
+
+### 2. src/components/LeadForm.tsx
+- Remover todas as secoes: Identificacao (manter apenas nome, telefone, email), Negociacao, Localizacao, Dados Tecnicos
+- Criar layout simplificado com:
+  - Nome Completo (obrigatorio)
+  - Telefone (obrigatorio)
+  - E-mail (obrigatorio)
+  - Qtd Cotas (opcional, usa campo `volume`)
+  - Valor Investido (opcional, usa campo `valor_produto`)
+  - Observacoes (opcional)
+- Remover constantes e logica relacionadas a perfil, etapa_funil, estados, royalties, etc.
+- Manter etapa_funil como valor padrao "Novo Lead" (enviado automaticamente)
+- Manter perfil como valor padrao para compatibilidade
+
+### 3. supabase/functions/webhook-lead/index.ts
+- Atualizar validacao para refletir novos campos obrigatorios
+- Remover validacao de `perfil` como obrigatorio (sera opcional)
+- Adicionar suporte para campos `qtd_cotas` e `valor_investido` como aliases
+
+---
+
+## Layout do Novo Formulario
+
 ```text
-useFunilEtapas() retorna:
-├── etapas: Array<{id, nome, cor, ordem}>
-├── etapasNomes: string[]
-├── coresMap: Record<string, string>
-├── isLoading: boolean
-└── refetch: function
++------------------------------------------+
+|           Novo Lead                      |
++------------------------------------------+
+| Nome Completo *                          |
+| [________________________]               |
+|                                          |
+| Telefone *              E-mail *         |
+| [____________]          [______________] |
+|                                          |
+| Qtd Cotas               Valor Investido  |
+| [____________]          R$ [___________] |
+|                                          |
+| Observacoes                              |
+| [                                      ] |
+| [                                      ] |
+|                                          |
+|              [Cancelar]  [Criar Lead]    |
++------------------------------------------+
 ```
 
-### Benefícios
-- Alterações no painel de configurações refletem imediatamente em todo o sistema
-- Cores personalizadas do banco são usadas em todos os componentes
-- Código mais limpo e manutenível
-- Elimina duplicação de dados
+---
 
-### Arquivos a Modificar
-1. `src/hooks/useFunilEtapas.ts` (criar)
-2. `src/lib/validations.ts` (modificar)
-3. `src/components/LeadForm.tsx` (modificar)
-4. `src/components/FiltersSidebar.tsx` (modificar)
-5. `src/pages/Kanban.tsx` (modificar)
-6. `src/pages/LeadsTable.tsx` (modificar)
-7. `supabase/functions/webhook-lead/index.ts` (modificar)
+## Detalhes Tecnicos
+
+### Validacao Atualizada (validations.ts)
+- `nome_completo`: string, min 3 chars, max 100 chars, obrigatorio
+- `telefone`: string, formato brasileiro, obrigatorio
+- `email`: string, formato email valido, obrigatorio
+- `volume`: string, opcional (Qtd Cotas)
+- `valor_produto`: number, positivo, opcional (Valor Investido)
+- `etapa_funil`: string, valor padrao "Novo Lead"
+- `observacoes`: string, max 1000 chars, opcional
+
+### Campos Enviados ao Banco
+O formulario continuara enviando valores defaults para campos removidos:
+- `perfil`: null (nao mais obrigatorio)
+- `etapa_funil`: "Novo Lead" (automatico)
+- Demais campos: null
+
+### Compatibilidade
+- O modal de edicao completo pode ser mantido separadamente se necessario para editar leads existentes com todos os campos
+- Leads criados pelo webhook continuam funcionando normalmente
