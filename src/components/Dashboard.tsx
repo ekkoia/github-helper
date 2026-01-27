@@ -29,8 +29,8 @@ export const Dashboard = ({ totalLeads, leadsGanhos, taxaConversao, volumeTotal 
       color: "text-status-ia",
     },
     {
-      title: "Volume Total (sacas)",
-      value: volumeTotal.toLocaleString('pt-BR'),
+      title: "Total Investido",
+      value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(volumeTotal),
       icon: Package,
       color: "text-status-proposta",
     },
