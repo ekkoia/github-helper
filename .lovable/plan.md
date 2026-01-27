@@ -1,111 +1,93 @@
 
+# Corrigir Problemas na Página de Atividades
 
-# Implementar Login com Google
+## Problemas Identificados
 
-## Situação Atual
+### 1. Iniciais mostrando texto estranho ("JDEFIN")
+O nome "Juliana Nascimento " está salvo com espaço extra no final. Quando a função `split(" ")` é executada, gera um array com string vazia no final, causando o erro.
 
-O código do frontend já está **100% implementado**:
-- A função `signInWithGoogle()` já existe no AuthContext
-- O botão "Continuar com Google" já existe na página de login
-- O redirecionamento para `/dashboard` após login está configurado
+### 2. Atividades não aparecem em tempo real
+A página carrega as atividades apenas uma vez. Não há atualização automática ou em tempo real.
 
-O que falta é a **configuração no lado do Supabase e Google Cloud**.
+## Alterações Propostas
 
-## Passos para Configurar
+### Arquivo: `src/components/atividades/AtividadesLista.tsx`
 
-### Passo 1: Criar Projeto no Google Cloud Console
-
-1. Acesse [Google Cloud Console](https://console.cloud.google.com/)
-2. Crie um novo projeto ou selecione um existente
-3. Ative a **Google+ API** ou **Google Identity API**
-
-### Passo 2: Configurar Tela de Consentimento OAuth
-
-1. Vá para **APIs & Services > OAuth consent screen**
-2. Escolha **External** (para usuários externos)
-3. Preencha as informações obrigatórias:
-   - Nome do aplicativo: **Imaculada Agronegócios**
-   - Email de suporte
-   - Domínios autorizados: `omilhfohvstqsonhyuxp.supabase.co`
-4. Adicione os escopos:
-   - `.../auth/userinfo.email`
-   - `.../auth/userinfo.profile`
-   - `openid`
-
-### Passo 3: Criar Credenciais OAuth
-
-1. Vá para **APIs & Services > Credentials**
-2. Clique em **Create Credentials > OAuth Client ID**
-3. Tipo de aplicação: **Web application**
-4. Nome: **Imaculada CRM**
-5. **Authorized JavaScript origins**:
-   - `https://id-preview--4857f2d3-9941-4691-862c-d1c44dc8fe55.lovable.app`
-   - (Adicione seu domínio de produção quando publicar)
-6. **Authorized redirect URIs**:
-   - `https://omilhfohvstqsonhyuxp.supabase.co/auth/v1/callback`
-7. Copie o **Client ID** e **Client Secret** gerados
-
-### Passo 4: Configurar no Supabase Dashboard
-
-1. Acesse [Supabase Authentication Providers](https://supabase.com/dashboard/project/omilhfohvstqsonhyuxp/auth/providers)
-2. Encontre **Google** na lista e clique para expandir
-3. Ative o toggle **Enable Sign in with Google**
-4. Cole o **Client ID** e **Client Secret** do Google Cloud
-5. Clique em **Save**
-
-### Passo 5: Configurar URLs no Supabase
-
-1. Acesse [Supabase URL Configuration](https://supabase.com/dashboard/project/omilhfohvstqsonhyuxp/auth/url-configuration)
-2. Configure:
-   - **Site URL**: `https://id-preview--4857f2d3-9941-4691-862c-d1c44dc8fe55.lovable.app`
-   - **Redirect URLs**: Adicione `https://id-preview--4857f2d3-9941-4691-862c-d1c44dc8fe55.lovable.app/dashboard`
-
-## Melhoria Opcional no Código
-
-Podemos adicionar tratamento para criar o perfil automaticamente quando o usuário fizer login com Google pela primeira vez:
+**Corrigir função `getInitials`:**
 
 ```typescript
-// No AuthContext, atualizar o onAuthStateChange
-supabase.auth.onAuthStateChange(async (event, session) => {
-  setSession(session);
-  setUser(session?.user ?? null);
-  
-  // Criar perfil automaticamente para login OAuth
-  if (event === 'SIGNED_IN' && session?.user) {
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('user_id')
-      .eq('user_id', session.user.id)
-      .single();
-    
-    if (!existingProfile) {
-      await supabase.from('profiles').insert({
-        user_id: session.user.id,
-        nome_completo: session.user.user_metadata?.full_name || 
-                       session.user.user_metadata?.name ||
-                       session.user.email?.split('@')[0]
-      });
-    }
+const getInitials = (name: string) => {
+  if (!name) return "?";
+  // Remover espaços extras e filtrar elementos vazios
+  const names = name.trim().split(" ").filter(n => n.length > 0);
+  if (names.length >= 2) {
+    return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
   }
-  
-  setLoading(false);
-});
+  if (names.length === 1 && names[0].length >= 2) {
+    return names[0].slice(0, 2).toUpperCase();
+  }
+  return "?";
+};
 ```
 
-## Resumo
+### Arquivo: `src/pages/Atividades.tsx`
 
-| Item | Status |
-|------|--------|
-| Função `signInWithGoogle()` | Implementado |
-| Botão na página de login | Implementado |
-| Redirecionamento após login | Implementado |
-| Configuração Google Cloud | **Pendente (manual)** |
-| Configuração Supabase | **Pendente (manual)** |
-| Criação automática de perfil | Opcional - pode ser adicionado |
+**Adicionar atualização em tempo real com Supabase Realtime:**
 
-## Alterações de Código (Opcional)
+```typescript
+// Adicionar subscription para atualização em tempo real
+useEffect(() => {
+  if (!roleLoading && canAccess) {
+    fetchActivities();
+
+    // Subscrição para atualizações em tempo real
+    const channel = supabase
+      .channel('user_activities_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'user_activities'
+        },
+        () => {
+          fetchActivities(); // Recarregar quando houver nova atividade
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }
+}, [roleLoading, canAccess]);
+```
+
+**Adicionar botão de atualização manual:**
+
+```typescript
+<Button 
+  variant="outline" 
+  size="sm"
+  onClick={fetchActivities}
+  disabled={isLoading}
+>
+  <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+  Atualizar
+</Button>
+```
+
+## Resumo das Alterações
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/contexts/AuthContext.tsx` | Adicionar criação automática de perfil para usuários OAuth |
+| `src/components/atividades/AtividadesLista.tsx` | Corrigir função `getInitials` para usar `trim()` e `filter()` |
+| `src/pages/Atividades.tsx` | Adicionar Supabase Realtime subscription para atualizações automáticas |
+| `src/pages/Atividades.tsx` | Adicionar botão "Atualizar" manual |
+| `src/pages/Atividades.tsx` | Importar `RefreshCw` do lucide-react |
 
+## Resultado Esperado
+
+- **Iniciais corretas**: "JN" para Juliana Nascimento
+- **Atividades em tempo real**: Novos logins/logouts aparecem automaticamente
+- **Controle manual**: Botão para forçar atualização se necessário
