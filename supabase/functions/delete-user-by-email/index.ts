@@ -31,16 +31,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: { headers: { Authorization: authHeader } },
-      }
-    );
-
-    const { data: { user: requestingUser }, error: authError } = await supabaseClient.auth.getUser();
+    // Extract the token and get the user using the admin client
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
     if (authError || !requestingUser) {
+      console.error("Auth error:", authError);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
