@@ -1,82 +1,58 @@
 
-# Plano: Corrigir Erro de Convite de Usuarios
 
-## Diagnostico
+# Plano: Corrigir Sistema de Convites
 
-Apos investigacao detalhada, identifiquei que:
+## Problema Identificado
 
-1. **A Edge Function funciona corretamente** - testes diretos retornam status 200
-2. **A requisicao do frontend nao chega ao servidor** - nos logs do Supabase, nao ha registro da chamada que falhou as 13:27:30
-3. **Tempo de execucao elevado** - a funcao leva ~5 segundos (gerar link + enviar email)
-4. **Erro generico no frontend** - o erro "Failed to send a request to the Edge Function" e muito vago
+O arquivo `supabase/config.toml` está incompleto. Falta a configuração das Edge Functions que existe no projeto que funciona.
 
-## Causa Raiz
+**Atual (incompleto):**
+```text
+project_id = "omilhfohvstqsonhyuxp"
+```
 
-O problema esta relacionado a uma combinacao de:
-- Timeout ou instabilidade de rede transitoria
-- Falta de tratamento de erro especifico para diferentes tipos de falha
-- Ausencia de retry automatico para falhas de rede
+**Correto (como no outro projeto):**
+```text
+project_id = "omilhfohvstqsonhyuxp"
+
+[functions.webhook-lead]
+verify_jwt = false
+
+[functions.invite-user]
+verify_jwt = true
+
+[functions.send-invite-email]
+verify_jwt = true
+
+[functions.delete-user]
+verify_jwt = true
+
+[functions.delete-user-by-email]
+verify_jwt = true
+```
 
 ---
 
-## Solucao Proposta
+## O Que Vou Fazer
 
-### 1. Melhorar Headers CORS na Edge Function
-**Arquivo:** `supabase/functions/invite-user/index.ts`
+### 1. Atualizar `supabase/config.toml`
 
-Adicionar headers CORS mais completos para garantir compatibilidade:
+Adicionar a configuracao de todas as Edge Functions existentes no projeto.
 
-```text
-Antes:
-"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+### 2. Simplificar `src/components/CreateUserDialog.tsx`
 
-Depois:
-"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, accept, accept-language, x-authorization"
-"Access-Control-Allow-Methods": "POST, OPTIONS"
-"Access-Control-Max-Age": "86400"
-```
+Remover a logica complexa de retry que foi adicionada e voltar para uma chamada simples e direta, igual ao outro projeto que funciona.
 
-### 2. Implementar Tratamento de Erro Especifico
-**Arquivo:** `src/components/CreateUserDialog.tsx`
+**Remover:**
+- Funcao `invokeWithRetry` com logica de retry
+- Imports de `FunctionsHttpError`, `FunctionsRelayError`, `FunctionsFetchError`
+- Estado `loadingMessage`
+- Funcao `delay`
 
-Usar os tipos de erro do Supabase para mensagens mais claras:
-
-```text
-import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@supabase/supabase-js'
-
-if (error instanceof FunctionsFetchError) {
-  // Erro de rede - sugerir tentar novamente
-} else if (error instanceof FunctionsRelayError) {
-  // Erro no relay - problema temporario
-} else if (error instanceof FunctionsHttpError) {
-  // Erro HTTP - ler resposta do servidor
-}
-```
-
-### 3. Adicionar Retry Automatico
-**Arquivo:** `src/components/CreateUserDialog.tsx`
-
-Implementar logica de retry para falhas de rede:
-
-```text
-const invokeWithRetry = async (retries = 3) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await supabase.functions.invoke('invite-user', { body });
-    } catch (error) {
-      if (i === retries - 1) throw error;
-      await delay(1000 * (i + 1)); // backoff exponencial
-    }
-  }
-}
-```
-
-### 4. Adicionar Feedback Visual Melhorado
-**Arquivo:** `src/components/CreateUserDialog.tsx`
-
-- Mostrar mensagem de "Processando..." durante a espera
-- Indicar claramente quando houve falha de rede vs erro do servidor
-- Adicionar botao "Tentar Novamente" em caso de falha de rede
+**Manter:**
+- Chamada direta `supabase.functions.invoke('invite-user', { body })`
+- Tratamento de erro simples
+- Log de atividade
 
 ---
 
@@ -84,52 +60,67 @@ const invokeWithRetry = async (retries = 3) => {
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `supabase/functions/invite-user/index.ts` | Headers CORS mais completos |
-| `src/components/CreateUserDialog.tsx` | Tratamento de erro especifico + retry |
+| `supabase/config.toml` | Adicionar configuracao de todas as Edge Functions |
+| `src/components/CreateUserDialog.tsx` | Simplificar - remover retry e usar chamada direta |
 
 ---
 
-## Fluxo Apos Correcao
+## Codigo Simplificado do handleSubmit
 
 ```text
-[Usuario clica "Enviar Convite"]
-          |
-          v
-[Tentativa 1 - invoke Edge Function]
-          |
-    [Sucesso?]
-      /      \
-   Sim        Nao
-    |          |
-    v          v
-[Toast       [Retry com backoff]
- sucesso]          |
-                   v
-           [Tentativa 2]
-                   |
-              [Sucesso?]
-                /     \
-             Sim       Nao
-              |         |
-              v         v
-          [Toast    [Tentativa 3]
-           sucesso]     |
-                        v
-                   [Sucesso?]
-                     /     \
-                  Sim       Nao
-                   |         |
-                   v         v
-              [Toast    [Toast erro:
-               sucesso]  "Problema de rede,
-                         tente novamente"]
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!formData.email || !formData.nome_completo) {
+    toast.error("Preencha todos os campos obrigatorios");
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const { data, error } = await supabase.functions.invoke('invite-user', {
+      body: {
+        email: formData.email,
+        nome_completo: formData.nome_completo,
+        telefone: formData.telefone || undefined,
+        role: formData.role,
+      },
+    });
+
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    await logActivity(
+      'user_created',
+      `Convite enviado para: ${formData.nome_completo} (${formData.email})`,
+      { new_user_email: formData.email, role: formData.role }
+    );
+
+    toast.success("Convite enviado com sucesso!");
+    setOpen(false);
+    setFormData({ email: "", nome_completo: "", telefone: "", role: "user" });
+    onUserCreated();
+  } catch (error: any) {
+    console.error("Erro ao enviar convite:", error);
+    
+    const msg = error.message || "";
+    if (msg.includes("ja esta cadastrado") || msg.includes("already been registered")) {
+      toast.error("Este email ja esta cadastrado no sistema");
+    } else if (msg.includes("convite pendente")) {
+      toast.error("Ja existe um convite pendente para este email");
+    } else {
+      toast.error(msg || "Erro ao enviar convite");
+    }
+  } finally {
+    setIsLoading(false);
+  }
+};
 ```
 
 ---
 
-## Beneficios
+## Resultado Esperado
 
-1. **Maior confiabilidade** - retries automaticos lidam com falhas transitorias
-2. **Melhor UX** - mensagens de erro claras e acionaveis
-3. **Debugging facilitado** - logs especificos por tipo de erro
-4. **Compatibilidade CORS** - headers completos previnem bloqueios
+Apos essas alteracoes, o sistema de convites ficara identico ao do outro projeto que funciona corretamente.
+
