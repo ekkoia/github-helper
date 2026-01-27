@@ -31,11 +31,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Extract the token and get the user using the admin client
+    // Use getClaims to validate the JWT token
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { data: claimsData, error: authError } = await supabaseAdmin.auth.getClaims(token);
     
-    if (authError || !requestingUser) {
+    if (authError || !claimsData?.claims) {
       console.error("Auth error:", authError);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -43,11 +43,13 @@ Deno.serve(async (req) => {
       );
     }
 
+    const requestingUserId = claimsData.claims.sub as string;
+
     // Check if requesting user has admin or global role
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", requestingUser.id)
+      .eq("user_id", requestingUserId)
       .single();
 
     if (roleError || !roleData || (roleData.role !== "admin" && roleData.role !== "global")) {
@@ -90,7 +92,7 @@ Deno.serve(async (req) => {
     }
 
     // Prevent self-deletion
-    if (userToDelete.id === requestingUser.id) {
+    if (userToDelete.id === requestingUserId) {
       return new Response(
         JSON.stringify({ error: "You cannot delete yourself" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
