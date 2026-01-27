@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Layout } from "@/components/Layout";
-import { Filter, Search, CalendarIcon, User } from "lucide-react";
+import { Filter, Search, CalendarIcon, User, RefreshCw } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +51,26 @@ const Atividades = () => {
   useEffect(() => {
     if (!roleLoading && canAccess) {
       fetchActivities();
+
+      // Subscrição para atualizações em tempo real
+      const channel = supabase
+        .channel('user_activities_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'user_activities'
+          },
+          () => {
+            fetchActivities();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [roleLoading, canAccess]);
 
@@ -197,6 +217,16 @@ const Atividades = () => {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={fetchActivities}
+                disabled={isLoading}
+              >
+                <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+                Atualizar
+              </Button>
+              
               <Select value={filterUser} onValueChange={setFilterUser}>
                 <SelectTrigger className="w-[200px] border-[#E0E6ED] hover:border-secondary transition-colors">
                   <User className="h-4 w-4 mr-2" />
