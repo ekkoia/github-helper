@@ -4,13 +4,13 @@ project_id = "omilhfohvstqsonhyuxp"
 verify_jwt = false
 
 [functions.invite-user]
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-invite-email]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete-user]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete-user-by-email]
-verify_jwt = true
+verify_jwt = false
