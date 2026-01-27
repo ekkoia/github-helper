@@ -6,9 +6,7 @@ import { LeadForm } from "@/components/LeadForm";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
 import { FiltersSidebar } from "@/components/FiltersSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
-import { ColumnCustomizer, ColumnVisibility } from "@/components/ColumnCustomizer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -33,23 +31,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Search, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV } from "@/lib/exportUtils";
 import { useActivityLog } from "@/hooks/useActivityLog";
-import { parseVolume } from "@/lib/volumeParser";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 
 const ITEMS_PER_PAGE = 20;
+
+const ORIGEM_LABELS: Record<string, string> = {
+  instagram_ads: "Instagram Ads",
+  facebook_ads: "Facebook Ads",
+  whatsapp: "WhatsApp",
+  formulario_meta: "Formulário Nativo Meta",
+  campanha_mensagem: "Campanha de Mensagem",
+  indicacao: "Indicação",
+  site: "Site/Landing Page",
+  outro: "Outro",
+};
 
 const LeadsTable = () => {
   const { logActivity } = useActivityLog();
@@ -68,24 +69,8 @@ const LeadsTable = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   
   const [filters, setFilters] = useState({
-    perfil: "all",
-    cidade: "all",
-    uf: "all",
     etapa: "all",
-    tipo_grao: "all",
-    intencao: "all",
     protocolo: ""
-  });
-
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
-    localizacao_embarque: false,
-    distancia_km: false,
-    sentido: false,
-    estrada_terra_km: false,
-    armazenamento: false,
-    qualidade: false,
-    tem_royalties: false,
-    percentual_royalties: false,
   });
 
   useEffect(() => {
@@ -110,14 +95,6 @@ const LeadsTable = () => {
     setIsLoading(false);
   };
 
-  // Extrai cidades únicas para o filtro
-  const cidades = useMemo(() => {
-    const cidadesSet = new Set(
-      leads.filter(lead => lead.cidade).map(lead => lead.cidade)
-    );
-    return Array.from(cidadesSet).sort();
-  }, [leads]);
-
   // Filtragem e ordenação
   const filteredAndSortedLeads = useMemo(() => {
     let filtered = [...leads];
@@ -129,29 +106,13 @@ const LeadsTable = () => {
         (lead) =>
           lead.nome_completo?.toLowerCase().includes(term) ||
           lead.email?.toLowerCase().includes(term) ||
-          lead.telefone?.includes(term) ||
-          lead.cidade?.toLowerCase().includes(term)
+          lead.telefone?.includes(term)
       );
     }
 
     // Filtros laterais
-    if (filters.perfil !== "all") {
-      filtered = filtered.filter((lead) => lead.perfil === filters.perfil);
-    }
     if (filters.etapa !== "all") {
       filtered = filtered.filter((lead) => lead.etapa_funil === filters.etapa);
-    }
-    if (filters.tipo_grao !== "all") {
-      filtered = filtered.filter((lead) => lead.tipo_grao === filters.tipo_grao);
-    }
-    if (filters.intencao !== "all") {
-      filtered = filtered.filter((lead) => lead.intencao === filters.intencao);
-    }
-    if (filters.uf !== "all") {
-      filtered = filtered.filter((lead) => lead.uf === filters.uf);
-    }
-    if (filters.cidade !== "all") {
-      filtered = filtered.filter((lead) => lead.cidade === filters.cidade);
     }
     if (filters.protocolo) {
       filtered = filtered.filter((lead) => 
@@ -168,7 +129,7 @@ const LeadsTable = () => {
       if (sortBy === "data_criacao") {
         aVal = new Date(aVal).getTime();
         bVal = new Date(bVal).getTime();
-      } else if (sortBy === "valor_produto" || sortBy === "volume") {
+      } else if (sortBy === "valor_produto") {
         aVal = parseFloat(aVal) || 0;
         bVal = parseFloat(bVal) || 0;
       } else if (typeof aVal === "string") {
@@ -245,12 +206,7 @@ const LeadsTable = () => {
 
   const handleClearFilters = () => {
     setFilters({
-      perfil: "all",
-      cidade: "all",
-      uf: "all",
       etapa: "all",
-      tipo_grao: "all",
-      intencao: "all",
       protocolo: ""
     });
   };
@@ -275,8 +231,8 @@ const LeadsTable = () => {
         new Date(lead.data_criacao) >= firstDayOfMonth
     ).length;
 
-    const volumeTotal = leads.reduce((acc, lead) => {
-      return acc + parseVolume(lead.volume);
+    const valorTotal = leads.reduce((acc, lead) => {
+      return acc + (parseFloat(lead.valor_produto) || 0);
     }, 0);
 
     const taxaConversao = leads.length > 0 
@@ -287,7 +243,7 @@ const LeadsTable = () => {
       totalLeads: leads.length,
       leadsGanhos: leadsGanhosMes,
       taxaConversao,
-      volumeTotal,
+      volumeTotal: valorTotal,
     };
   }, [leads]);
 
@@ -324,7 +280,7 @@ const LeadsTable = () => {
         />
 
         {/* Busca Global */}
-        <GlobalSearch value={searchTerm} onChange={setSearchTerm} placeholder="Buscar por nome, email, telefone ou cidade..." />
+        <GlobalSearch value={searchTerm} onChange={setSearchTerm} placeholder="Buscar por nome, email ou telefone..." />
 
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -335,10 +291,6 @@ const LeadsTable = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <ColumnCustomizer 
-              visibility={columnVisibility}
-              onChange={setColumnVisibility}
-            />
             <Button
               onClick={handleExport}
               variant="outline"
@@ -370,7 +322,6 @@ const LeadsTable = () => {
             filters={filters}
             onFilterChange={handleFilterChange}
             onClearFilters={handleClearFilters}
-            cidades={cidades}
             totalLeads={leads.length}
             filteredLeads={filteredAndSortedLeads.length}
           />
@@ -391,45 +342,26 @@ const LeadsTable = () => {
                           <ArrowUpDown className="h-3 w-3" />
                         </div>
                       </TableHead>
-                      <TableHead>Perfil</TableHead>
                       <TableHead>Contato</TableHead>
-                      <TableHead>Cidade/UF</TableHead>
-                      <TableHead>Intenção</TableHead>
-                      <TableHead>Grão</TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-muted"
-                        onClick={() => toggleSort("volume")}
-                      >
-                        <div className="flex items-center gap-2">
-                          Volume
-                          <ArrowUpDown className="h-3 w-3" />
-                        </div>
-                      </TableHead>
+                      <TableHead>Qtd Cotas</TableHead>
                       <TableHead 
                         className="cursor-pointer hover:bg-muted"
                         onClick={() => toggleSort("valor_produto")}
                       >
                         <div className="flex items-center gap-2">
-                          Valor
+                          Valor Investido
                           <ArrowUpDown className="h-3 w-3" />
                         </div>
                       </TableHead>
+                      <TableHead>Origem</TableHead>
                       <TableHead>Etapa</TableHead>
-                      {columnVisibility.localizacao_embarque && <TableHead>Loc. Embarque</TableHead>}
-                      {columnVisibility.distancia_km && <TableHead>Distância (km)</TableHead>}
-                      {columnVisibility.sentido && <TableHead>Sentido</TableHead>}
-                      {columnVisibility.estrada_terra_km && <TableHead>Estrada Terra (km)</TableHead>}
-                      {columnVisibility.armazenamento && <TableHead>Armazenamento</TableHead>}
-                      {columnVisibility.qualidade && <TableHead>Qualidade</TableHead>}
-                      {columnVisibility.tem_royalties && <TableHead>Tem Royalties</TableHead>}
-                      {columnVisibility.percentual_royalties && <TableHead>% Royalties</TableHead>}
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedLeads.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={10 + Object.values(columnVisibility).filter(Boolean).length} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           Nenhum lead encontrado
                         </TableCell>
                       </TableRow>
@@ -442,21 +374,13 @@ const LeadsTable = () => {
                         >
                           <TableCell className="font-medium">{lead.nome_completo}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{lead.perfil}</Badge>
-                          </TableCell>
-                          <TableCell>
                             <div className="text-sm">
-                              <div>{lead.telefone}</div>
+                              <div>{lead.telefone || "-"}</div>
                               <div className="text-muted-foreground text-xs truncate max-w-[150px]">
-                                {lead.email}
+                                {lead.email || "-"}
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>
-                            {lead.cidade && lead.uf ? `${lead.cidade}/${lead.uf}` : lead.cidade || lead.uf || "-"}
-                          </TableCell>
-                          <TableCell>{lead.intencao || "-"}</TableCell>
-                          <TableCell>{lead.tipo_grao || "-"}</TableCell>
                           <TableCell>{lead.volume || "-"}</TableCell>
                           <TableCell>
                             {lead.valor_produto 
@@ -468,39 +392,15 @@ const LeadsTable = () => {
                             }
                           </TableCell>
                           <TableCell>
-                            <Badge className={`${coresMap[lead.etapa_funil] || "bg-gray-500"} text-white text-xs whitespace-nowrap px-2 py-0.5`}>
-                              {lead.etapa_funil}
+                            <Badge variant="outline" className="text-xs whitespace-nowrap">
+                              {ORIGEM_LABELS[lead.origem] || lead.origem || "-"}
                             </Badge>
                           </TableCell>
-                          {columnVisibility.localizacao_embarque && (
-                            <TableCell>{lead.localizacao_embarque || "-"}</TableCell>
-                          )}
-                          {columnVisibility.distancia_km && (
-                            <TableCell>{lead.distancia_km || "-"}</TableCell>
-                          )}
-                          {columnVisibility.sentido && (
-                            <TableCell>{lead.sentido || "-"}</TableCell>
-                          )}
-                          {columnVisibility.estrada_terra_km && (
-                            <TableCell>{lead.estrada_terra_km || "-"}</TableCell>
-                          )}
-                          {columnVisibility.armazenamento && (
-                            <TableCell>{lead.armazenamento || "-"}</TableCell>
-                          )}
-                          {columnVisibility.qualidade && (
-                            <TableCell>{lead.qualidade || "-"}</TableCell>
-                          )}
-                          {columnVisibility.tem_royalties && (
-                            <TableCell>{lead.tem_royalties || "-"}</TableCell>
-                          )}
-                          {columnVisibility.percentual_royalties && (
-                            <TableCell>
-                              {lead.percentual_royalties 
-                                ? `${lead.percentual_royalties}%`
-                                : "-"
-                              }
-                            </TableCell>
-                          )}
+                          <TableCell>
+                            <Badge className={`${coresMap[lead.etapa_funil] || "bg-gray-500"} text-white text-xs whitespace-nowrap px-2 py-0.5`}>
+                              {lead.etapa_funil || "-"}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button

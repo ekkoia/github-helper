@@ -7,7 +7,18 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, User, Package, MapPin, Warehouse, Edit } from "lucide-react";
+import { Mail, Phone, User, TrendingUp, Edit } from "lucide-react";
+
+const ORIGEM_LABELS: Record<string, string> = {
+  instagram_ads: "Instagram Ads",
+  facebook_ads: "Facebook Ads",
+  whatsapp: "WhatsApp",
+  formulario_meta: "Formulário Nativo Meta",
+  campanha_mensagem: "Campanha de Mensagem",
+  indicacao: "Indicação",
+  site: "Site/Landing Page",
+  outro: "Outro",
+};
 
 interface LeadDetailsModalProps {
   lead: any;
@@ -38,7 +49,7 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit }: LeadDetailsM
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Detalhes do Lead</span>
@@ -56,27 +67,23 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               <User className="h-5 w-5 text-primary" />
               Identificação
             </h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Nome Completo</p>
                 <p className="font-medium">{lead.nome_completo}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Perfil</p>
-                <Badge variant="outline">{lead.perfil}</Badge>
-              </div>
-              <div>
                 <p className="text-sm text-muted-foreground">Email</p>
                 <p className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-muted-foreground" />
-                  {lead.email}
+                  {lead.email || "-"}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Telefone</p>
                 <p className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  {lead.telefone}
+                  {lead.telefone || "-"}
                 </p>
               </div>
               {lead.protocolo_atendimento && (
@@ -85,10 +92,6 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                   <p className="font-mono">{lead.protocolo_atendimento}</p>
                 </div>
               )}
-              <div>
-                <p className="text-sm text-muted-foreground">Data de Criação</p>
-                <p>{formatDate(lead.data_criacao)}</p>
-              </div>
             </div>
           </div>
 
@@ -97,118 +100,49 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit }: LeadDetailsM
           {/* Negociação */}
           <div>
             <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
+              <TrendingUp className="h-5 w-5 text-primary" />
               Negociação
             </h3>
-            <div className="grid grid-cols-2 gap-4">
-              {lead.intencao && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Intenção</p>
-                  <Badge className="bg-secondary">{lead.intencao}</Badge>
-                </div>
-              )}
-              {lead.tipo_grao && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Tipo de Grão</p>
-                  <p className="font-medium">{lead.tipo_grao}</p>
-                </div>
-              )}
-              {lead.volume && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Volume</p>
-                  <p className="font-medium">{lead.volume}</p>
-                </div>
-              )}
-              {lead.valor_produto && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Valor/Produto</p>
-                  <p className="font-medium">{formatCurrency(lead.valor_produto)}</p>
-                </div>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Qtd Cotas</p>
+                <p className="font-medium">{lead.volume || "-"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Valor Investido</p>
+                <p className="font-medium">
+                  {lead.valor_produto ? formatCurrency(lead.valor_produto) : "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Origem</p>
+                <Badge variant="outline">
+                  {ORIGEM_LABELS[lead.origem] || lead.origem || "-"}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Etapa do Funil</p>
+                <Badge className="bg-primary text-primary-foreground">
+                  {lead.etapa_funil || "-"}
+                </Badge>
+              </div>
             </div>
           </div>
 
           <Separator />
 
-          {/* Localização */}
+          {/* Status */}
           <div>
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-primary" />
-              Localização
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              {lead.cidade && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Cidade</p>
-                  <p className="font-medium">{lead.cidade}</p>
-                </div>
-              )}
-              {lead.uf && (
-                <div>
-                  <p className="text-sm text-muted-foreground">UF</p>
-                  <p className="font-medium">{lead.uf}</p>
-                </div>
-              )}
-              {lead.localizacao_embarque && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Localização Embarque</p>
-                  <p>{lead.localizacao_embarque}</p>
-                </div>
-              )}
-              {lead.distancia_km && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Distância</p>
-                  <p>{lead.distancia_km} km</p>
-                </div>
-              )}
-              {lead.sentido && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Sentido</p>
-                  <p>{lead.sentido}</p>
-                </div>
-              )}
-              {lead.estrada_terra_km && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Estrada de Terra</p>
-                  <p>{lead.estrada_terra_km} km</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Dados Técnicos */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Warehouse className="h-5 w-5 text-primary" />
-              Dados Técnicos
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              {lead.armazenamento && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Armazenamento</p>
-                  <p className="font-medium">{lead.armazenamento}</p>
-                </div>
-              )}
-              {lead.qualidade && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Qualidade</p>
-                  <p>{lead.qualidade}</p>
-                </div>
-              )}
-              {lead.tem_royalties && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Tem Royalties</p>
-                  <p className="font-medium">{lead.tem_royalties}</p>
-                </div>
-              )}
-              {lead.percentual_royalties && (
-                <div>
-                  <p className="text-sm text-muted-foreground">% Royalties</p>
-                  <p className="font-medium">{lead.percentual_royalties}%</p>
-                </div>
-              )}
+            <h3 className="text-lg font-semibold mb-3">Status</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Data de Criação</p>
+                <p>{formatDate(lead.data_criacao)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Última Atualização</p>
+                <p>{formatDate(lead.data_atualizacao)}</p>
+              </div>
             </div>
           </div>
 
