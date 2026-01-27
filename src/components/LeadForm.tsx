@@ -105,46 +105,46 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
         )}
       </div>
 
-      {/* Telefone e E-mail */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="telefone">Telefone *</Label>
-          <Input id="telefone" {...register("telefone")} placeholder="(XX) XXXXX-XXXX" />
-          {errors.telefone && (
-            <p className="text-xs text-destructive mt-1">{errors.telefone.message}</p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="email">E-mail *</Label>
-          <Input id="email" type="email" {...register("email")} />
-          {errors.email && (
-            <p className="text-xs text-destructive mt-1">{errors.email.message}</p>
-          )}
-        </div>
+      {/* Telefone */}
+      <div>
+        <Label htmlFor="telefone">Telefone *</Label>
+        <Input id="telefone" {...register("telefone")} placeholder="(XX) XXXXX-XXXX" />
+        {errors.telefone && (
+          <p className="text-xs text-destructive mt-1">{errors.telefone.message}</p>
+        )}
       </div>
 
-      {/* Qtd Cotas e Valor Investido */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="volume">Qtd Cotas</Label>
-          <Input id="volume" {...register("volume")} placeholder="Ex: 10" />
-          {errors.volume && (
-            <p className="text-xs text-destructive mt-1">{errors.volume.message}</p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="valor_produto">Valor Investido (R$)</Label>
-          <Input 
-            id="valor_produto" 
-            type="number" 
-            step="0.01" 
-            {...register("valor_produto", { valueAsNumber: true })} 
-            placeholder="0,00"
-          />
-          {errors.valor_produto && (
-            <p className="text-xs text-destructive mt-1">{String(errors.valor_produto.message)}</p>
-          )}
-        </div>
+      {/* E-mail */}
+      <div>
+        <Label htmlFor="email">E-mail *</Label>
+        <Input id="email" type="email" {...register("email")} />
+        {errors.email && (
+          <p className="text-xs text-destructive mt-1">{errors.email.message}</p>
+        )}
+      </div>
+
+      {/* Qtd Cotas */}
+      <div>
+        <Label htmlFor="volume">Qtd Cotas</Label>
+        <Input id="volume" {...register("volume")} placeholder="Ex: 10" />
+        {errors.volume && (
+          <p className="text-xs text-destructive mt-1">{errors.volume.message}</p>
+        )}
+      </div>
+
+      {/* Valor Investido */}
+      <div>
+        <Label htmlFor="valor_produto">Valor Investido (R$)</Label>
+        <Input 
+          id="valor_produto" 
+          type="number" 
+          step="0.01" 
+          {...register("valor_produto", { valueAsNumber: true })} 
+          placeholder="0,00"
+        />
+        {errors.valor_produto && (
+          <p className="text-xs text-destructive mt-1">{String(errors.valor_produto.message)}</p>
+        )}
       </div>
 
       {/* Observações */}
