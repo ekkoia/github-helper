@@ -1,72 +1,89 @@
 
-# Configuração dos Secrets e Sistema de Autenticação
+# Plano: Dinamizar as Etapas do Funil
 
-## Situação Atual
-- O build está funcionando (erro do `tem_royalties` foi corrigido)
-- As Edge Functions estão prontas: `invite-user`, `send-invite-email`
-- Falta adicionar os secrets: `SITE_URL` e `RESEND_API_KEY`
-- Você está na página `/auth` pronta para criar sua conta
+## Resumo do Problema
+As etapas do funil estão funcionando corretamente no banco de dados (as alterações foram salvas), mas o sistema não reflete essas mudanças porque o código usa listas fixas (hardcoded) em vez de carregar as etapas dinamicamente do banco.
 
----
-
-## Etapa 1: Adicionar Secrets
-
-Vou adicionar os seguintes secrets ao Supabase:
-
-| Secret | Valor | Uso |
-|--------|-------|-----|
-| `SITE_URL` | `https://id-preview--4857f2d3-9941-4691-862c-d1c44dc8fe55.lovable.app` | Gerar links de convite corretos |
-| `RESEND_API_KEY` | `re_R2UkPR78_9kKsRV9Z9ycNBGzoS1E8jXSc` | Enviar emails via Resend |
+## Solução
+Criar um sistema centralizado que carregue as etapas do banco de dados e as disponibilize para todos os componentes que precisam delas.
 
 ---
 
-## Etapa 2: Deploy das Edge Functions
+## Etapas da Implementação
 
-Fazer deploy das funções:
-- `invite-user` - Cria convites e gera links
-- `send-invite-email` - Envia emails customizados
+### 1. Criar Hook Centralizado para Etapas do Funil
+**Arquivo:** `src/hooks/useFunilEtapas.ts`
+
+Criar um hook React Query que:
+- Busca as etapas ativas da tabela `funil_etapas`
+- Ordena por campo `ordem`
+- Gera automaticamente o mapeamento de cores
+- Disponibiliza cache para evitar múltiplas requisições
+
+### 2. Atualizar o Schema de Validação
+**Arquivo:** `src/lib/validations.ts`
+
+- Remover a validação estrita de enum para `etapa_funil`
+- Usar `z.string()` com validação customizada ou aceitar qualquer string (a validação será feita no Select)
+
+### 3. Atualizar LeadForm
+**Arquivo:** `src/components/LeadForm.tsx`
+
+- Remover constante `ETAPAS_FUNIL` hardcoded
+- Importar e usar o hook `useFunilEtapas`
+- Renderizar etapas dinamicamente no Select
+
+### 4. Atualizar FiltersSidebar
+**Arquivo:** `src/components/FiltersSidebar.tsx`
+
+- Remover constante `ETAPAS_FUNIL` hardcoded
+- Receber as etapas como prop ou usar o hook
+- Renderizar filtros dinamicamente
+
+### 5. Atualizar Kanban
+**Arquivo:** `src/pages/Kanban.tsx`
+
+- Remover constantes `ETAPAS_FUNIL` e `ETAPAS_CORES` hardcoded
+- Usar o hook `useFunilEtapas`
+- Gerar colunas dinamicamente baseado nas etapas ativas
+
+### 6. Atualizar LeadsTable
+**Arquivo:** `src/pages/LeadsTable.tsx`
+
+- Remover objeto `ETAPAS_CORES` hardcoded
+- Usar cores dinâmicas do hook ou prop
+
+### 7. Atualizar Edge Function webhook-lead
+**Arquivo:** `supabase/functions/webhook-lead/index.ts`
+
+- Consultar etapas válidas do banco antes de validar
+- Ou remover validação estrita (aceitar qualquer etapa)
 
 ---
 
-## Etapa 3: Criar Sua Conta
+## Detalhes Técnicos
 
-Na página `/auth`:
-1. Preencha seu email e senha
-2. Clique em "Criar conta"
-3. Confirme o email (se necessário)
-
----
-
-## Etapa 4: Promover para Admin Global
-
-Após criar a conta, executar SQL para promover seu usuário:
-
+### Estrutura do Hook
 ```text
-INSERT INTO user_roles (user_id, role)
-SELECT id, 'global'
-FROM auth.users
-WHERE email = 'seu-email@exemplo.com'
-ON CONFLICT (user_id, role) DO NOTHING;
+useFunilEtapas() retorna:
+├── etapas: Array<{id, nome, cor, ordem}>
+├── etapasNomes: string[]
+├── coresMap: Record<string, string>
+├── isLoading: boolean
+└── refetch: function
 ```
 
----
+### Benefícios
+- Alterações no painel de configurações refletem imediatamente em todo o sistema
+- Cores personalizadas do banco são usadas em todos os componentes
+- Código mais limpo e manutenível
+- Elimina duplicação de dados
 
-## Etapa 5: Testar Sistema de Convites
-
-1. Acessar área de Usuários no CRM
-2. Convidar um novo usuário
-3. Verificar se email é enviado corretamente
-
----
-
-## O Que Farei Automaticamente
-
-1. Adicionar secret `SITE_URL`
-2. Adicionar secret `RESEND_API_KEY`
-3. Fazer deploy das Edge Functions
-4. Testar se as funções estão respondendo
-
-## O Que Você Precisará Fazer
-
-1. Criar sua conta na página `/auth`
-2. Me informar seu email para eu executar o SQL de promoção a admin
+### Arquivos a Modificar
+1. `src/hooks/useFunilEtapas.ts` (criar)
+2. `src/lib/validations.ts` (modificar)
+3. `src/components/LeadForm.tsx` (modificar)
+4. `src/components/FiltersSidebar.tsx` (modificar)
+5. `src/pages/Kanban.tsx` (modificar)
+6. `src/pages/LeadsTable.tsx` (modificar)
+7. `supabase/functions/webhook-lead/index.ts` (modificar)
