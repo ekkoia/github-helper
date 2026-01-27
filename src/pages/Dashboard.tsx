@@ -6,8 +6,6 @@ import { DashboardCharts } from "@/components/DashboardCharts";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { parseVolume } from "@/lib/volumeParser";
-
 const DashboardPage = () => {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,9 +44,9 @@ const DashboardPage = () => {
   const taxaConversao =
     totalLeads > 0 ? (leadsGanhos / totalLeads) * 100 : 0;
 
-  const volumeTotal = leads.reduce((sum, lead) => {
-    const volume = parseVolume(lead.volume);
-    return sum + volume;
+  const valorTotalInvestido = leads.reduce((sum, lead) => {
+    const valor = parseFloat(lead.valor_produto) || 0;
+    return sum + valor;
   }, 0);
 
   if (isLoading) {
@@ -66,7 +64,7 @@ const DashboardPage = () => {
           totalLeads={totalLeads}
           leadsGanhos={leadsGanhos}
           taxaConversao={taxaConversao}
-          volumeTotal={volumeTotal}
+          volumeTotal={valorTotalInvestido}
         />
         
         <DashboardCharts leads={leads} />
