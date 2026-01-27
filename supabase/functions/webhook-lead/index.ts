@@ -57,12 +57,12 @@ serve(async (req) => {
     const leadData: LeadWebhookData = await req.json();
     console.log('Received lead data from webhook:', leadData);
 
-    // Validate required fields
-    if (!leadData.nome_completo || !leadData.telefone || !leadData.email || !leadData.perfil) {
+    // Validate required fields (perfil is now optional)
+    if (!leadData.nome_completo || !leadData.telefone || !leadData.email) {
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Campos obrigatórios faltando: nome_completo, telefone, email, perfil' 
+          error: 'Campos obrigatórios faltando: nome_completo, telefone, email' 
         }),
         {
           status: 400,
@@ -86,9 +86,9 @@ serve(async (req) => {
       );
     }
 
-    // Validate perfil
+    // Validate perfil (optional, but if provided must be valid)
     const validPerfis = ['Produtor', 'Corretor', 'Armazém'];
-    if (!validPerfis.includes(leadData.perfil)) {
+    if (leadData.perfil && !validPerfis.includes(leadData.perfil)) {
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -224,7 +224,7 @@ serve(async (req) => {
       nome_completo: leadData.nome_completo.trim(),
       telefone: leadData.telefone.trim(),
       email: leadData.email.trim().toLowerCase(),
-      perfil: leadData.perfil,
+      perfil: leadData.perfil || null,
       protocolo_atendimento: protocolo,
       intencao: leadData.intencao || null,
       tipo_grao: leadData.tipo_grao || null,
