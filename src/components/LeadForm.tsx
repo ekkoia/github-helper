@@ -51,6 +51,12 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
       distancia_km: initialData.distancia_km || undefined,
       estrada_terra_km: initialData.estrada_terra_km || undefined,
       percentual_royalties: initialData.percentual_royalties || undefined,
+      // Converter boolean do banco para string do formulário
+      tem_royalties: initialData.tem_royalties === true 
+        ? "Sim" 
+        : initialData.tem_royalties === false 
+          ? "Não" 
+          : "Não informado",
     } : {
       etapa_funil: "Novo Lead",
       tem_royalties: "Não informado"
@@ -61,6 +67,14 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
 
   const onSubmit = async (data: LeadFormData) => {
     try {
+      // Converter tem_royalties de string para boolean
+      let temRoyaltiesValue: boolean | null = null;
+      if (data.tem_royalties === "Sim") {
+        temRoyaltiesValue = true;
+      } else if (data.tem_royalties === "Não") {
+        temRoyaltiesValue = false;
+      }
+
       // Garantir que campos obrigatórios estão preenchidos
       const submitData = {
         nome_completo: data.nome_completo,
@@ -81,7 +95,7 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
         estrada_terra_km: data.estrada_terra_km || null,
         armazenamento: data.armazenamento || null,
         qualidade: data.qualidade || null,
-        tem_royalties: data.tem_royalties || null,
+        tem_royalties: temRoyaltiesValue,
         percentual_royalties: data.percentual_royalties || null,
         observacoes: data.observacoes || null,
       };
