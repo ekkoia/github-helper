@@ -1,59 +1,70 @@
 
 
-# Solucao Definitiva: Testar no Ambiente Correto
+# Correção do Erro de CORS nas Edge Functions
 
-## Problema Real Identificado
+## Problema Identificado
 
-Apos investigacao profunda, encontrei a causa raiz:
+O erro de CORS é causado por um header que o cliente Supabase JS envia, mas que não está sendo permitido pela Edge Function:
 
-1. A Edge Function **esta funcionando perfeitamente** - confirmei com teste direto que retornou `200 OK` e "Convite enviado com sucesso"
-
-2. O erro `Failed to fetch` ocorre porque voce esta testando no **Preview do Lovable** (ambiente de desenvolvimento)
-
-3. O script `lovable.js` intercepta os requests de fetch e pode bloquear certas chamadas para Edge Functions
-
-4. A screenshot mostra `feeagro.crm.imaculada.online`, mas os logs mostram que a origem real e `4857f2d3-9941-4691-862c-d1c44dc8fe55.lovableproject.com`
-
-## Solucao
-
-### Passo 1: Publicar o Projeto
-
-O projeto precisa ser **publicado** para funcionar corretamente. Atualmente:
-- Preview URL: `https://id-preview--4857f2d3-9941-4691-862c-d1c44dc8fe55.lovable.app`
-- Published URL: **(nao publicado)**
-
-Para publicar:
-1. Clique no botao **"Publish"** no canto superior direito do Lovable
-2. Aguarde o deploy ser concluido
-3. Teste no dominio publicado
-
-### Passo 2: Configurar Dominio Customizado (Opcional)
-
-Se quiser usar `feeagro.crm.imaculada.online`:
-1. Apos publicar, configure o dominio customizado nas configuracoes do projeto
-2. Configure o DNS para apontar para o Lovable
-
-## Por Que Isso Vai Funcionar
-
-| Ambiente | Status | Edge Functions |
-|----------|--------|----------------|
-| Preview Lovable | Bloqueado pelo lovable.js | Nao funciona |
-| Publicado Lovable | Sem restricoes | Funciona |
-| Dominio Customizado | Sem restricoes | Funciona |
-
-## Confirmacao
-
-O teste direto que fiz agora prova que a Edge Function funciona:
-
-```json
-{
-  "message": "Convite enviado com sucesso",
-  "success": true,
-  "user_id": "717c3be9-01c9-4ea5-b3f8-cc241fa211ef"
-}
+```
+Request header field x-supabase-client-platform is not allowed by Access-Control-Allow-Headers
 ```
 
-## Acao Imediata
+### Código Atual (Linha 6 do `invite-user/index.ts`)
+```typescript
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+```
 
-**Publique o projeto** clicando no botao "Publish" e teste no URL publicado. O convite vai funcionar.
+O header `x-supabase-client-platform` não está incluído na lista de headers permitidos.
+
+---
+
+## Solução
+
+Atualizar os headers CORS em ambas as Edge Functions para incluir o header faltante.
+
+### Arquivos a Modificar
+
+| Arquivo | Linha | Ação |
+|---------|-------|------|
+| `supabase/functions/invite-user/index.ts` | 4-7 | Adicionar header CORS |
+| `supabase/functions/send-invite-email/index.ts` | 5-9 | Adicionar header CORS |
+
+### Novo Código CORS
+
+```typescript
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform",
+};
+```
+
+---
+
+## Passos da Implementação
+
+1. Atualizar `corsHeaders` no arquivo `invite-user/index.ts` (linha 6)
+2. Atualizar `corsHeaders` no arquivo `send-invite-email/index.ts` (linha 7-8)
+3. Fazer deploy das Edge Functions atualizadas
+4. Testar novamente no domínio de produção
+
+---
+
+## Por Que Isso Resolve
+
+O cliente Supabase JS moderno envia automaticamente o header `x-supabase-client-platform` em todas as requisições. Quando a Edge Function não permite esse header na resposta preflight (OPTIONS), o browser bloqueia a requisição por CORS.
+
+Ao adicionar esse header na lista de permitidos, a requisição preflight retornará sucesso e o browser permitirá a requisição POST.
+
+---
+
+## Resultado Esperado
+
+Após a correção:
+- Requisição OPTIONS (preflight) retornará 200 com os headers corretos
+- Requisição POST será executada normalmente
+- O convite será enviado com sucesso
 
