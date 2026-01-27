@@ -22,6 +22,15 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Validar autenticação manualmente (verify_jwt = false no config.toml)
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Não autorizado" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const siteUrl = Deno.env.get("SITE_URL") || "https://crm.imaculada.online";
@@ -34,15 +43,18 @@ serve(async (req: Request): Promise<Response> => {
       },
     });
 
-    // Get the auth header to extract the user who is inviting
-    const authHeader = req.headers.get("Authorization");
-    let invitedBy: string | null = null;
-    
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-      invitedBy = user?.id || null;
+    // Validar o token JWT manualmente
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Token inválido" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
+
+    const invitedBy = user.id;
 
     const { email, nome_completo, telefone, role = "user" }: InviteUserRequest = await req.json();
 
