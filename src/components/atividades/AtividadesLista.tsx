@@ -78,11 +78,15 @@ interface AtividadesListaProps {
 export const AtividadesLista = ({ activities, isLoading }: AtividadesListaProps) => {
   const getInitials = (name: string) => {
     if (!name) return "?";
-    const names = name.split(" ");
+    // Remover espaços extras e filtrar elementos vazios
+    const names = name.trim().split(" ").filter(n => n.length > 0);
     if (names.length >= 2) {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
-    return name.slice(0, 2).toUpperCase();
+    if (names.length === 1 && names[0].length >= 2) {
+      return names[0].slice(0, 2).toUpperCase();
+    }
+    return "?";
   };
 
   const getActivityTypeBadgeVariant = (type: string) => {
