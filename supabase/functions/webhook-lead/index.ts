@@ -26,6 +26,7 @@ interface LeadWebhookData {
   tem_royalties?: string;
   percentual_royalties?: number;
   etapa_funil?: string;
+  origem?: string;
   observacoes?: string;
 }
 
@@ -241,6 +242,7 @@ serve(async (req) => {
       tem_royalties: leadData.tem_royalties || null,
       percentual_royalties: parseNumericValue(leadData.percentual_royalties),
       etapa_funil: leadData.etapa_funil || 'Novo Lead',
+      origem: leadData.origem || null,
       observacoes: leadData.observacoes || null,
       data_criacao: now.toISOString(),
     };

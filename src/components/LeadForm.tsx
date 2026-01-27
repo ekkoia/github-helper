@@ -4,10 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { leadSchema, LeadFormData } from "@/lib/validations";
 import { useActivityLog } from "@/hooks/useActivityLog";
+
+const ORIGEM_OPTIONS = [
+  { value: "instagram_ads", label: "Instagram Ads" },
+  { value: "facebook_ads", label: "Facebook Ads" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "meta_form", label: "Formulário Nativo Meta" },
+  { value: "campanha_mensagem", label: "Campanha de Mensagem" },
+  { value: "indicacao", label: "Indicação" },
+  { value: "site", label: "Site/Landing Page" },
+  { value: "outro", label: "Outro" },
+];
 
 interface LeadFormProps {
   onSuccess: () => void;
@@ -18,7 +30,7 @@ interface LeadFormProps {
 export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) => {
   const { logActivity } = useActivityLog();
   
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LeadFormData>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, setValue, watch } = useForm<LeadFormData>({
     resolver: zodResolver(leadSchema),
     defaultValues: initialData ? {
       nome_completo: initialData.nome_completo || "",
@@ -26,6 +38,7 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
       email: initialData.email || "",
       volume: initialData.volume || "",
       valor_produto: initialData.valor_produto || undefined,
+      origem: initialData.origem || "",
       observacoes: initialData.observacoes || "",
     } : {}
   });
@@ -38,6 +51,7 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
         email: data.email,
         volume: data.volume || null,
         valor_produto: data.valor_produto || null,
+        origem: data.origem || null,
         observacoes: data.observacoes || null,
         etapa_funil: initialData?.etapa_funil || "Novo Lead",
         perfil: initialData?.perfil || null,
@@ -144,6 +158,29 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
         />
         {errors.valor_produto && (
           <p className="text-xs text-destructive mt-1">{String(errors.valor_produto.message)}</p>
+        )}
+      </div>
+
+      {/* Origem do Lead */}
+      <div>
+        <Label htmlFor="origem">Origem do Lead</Label>
+        <Select
+          value={watch("origem") || ""}
+          onValueChange={(value) => setValue("origem", value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione a origem" />
+          </SelectTrigger>
+          <SelectContent>
+            {ORIGEM_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.origem && (
+          <p className="text-xs text-destructive mt-1">{errors.origem.message}</p>
         )}
       </div>
 
