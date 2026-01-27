@@ -191,6 +191,7 @@ export type Database = {
           localizacao_embarque: string | null
           nome_completo: string
           observacoes: string | null
+          origem: string | null
           percentual_royalties: number | null
           perfil: string | null
           protocolo_atendimento: string | null
@@ -218,6 +219,7 @@ export type Database = {
           localizacao_embarque?: string | null
           nome_completo: string
           observacoes?: string | null
+          origem?: string | null
           percentual_royalties?: number | null
           perfil?: string | null
           protocolo_atendimento?: string | null
@@ -245,6 +247,7 @@ export type Database = {
           localizacao_embarque?: string | null
           nome_completo?: string
           observacoes?: string | null
+          origem?: string | null
           percentual_royalties?: number | null
           perfil?: string | null
           protocolo_atendimento?: string | null

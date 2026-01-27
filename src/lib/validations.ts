@@ -24,6 +24,8 @@ export const leadSchema = z.object({
   
   etapa_funil: z.string().min(1, "Selecione uma etapa do funil").optional(),
   
+  origem: z.string().max(100, "Origem deve ter no máximo 100 caracteres").optional(),
+  
   observacoes: z.string().max(1000, "Observações devem ter no máximo 1000 caracteres").optional(),
 });
 
