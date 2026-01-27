@@ -1,114 +1,167 @@
 
-# Correção Definitiva: Delete de Usuários com Validação Correta de JWT
+# Correção: Duplicação de Usuários ao Enviar Convite
 
 ## Problema Identificado
 
-O erro `AuthSessionMissingError: Auth session missing!` ocorre porque o método `supabaseAdmin.auth.getUser(token)` **não funciona corretamente** quando usado com um cliente criado com `SUPABASE_SERVICE_ROLE_KEY`.
+Quando você envia um convite, o mesmo usuário aparece **duas vezes**:
+- Uma vez como **"Ativo"** (badge verde)
+- Uma vez como **"Pendente"** (badge amarelo)
 
-### Por Que o Código Atual Falha
+### Causa Raiz
 
-```typescript
-// Isso NÃO funciona com admin client
-const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-```
+A função `generateLink({ type: 'invite' })` do Supabase cria automaticamente um usuário em `auth.users`. Isso dispara o trigger `on_auth_user_created` que executa `handle_new_user()`, que por sua vez cria registros em:
+- `profiles` (exibido como "Ativo")
+- `user_roles`
+- `user_preferences`
 
-O método `getUser(token)` espera ser chamado de um cliente autenticado normal, não de um admin client. Com o admin client, ele tenta usar a "sessão atual" (que não existe) ao invés de validar o token passado.
+Depois, a Edge Function insere em `pending_invites` (exibido como "Pendente").
+
+### Timeline Real (Juliana)
+
+| Horário | Evento |
+|---------|--------|
+| 14:54:40.977 | `generateLink` cria usuário em auth.users |
+| 14:54:40.980 | Trigger dispara e cria profile automaticamente |
+| 14:54:41.288 | Edge Function insere em pending_invites |
+
+O usuário nunca confirmou nada - o profile foi criado pelo trigger.
 
 ---
 
 ## Solução
 
-Usar `auth.getClaims(token)` que é o método recomendado pela documentação do Supabase para validar JWTs em Edge Functions. Este método:
+Modificar a função `handle_new_user()` para **não criar profile quando o usuário for criado via invite**. O profile só deve ser criado quando o usuário completar o cadastro (confirmar email).
 
-1. Valida o token JWT
-2. Retorna os claims (incluindo `sub` que é o user_id)
-3. Funciona corretamente com qualquer cliente
+### Como Identificar um Invite
+
+Quando `generateLink({ type: 'invite' })` é chamado, o usuário criado tem:
+- `invited_at IS NOT NULL` 
+- `email_confirmed_at IS NULL`
 
 ---
 
 ## Alterações Necessárias
 
-### Arquivos a Modificar
+### 1. Atualizar Trigger `handle_new_user`
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `supabase/functions/delete-user/index.ts` | Usar `getClaims()` ao invés de `getUser()` |
-| `supabase/functions/delete-user-by-email/index.ts` | Usar `getClaims()` ao invés de `getUser()` |
+Modificar para ignorar usuários criados via invite:
 
-### Código Corrigido
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  -- Se o usuário foi criado via invite, não criar profile ainda
+  -- O profile será criado quando o usuário confirmar o email
+  IF NEW.invited_at IS NOT NULL AND NEW.email_confirmed_at IS NULL THEN
+    RETURN NEW;
+  END IF;
 
-```typescript
-// Usar getClaims para validar o token
-const token = authHeader.replace("Bearer ", "");
-const { data: claimsData, error: authError } = await supabaseAdmin.auth.getClaims(token);
-
-if (authError || !claimsData?.claims) {
-  console.error("Auth error:", authError);
-  return new Response(
-    JSON.stringify({ error: "Unauthorized" }),
-    { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  INSERT INTO public.profiles (user_id, email, nome_completo)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1))
   );
-}
+  
+  -- Criar role padrão 'user'
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (NEW.id, 'user');
+  
+  -- Criar preferências padrão
+  INSERT INTO public.user_preferences (user_id)
+  VALUES (NEW.id);
+  
+  RETURN NEW;
+END;
+$function$;
+```
 
-const requestingUserId = claimsData.claims.sub;
+### 2. Criar Trigger para Confirmação de Email
 
-// Verificar role do usuário
-const { data: roleData, error: roleError } = await supabaseAdmin
-  .from("user_roles")
-  .select("role")
-  .eq("user_id", requestingUserId)
-  .single();
+Adicionar um novo trigger que cria o profile quando o usuário **confirma o email** (completa o cadastro):
+
+```sql
+CREATE OR REPLACE FUNCTION public.handle_user_email_confirmed()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  -- Se o email foi confirmado agora (era NULL e agora tem valor)
+  -- E o usuário foi originalmente convidado
+  IF OLD.email_confirmed_at IS NULL 
+     AND NEW.email_confirmed_at IS NOT NULL 
+     AND NEW.invited_at IS NOT NULL THEN
+    
+    -- Verificar se já existe profile (para evitar duplicação)
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE user_id = NEW.id) THEN
+      -- Criar profile
+      INSERT INTO public.profiles (user_id, email, nome_completo)
+      VALUES (
+        NEW.id,
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'nome_completo', split_part(NEW.email, '@', 1))
+      );
+      
+      -- Criar role (ou usar o role do pending_invite se existir)
+      INSERT INTO public.user_roles (user_id, role)
+      SELECT NEW.id, COALESCE(pi.role, 'user')
+      FROM (SELECT 1) AS dummy
+      LEFT JOIN public.pending_invites pi ON pi.email = NEW.email
+      ON CONFLICT (user_id) DO NOTHING;
+      
+      -- Criar preferências padrão
+      INSERT INTO public.user_preferences (user_id)
+      VALUES (NEW.id)
+      ON CONFLICT (user_id) DO NOTHING;
+      
+      -- Remover convite pendente
+      DELETE FROM public.pending_invites WHERE email = NEW.email;
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$function$;
+
+-- Criar o trigger de UPDATE em auth.users
+CREATE TRIGGER on_user_email_confirmed
+  AFTER UPDATE ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_user_email_confirmed();
+```
+
+### 3. Limpeza de Dados Existentes
+
+Executar query para remover o registro duplicado atual:
+
+```sql
+-- Remover pending_invite para email que já tem profile
+DELETE FROM pending_invites 
+WHERE email IN (SELECT email FROM profiles);
 ```
 
 ---
 
 ## Passos da Implementação
 
-1. Atualizar `delete-user/index.ts`:
-   - Trocar `getUser(token)` por `getClaims(token)` (linhas 35-44)
-   - Extrair user_id de `claimsData.claims.sub`
-   - Usar esse ID para verificar permissões
-
-2. Atualizar `delete-user-by-email/index.ts`:
-   - Mesma alteração
-
-3. Fazer deploy das Edge Functions
-
-4. Testar a exclusão de usuários
-
----
-
-## Por Que Isso Resolve
-
-O método `getClaims(token)`:
-- Valida a assinatura do JWT corretamente
-- Retorna os claims do token (sub = user_id, email, etc.)
-- Funciona independentemente do tipo de cliente (admin ou normal)
-- É o método recomendado pela documentação do Supabase para Edge Functions
-
----
-
-## Detalhes Técnicos
-
-A estrutura de `claimsData.claims`:
-```typescript
-{
-  sub: "601cda2a-2a06-48fe-b45e-f4a82a0f63b3", // user_id
-  email: "erickson@example.com",
-  role: "authenticated",
-  exp: 1234567890,
-  // ... outros claims
-}
-```
-
-Após obter o `sub` (user_id), podemos verificar na tabela `user_roles` se o usuário tem permissão de admin/global para executar a operação de exclusão.
+1. **Atualizar função `handle_new_user`** para ignorar usuários criados via invite
+2. **Criar função `handle_user_email_confirmed`** para criar profile quando email for confirmado
+3. **Criar trigger `on_user_email_confirmed`** em auth.users para UPDATE
+4. **Limpar dados duplicados** existentes no banco
+5. **Testar o fluxo completo**:
+   - Enviar convite → Aparece apenas como "Pendente"
+   - Usuário confirma email → Passa para "Ativo" e some de pending_invites
 
 ---
 
 ## Resultado Esperado
 
-Após a correção:
-- Validação do JWT funcionará corretamente
-- Verificação de permissões funcionará
-- Exclusão de usuários ativos funcionará
-- Exclusão de convites pendentes funcionará
+- Ao enviar convite: aparece **apenas 1 registro** como "Pendente"
+- Ao confirmar email: **muda para "Ativo"** e remove de pending_invites
+- Nunca haverá duplicação de registros para o mesmo email
