@@ -9,24 +9,12 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 
 const ESTADOS_BR = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
   "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
   "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-];
-
-const ETAPAS_FUNIL = [
-  "Novo Lead",
-  "Em atendimento IA",
-  "Atendimento Humano",
-  "Reunião Agendada",
-  "Proposta Enviada",
-  "Ganho",
-  "Perdido",
-  "Sem interesse",
-  "Ghost",
-  "Nutrir"
 ];
 
 interface FiltersSidebarProps {
@@ -54,6 +42,7 @@ export const FiltersSidebar = ({
   totalLeads = 0,
   filteredLeads = 0
 }: FiltersSidebarProps) => {
+  const { etapasNomes, isLoading: isLoadingEtapas } = useFunilEtapas();
   const hasActiveFilters = Object.values(filters).some(value => value !== "all" && value !== "");
 
   return (
@@ -103,7 +92,7 @@ export const FiltersSidebar = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
-              {ETAPAS_FUNIL.map((etapa) => (
+              {etapasNomes.map((etapa) => (
                 <SelectItem key={etapa} value={etapa}>{etapa}</SelectItem>
               ))}
             </SelectContent>

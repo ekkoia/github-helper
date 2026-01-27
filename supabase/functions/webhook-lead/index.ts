@@ -116,8 +116,13 @@ serve(async (req) => {
       );
     }
 
-    // Validate etapa_funil (if provided)
-    const validEtapas = [
+    // Fetch valid funnel stages from database
+    const { data: etapasData, error: etapasError } = await supabase
+      .from('funil_etapas')
+      .select('nome')
+      .eq('ativo', true);
+    
+    const validEtapas = etapasData?.map(e => e.nome) || [
       'Novo Lead',
       'Em atendimento IA',
       'Atendimento Humano',

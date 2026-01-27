@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { leadSchema, LeadFormData } from "@/lib/validations";
 import { useActivityLog } from "@/hooks/useActivityLog";
+import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 
 interface LeadFormProps {
   onSuccess: () => void;
@@ -28,21 +29,13 @@ const ESTADOS_BR = [
   "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-const ETAPAS_FUNIL = [
-  "Novo Lead",
-  "Em atendimento IA",
-  "Atendimento Humano",
-  "Reunião Agendada",
-  "Proposta Enviada",
-  "Ganho",
-  "Perdido",
-  "Sem interesse",
-  "Ghost",
-  "Nutrir"
-];
-
 export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) => {
   const { logActivity } = useActivityLog();
+  const { etapasNomes, isLoading: isLoadingEtapas } = useFunilEtapas();
+  
+  // Determinar etapa padrão (primeira etapa do funil ou "Novo Lead")
+  const defaultEtapa = etapasNomes[0] || "Novo Lead";
+  
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<LeadFormData>({
     resolver: zodResolver(leadSchema),
     defaultValues: initialData ? {
@@ -224,14 +217,14 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
           <div>
             <Label htmlFor="etapa_funil">Etapa do Funil *</Label>
             <Select 
-              onValueChange={(value) => setValue("etapa_funil", value as LeadFormData["etapa_funil"])} 
-              defaultValue={initialData?.etapa_funil || "Novo Lead"}
+              onValueChange={(value) => setValue("etapa_funil", value)} 
+              defaultValue={initialData?.etapa_funil || defaultEtapa}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
-                {ETAPAS_FUNIL.map((etapa) => (
+                {etapasNomes.map((etapa) => (
                   <SelectItem key={etapa} value={etapa}>{etapa}</SelectItem>
                 ))}
               </SelectContent>
