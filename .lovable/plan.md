@@ -1,112 +1,134 @@
 
+# Ajuste da Tabela de Leads para o Padrão do Formulário
 
-# Correção: Erro "ON CONFLICT" ao Confirmar Email
+## Objetivo
 
-## Problema Identificado
+Simplificar a tabela de leads (`LeadsTable.tsx`) para exibir apenas as colunas relevantes ao novo modelo de captura de leads, mantendo consistência com o formulário simplificado.
 
-Ao clicar no link de convite, o Supabase retorna o erro:
-```
-ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification (SQLSTATE 42P10)
-```
+## Campos do Formulário Atual
 
-### Causa Raiz
+O formulário de criação de leads captura apenas:
+- Nome Completo
+- Telefone
+- Email
+- Qtd Cotas (campo `volume`)
+- Valor Investido (campo `valor_produto`)
+- Origem do Lead
+- Observações
 
-O trigger `handle_user_email_confirmed` usa `ON CONFLICT (user_id) DO NOTHING` na tabela `user_roles`, porém a constraint única existente é em `(user_id, role)` (composta), não apenas `user_id`.
+## Situação Atual da Tabela
 
-| Tabela | Constraint Existente | Usado no Trigger |
-|--------|---------------------|------------------|
-| `user_roles` | `UNIQUE (user_id, role)` | `ON CONFLICT (user_id)` ❌ |
-| `user_preferences` | `UNIQUE (user_id)` | `ON CONFLICT (user_id)` ✅ |
+A tabela atual exibe muitas colunas que não fazem parte do fluxo simplificado:
 
-## Solução
+| Coluna | Status |
+|--------|--------|
+| Nome | Manter |
+| Perfil | Remover (não é capturado no form) |
+| Contato (telefone/email) | Manter |
+| Cidade/UF | Remover (não é capturado no form) |
+| Intenção | Remover (não é capturado no form) |
+| Grão | Remover (não é capturado no form) |
+| Volume | Manter (renomear para "Qtd Cotas") |
+| Valor | Manter (renomear para "Valor Investido") |
+| Etapa | Manter |
+| Origem | Adicionar |
+| Colunas ocultas (embarque, distância, etc.) | Remover do customizador |
 
-Corrigir o trigger `handle_user_email_confirmed` para usar a constraint correta ou remover o `ON CONFLICT` já que verificamos previamente se o profile existe.
+## Alterações Propostas
 
-## Alterações Necessárias
+### 1. Simplificar colunas da tabela principal
 
-### 1. Migração SQL - Corrigir o trigger `handle_user_email_confirmed`
+**Nova estrutura de colunas:**
+- Nome (ordenável)
+- Contato (telefone + email)
+- Qtd Cotas
+- Valor Investido
+- Origem
+- Etapa do Funil
+- Ações
 
-Duas opções:
+### 2. Remover ColumnCustomizer
 
-**Opção A: Remover ON CONFLICT (recomendada)**
-Como já verificamos `IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE user_id = NEW.id)`, não há risco de duplicação. Podemos simplesmente fazer INSERT direto.
+O customizador de colunas (`ColumnCustomizer`) exibe campos que não são mais relevantes. Será removido da interface.
 
-```sql
-CREATE OR REPLACE FUNCTION public.handle_user_email_confirmed()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  invite_role app_role;
-  invite_nome text;
-  invite_telefone text;
-BEGIN
-  IF OLD.email_confirmed_at IS NULL 
-     AND NEW.email_confirmed_at IS NOT NULL 
-     AND NEW.invited_at IS NOT NULL THEN
-    
-    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE user_id = NEW.id) THEN
-      
-      SELECT role, nome_completo, telefone 
-      INTO invite_role, invite_nome, invite_telefone
-      FROM public.pending_invites 
-      WHERE email = NEW.email;
-      
-      INSERT INTO public.profiles (user_id, email, nome_completo, telefone)
-      VALUES (
-        NEW.id,
-        NEW.email,
-        COALESCE(invite_nome, NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'nome_completo', split_part(NEW.email, '@', 1)),
-        COALESCE(invite_telefone, NEW.raw_user_meta_data->>'telefone')
-      );
-      
-      -- Remover ON CONFLICT - já verificamos que não existe duplicação
-      INSERT INTO public.user_roles (user_id, role)
-      VALUES (NEW.id, COALESCE(invite_role, 'user'));
-      
-      INSERT INTO public.user_preferences (user_id)
-      VALUES (NEW.id);
-      
-      DELETE FROM public.pending_invites WHERE email = NEW.email;
-    END IF;
-  END IF;
-  
-  RETURN NEW;
-END;
-$function$;
-```
+### 3. Atualizar filtros laterais
 
-**Opção B: Usar a constraint correta**
-Alterar para `ON CONFLICT (user_id, role)` na tabela `user_roles`.
+Remover filtros que não fazem mais sentido:
+- Remover: Perfil, Cidade, UF, Tipo de Grão, Intenção
+- Manter: Etapa do Funil, Protocolo
 
-```sql
-INSERT INTO public.user_roles (user_id, role)
-VALUES (NEW.id, COALESCE(invite_role, 'user'))
-ON CONFLICT (user_id, role) DO NOTHING;
+### 4. Atualizar modal de detalhes
+
+Simplificar o `LeadDetailsModal` para exibir apenas os campos relevantes ao novo modelo.
+
+### 5. Atualizar cálculo de KPIs
+
+Ajustar os KPIs para refletir os novos campos (por exemplo, somar "Valor Investido" em vez de "Volume").
+
+---
+
+## Detalhes Técnicos
+
+### Arquivo: `src/pages/LeadsTable.tsx`
+
+**Remover imports e estados:**
+```typescript
+// Remover import
+import { ColumnCustomizer, ColumnVisibility } from "@/components/ColumnCustomizer";
+
+// Remover estado columnVisibility
+const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({...});
 ```
 
-### Recomendação
+**Simplificar filtros:**
+```typescript
+const [filters, setFilters] = useState({
+  etapa: "all",
+  protocolo: ""
+});
+```
 
-Usar **Opção A** (remover ON CONFLICT) porque:
-1. Já existe verificação prévia de duplicação (`IF NOT EXISTS`)
-2. É mais simples e não depende de constraints específicas
-3. Se houver erro de duplicação, será detectado e logado (melhor para debugging)
+**Atualizar cabeçalhos da tabela:**
+```text
+Nome | Contato | Qtd Cotas | Valor Investido | Origem | Etapa | Ações
+```
 
-## Fluxo Após Correção
+**Atualizar células da tabela:**
+- Remover: Perfil, Cidade/UF, Intenção, Grão
+- Adicionar: Origem do Lead (formatado com labels)
 
-| Etapa | Ação | Resultado |
-|-------|------|-----------|
-| 1 | Usuário clica no link de convite | Supabase verifica token |
-| 2 | `email_confirmed_at` é preenchido | Trigger dispara |
-| 3 | Trigger cria profile, role e preferences | ✅ Sucesso |
-| 4 | Trigger deleta `pending_invite` | Usuário vira "Ativo" |
-| 5 | Página SetPassword exibe formulário | Usuário define senha |
+### Arquivo: `src/components/FiltersSidebar.tsx`
 
-## Resumo das Mudanças
+Remover filtros de:
+- Perfil
+- Cidade
+- UF
+- Tipo de Grão
+- Intenção
+
+Manter apenas:
+- Etapa do Funil
+- Protocolo de Atendimento
+
+### Arquivo: `src/components/LeadDetailsModal.tsx`
+
+Simplificar para exibir:
+- Identificação: Nome, Email, Telefone
+- Negociação: Qtd Cotas, Valor Investido, Origem
+- Status: Etapa do Funil, Data de Criação
+- Observações (se houver)
+
+Remover seções:
+- Localização (Cidade, UF, Embarque, etc.)
+- Dados Técnicos (Armazenamento, Qualidade, Royalties)
+
+---
+
+## Resumo das Alterações
 
 | Arquivo | Alteração |
 |---------|-----------|
-| Nova migração SQL | Corrigir `handle_user_email_confirmed` removendo `ON CONFLICT` |
-
+| `src/pages/LeadsTable.tsx` | Simplificar colunas, remover ColumnCustomizer, atualizar filtros |
+| `src/components/FiltersSidebar.tsx` | Remover filtros não utilizados |
+| `src/components/LeadDetailsModal.tsx` | Simplificar seções de detalhes |
+| `src/components/ColumnCustomizer.tsx` | Pode ser removido se não for mais necessário |
