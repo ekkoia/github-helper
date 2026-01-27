@@ -3,9 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.84.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, accept, accept-language, x-authorization",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 interface InviteUserRequest {
@@ -22,15 +20,6 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    // Validar autenticação manualmente (verify_jwt = false no config.toml)
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Não autorizado" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const siteUrl = Deno.env.get("SITE_URL") || "https://crm.imaculada.online";
@@ -43,18 +32,15 @@ serve(async (req: Request): Promise<Response> => {
       },
     });
 
-    // Validar o token JWT manualmente
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    // Get the auth header to extract the user who is inviting
+    const authHeader = req.headers.get("Authorization");
+    let invitedBy: string | null = null;
 
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Token inválido" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+      invitedBy = user?.id || null;
     }
-
-    const invitedBy = user.id;
 
     const { email, nome_completo, telefone, role = "user" }: InviteUserRequest = await req.json();
 
@@ -112,7 +98,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Generate invite link with redirect to set-password page
     const redirectUrl = `${siteUrl}/set-password`;
-    
+
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'invite',
       email,
@@ -142,7 +128,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // The action_link contains the full verification URL
     const inviteLink = linkData.properties?.action_link;
-    
+
     if (!inviteLink) {
       console.error("No action_link in response");
       return new Response(
