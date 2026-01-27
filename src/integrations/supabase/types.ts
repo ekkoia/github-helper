@@ -113,6 +113,153 @@ export type Database = {
         }
         Relationships: []
       }
+      funil_etapas: {
+        Row: {
+          ativo: boolean | null
+          cor: string | null
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          ativo?: boolean | null
+          cor?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          ordem: number
+        }
+        Update: {
+          ativo?: boolean | null
+          cor?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+        }
+        Relationships: []
+      }
+      lead_custom_fields: {
+        Row: {
+          ativo: boolean | null
+          created_at: string
+          id: string
+          label: string
+          nome: string
+          obrigatorio: boolean | null
+          opcoes: Json | null
+          ordem: number | null
+          tipo: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string
+          id?: string
+          label: string
+          nome: string
+          obrigatorio?: boolean | null
+          opcoes?: Json | null
+          ordem?: number | null
+          tipo?: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string
+          id?: string
+          label?: string
+          nome?: string
+          obrigatorio?: boolean | null
+          opcoes?: Json | null
+          ordem?: number | null
+          tipo?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          armazenamento: string | null
+          cidade: string | null
+          data_atualizacao: string
+          data_criacao: string
+          distancia_km: number | null
+          email: string | null
+          estrada_terra_km: number | null
+          etapa_funil: string | null
+          id: string
+          intencao: string | null
+          localizacao_embarque: string | null
+          nome_completo: string
+          observacoes: string | null
+          percentual_royalties: number | null
+          perfil: string | null
+          protocolo_atendimento: string | null
+          qualidade: string | null
+          responsavel_id: string | null
+          sentido: string | null
+          telefone: string | null
+          tem_royalties: boolean | null
+          tipo_grao: string | null
+          uf: string | null
+          valor_produto: number | null
+          volume: string | null
+        }
+        Insert: {
+          armazenamento?: string | null
+          cidade?: string | null
+          data_atualizacao?: string
+          data_criacao?: string
+          distancia_km?: number | null
+          email?: string | null
+          estrada_terra_km?: number | null
+          etapa_funil?: string | null
+          id?: string
+          intencao?: string | null
+          localizacao_embarque?: string | null
+          nome_completo: string
+          observacoes?: string | null
+          percentual_royalties?: number | null
+          perfil?: string | null
+          protocolo_atendimento?: string | null
+          qualidade?: string | null
+          responsavel_id?: string | null
+          sentido?: string | null
+          telefone?: string | null
+          tem_royalties?: boolean | null
+          tipo_grao?: string | null
+          uf?: string | null
+          valor_produto?: number | null
+          volume?: string | null
+        }
+        Update: {
+          armazenamento?: string | null
+          cidade?: string | null
+          data_atualizacao?: string
+          data_criacao?: string
+          distancia_km?: number | null
+          email?: string | null
+          estrada_terra_km?: number | null
+          etapa_funil?: string | null
+          id?: string
+          intencao?: string | null
+          localizacao_embarque?: string | null
+          nome_completo?: string
+          observacoes?: string | null
+          percentual_royalties?: number | null
+          perfil?: string | null
+          protocolo_atendimento?: string | null
+          qualidade?: string | null
+          responsavel_id?: string | null
+          sentido?: string | null
+          telefone?: string | null
+          tem_royalties?: boolean | null
+          tipo_grao?: string | null
+          uf?: string | null
+          valor_produto?: number | null
+          volume?: string | null
+        }
+        Relationships: []
+      }
       leads_feeagro: {
         Row: {
           ad_id: string | null
@@ -185,11 +332,172 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_invites: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          invited_by: string | null
+          nome_completo: string | null
+          role: Database["public"]["Enums"]["app_role"] | null
+          telefone: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          invited_by?: string | null
+          nome_completo?: string | null
+          role?: Database["public"]["Enums"]["app_role"] | null
+          telefone?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string | null
+          nome_completo?: string | null
+          role?: Database["public"]["Enums"]["app_role"] | null
+          telefone?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          nome_completo: string | null
+          telefone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome_completo?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome_completo?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_activities: {
+        Row: {
+          activity_type: string
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          app_notifications: boolean | null
+          created_at: string
+          default_view: string | null
+          density: string | null
+          digest_frequency: string | null
+          email_notifications: boolean | null
+          id: string
+          inactive_lead_alerts: boolean | null
+          theme: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          app_notifications?: boolean | null
+          created_at?: string
+          default_view?: string | null
+          density?: string | null
+          digest_frequency?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          inactive_lead_alerts?: boolean | null
+          theme?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          app_notifications?: boolean | null
+          created_at?: string
+          default_view?: string | null
+          density?: string | null
+          digest_frequency?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          inactive_lead_alerts?: boolean | null
+          theme?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       match_documents: {
         Args: { filter?: Json; match_count?: number; query_embedding: string }
         Returns: {
@@ -201,7 +509,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "user" | "admin" | "global"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -328,6 +636,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["user", "admin", "global"],
+    },
   },
 } as const
