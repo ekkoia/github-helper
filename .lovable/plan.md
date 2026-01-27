@@ -1,111 +1,79 @@
 
 
-# Substituir Gráfico "Volume Total por Grão" por Contexto de Investimento
+# Atualizar Métricas do Dashboard para Contexto de Investimento
 
 ## Situação Atual
 
-O gráfico "Volume Total por Grão" exibe:
-- **Dados**: Soma de `volume` (sacas) agrupado por `tipo_grao` (Soja, Milho)
-- **Problema**: Leads vindos do Meta Form não possuem `tipo_grao` nem `volume` - possuem `valor_investimento`/`valor_produto`
+As métricas atuais estão baseadas no contexto de **volume de sacas**, que não se aplica mais aos leads vindos do Meta Form:
 
-## Opções de Substituição
+| Métrica | Cálculo Atual | Problema |
+|---------|---------------|----------|
+| Ticket Médio | `R$ X/saca` | Usa `volume` - campo não preenchido |
+| Lead Mais Valioso | `volume × valor_produto` | Multiplica por volume inexistente |
+| Melhor Região | Soma de `volume` por cidade | Depende de volume e cidade |
 
-### Opção 1: Investimento por Faixa de Valor (Recomendado)
-Mostrar quantos leads existem em cada faixa de investimento:
-- até R$10 mil
-- de R$10 mil a R$50 mil  
-- de R$50 mil a R$100 mil
-- acima de R$100 mil
+## Alterações Propostas
 
-### Opção 2: Total Investido por Origem
-Mostrar valor total investido agrupado por origem do lead (Meta Form, Manual, etc.)
+### 1. Ticket Médio (Investimento Médio por Lead)
 
-### Opção 3: Total Investido por Etapa do Funil
-Mostrar quanto de investimento está em cada etapa do funil (Novo Lead, Em Atendimento IA, etc.)
-
-## Implementação (Opção 1 - Leads por Faixa de Investimento)
-
-### Arquivo: `src/components/DashboardCharts.tsx`
-
-**Atualizar o cálculo de dados (linhas 166-180):**
-
+**Antes:**
 ```typescript
-// Dados para distribuição por faixa de investimento
-const investimentoData = useMemo(() => {
-  const faixas: Record<string, number> = {
-    "até R$10 mil": 0,
-    "de R$10 mil a R$50 mil": 0,
-    "de R$50 mil a R$100 mil": 0,
-    "acima de R$100 mil": 0
-  };
-  
-  filteredLeads.forEach(lead => {
-    const valor = parseFloat(lead.valor_produto) || 0;
-    
-    if (valor <= 10000) faixas["até R$10 mil"]++;
-    else if (valor <= 50000) faixas["de R$10 mil a R$50 mil"]++;
-    else if (valor <= 100000) faixas["de R$50 mil a R$100 mil"]++;
-    else if (valor > 100000) faixas["acima de R$100 mil"]++;
-  });
-
-  return Object.entries(faixas)
-    .filter(([_, value]) => value > 0)
-    .map(([name, value]) => ({ name, value }));
-}, [filteredLeads]);
+const leadsComValor = leads.filter(lead => lead.valor_produto && lead.volume);
+return soma / leadsComValor.length;
+// Exibe: "R$ 150,00/saca"
 ```
 
-**Atualizar cores (linha ~53):**
-
+**Depois:**
 ```typescript
-const INVESTIMENTO_COLORS = [
-  "hsl(85, 100%, 40%)",   // Verde vibrante
-  "hsl(43, 98%, 54%)",    // Amarelo
-  "hsl(24, 100%, 63%)",   // Laranja
-  "hsl(156, 26%, 17%)"    // Verde escuro
-];
+const leadsComValor = leads.filter(lead => lead.valor_produto);
+return soma / leadsComValor.length;
+// Exibe: "R$ 45.000,00" (valor médio de investimento por lead)
 ```
 
-**Atualizar o card do gráfico (linhas 443-485):**
+### 2. Lead Mais Valioso
 
+**Antes:** Calculava `volume × valor_produto` (multiplicação inválida sem volume)
+
+**Depois:** Considera apenas o `valor_produto` como critério de valor:
 ```typescript
-{/* Gráfico de Barras Verticais - Leads por Faixa de Investimento */}
-<Card className="col-span-1">
-  <CardHeader className="pb-4">
-    <CardTitle className="text-lg font-semibold text-foreground">
-      Leads por Faixa de Investimento
-    </CardTitle>
-    <p className="text-sm text-muted-foreground mt-1">
-      Distribuição por valor pretendido
-    </p>
-  </CardHeader>
-  <CardContent className="pt-0">
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={investimentoData}>
-        {/* ... configuração do gráfico ... */}
-        <Bar dataKey="value" name="Quantidade de Leads">
-          {investimentoData.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={INVESTIMENTO_COLORS[index % INVESTIMENTO_COLORS.length]} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  </CardContent>
-</Card>
+const maisValioso = leadsComValor.reduce((max, lead) => {
+  const valor = parseFloat(lead.valor_produto) || 0;
+  const maxValor = parseFloat(max.valor_produto) || 0;
+  return valor > maxValor ? lead : max;
+}, leadsComValor[0]);
+
+return {
+  nome: maisValioso.nome_completo,
+  valor: parseFloat(maisValioso.valor_produto) || 0
+};
 ```
+
+### 3. Melhor Região (Substituir por Nova Métrica)
+
+Como a região virá de campanhas futuras, vamos substituir temporariamente por uma métrica mais relevante.
+
+**Sugestão:** "Total de Leads Este Mês"
+- Mostra quantidade de leads criados no mês atual
+- Subtitle: "Novos leads em [mês atual]"
+- Ícone: `Users` ou `UserPlus`
 
 ## Resultado Visual
 
-| Antes | Depois |
-|-------|--------|
-| Volume Total por Grão | Leads por Faixa de Investimento |
-| Soja: 50.000 sacas | até R$10 mil: 15 leads |
-| Milho: 30.000 sacas | de R$10 mil a R$50 mil: 25 leads |
-| | de R$50 mil a R$100 mil: 20 leads |
-| | acima de R$100 mil: 14 leads |
+| Métrica | Antes | Depois |
+|---------|-------|--------|
+| Ticket Médio | R$ 150,00/saca | R$ 45.000,00 |
+| Lead Mais Valioso | João Silva - R$ 0,00 | João Silva - R$ 150.000,00 |
+| Melhor Região | N/A - 0 sacas | **12 leads** (Novos em Janeiro) |
+| Taxa IA | 45.2% | 45.2% (sem alteração) |
 
-## Resumo das Alterações
+## Resumo Técnico das Alterações
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/DashboardCharts.tsx` | Substituir cálculo `graoData` por `investimentoData`, atualizar cores e textos do card |
+| `src/components/DashboardMetrics.tsx` | Remover dependência de `volume`, usar apenas `valor_produto` |
+| | Remover import de `parseVolume` |
+| | Atualizar filtros para considerar apenas `valor_produto` |
+| | Substituir "Melhor Região" por "Leads Este Mês" |
+| | Ajustar formatação do Ticket Médio (remover "/saca") |
+| | Adicionar import do ícone `Users` ou `UserPlus` |
 
