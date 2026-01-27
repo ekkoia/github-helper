@@ -189,6 +189,7 @@ export type Database = {
           id: string
           intencao: string | null
           localizacao_embarque: string | null
+          meta_lead_id: number | null
           nome_completo: string
           observacoes: string | null
           origem: string | null
@@ -217,6 +218,7 @@ export type Database = {
           id?: string
           intencao?: string | null
           localizacao_embarque?: string | null
+          meta_lead_id?: number | null
           nome_completo: string
           observacoes?: string | null
           origem?: string | null
@@ -245,6 +247,7 @@ export type Database = {
           id?: string
           intencao?: string | null
           localizacao_embarque?: string | null
+          meta_lead_id?: number | null
           nome_completo?: string
           observacoes?: string | null
           origem?: string | null
