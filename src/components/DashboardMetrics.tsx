@@ -1,16 +1,15 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, MapPin, Bot } from "lucide-react";
-import { parseVolume } from "@/lib/volumeParser";
+import { DollarSign, TrendingUp, UserPlus, Bot } from "lucide-react";
 
 interface DashboardMetricsProps {
   leads: any[];
 }
 
 export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
-  // Ticket Médio
+  // Ticket Médio (Investimento Médio por Lead)
   const ticketMedio = useMemo(() => {
-    const leadsComValor = leads.filter(lead => lead.valor_produto && lead.volume);
+    const leadsComValor = leads.filter(lead => lead.valor_produto);
     if (leadsComValor.length === 0) return 0;
     
     const soma = leadsComValor.reduce((acc, lead) => {
@@ -21,52 +20,40 @@ export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
     return soma / leadsComValor.length;
   }, [leads]);
 
-  // Lead mais valioso
+  // Lead mais valioso (baseado apenas no valor_produto)
   const leadMaisValioso = useMemo(() => {
-    const leadsComValor = leads.filter(lead => lead.valor_produto && lead.volume);
+    const leadsComValor = leads.filter(lead => lead.valor_produto);
     if (leadsComValor.length === 0) return { nome: "N/A", valor: 0 };
     
     const maisValioso = leadsComValor.reduce((max, lead) => {
-      const volume = parseVolume(lead.volume);
       const valor = parseFloat(lead.valor_produto) || 0;
-      const total = volume * valor;
-      
-      const maxVolume = parseVolume(max.volume);
       const maxValor = parseFloat(max.valor_produto) || 0;
-      const maxTotal = maxVolume * maxValor;
-      
-      return total > maxTotal ? lead : max;
+      return valor > maxValor ? lead : max;
     }, leadsComValor[0]);
-    
-    const volume = parseVolume(maisValioso.volume);
-    const valor = parseFloat(maisValioso.valor_produto) || 0;
     
     return {
       nome: maisValioso.nome_completo,
-      valor: volume * valor
+      valor: parseFloat(maisValioso.valor_produto) || 0
     };
   }, [leads]);
 
-  // Melhor região
-  const melhorRegiao = useMemo(() => {
-    const regioes: Record<string, number> = {};
+  // Leads Este Mês
+  const leadsEsteMes = useMemo(() => {
+    const now = new Date();
+    const mesAtual = now.getMonth();
+    const anoAtual = now.getFullYear();
     
-    leads.forEach(lead => {
-      if (lead.cidade && lead.volume) {
-        const cidade = lead.cidade;
-        const volume = parseVolume(lead.volume);
-        regioes[cidade] = (regioes[cidade] || 0) + volume;
-      }
+    const leadsDoMes = leads.filter(lead => {
+      const dataCriacao = new Date(lead.data_criacao);
+      return dataCriacao.getMonth() === mesAtual && dataCriacao.getFullYear() === anoAtual;
     });
     
-    const entries = Object.entries(regioes);
-    if (entries.length === 0) return { cidade: "N/A", volume: 0 };
+    const nomeMes = now.toLocaleDateString('pt-BR', { month: 'long' });
     
-    const [cidade, volume] = entries.reduce((max, entry) => 
-      entry[1] > max[1] ? entry : max
-    );
-    
-    return { cidade, volume };
+    return {
+      quantidade: leadsDoMes.length,
+      nomeMes: nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)
+    };
   }, [leads]);
 
   // Taxa de resposta IA
@@ -88,7 +75,8 @@ export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
   const metrics = [
     {
       title: "Ticket Médio",
-      value: `R$ ${ticketMedio.toFixed(2)}/saca`,
+      value: `R$ ${ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      subtitle: "Investimento médio por lead",
       icon: DollarSign,
       color: "text-status-ganho",
       bgColor: "bg-status-ganho/10"
@@ -102,10 +90,10 @@ export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
       bgColor: "bg-status-proposta/10"
     },
     {
-      title: "Melhor Região",
-      value: melhorRegiao.cidade,
-      subtitle: `${Math.round(melhorRegiao.volume).toLocaleString('pt-BR')} sacas`,
-      icon: MapPin,
+      title: "Leads Este Mês",
+      value: `${leadsEsteMes.quantidade} leads`,
+      subtitle: `Novos em ${leadsEsteMes.nomeMes}`,
+      icon: UserPlus,
       color: "text-status-ia",
       bgColor: "bg-status-ia/10"
     },
