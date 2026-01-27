@@ -260,7 +260,7 @@ export type Database = {
         }
         Relationships: []
       }
-      leads_feeagro: {
+      leadsNativo_feeagro: {
         Row: {
           ad_id: string | null
           ad_name: string | null
