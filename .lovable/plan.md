@@ -1,16 +1,12 @@
 
+# Plano de Correção: Delete de Usuários e Esclarecimento de Status
 
-# Correção do Erro de CORS nas Edge Functions
+## Problemas Identificados
 
-## Problema Identificado
+### Problema 1: Delete de Usuários Não Funciona
+**Causa**: As Edge Functions `delete-user` e `delete-user-by-email` estão com o mesmo problema de CORS que corrigimos anteriormente - falta o header `x-supabase-client-platform`.
 
-O erro de CORS é causado por um header que o cliente Supabase JS envia, mas que não está sendo permitido pela Edge Function:
-
-```
-Request header field x-supabase-client-platform is not allowed by Access-Control-Allow-Headers
-```
-
-### Código Atual (Linha 6 do `invite-user/index.ts`)
+**Código atual (linha 5 em ambos arquivos):**
 ```typescript
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,20 +14,26 @@ const corsHeaders = {
 };
 ```
 
-O header `x-supabase-client-platform` não está incluído na lista de headers permitidos.
+### Problema 2: Status da Juliana Nasc
+**Esclarecimento**: A Juliana Nasc (`juinha.a.nascimento@gmail.com`) está **corretamente** como "Ativo" porque ela **já completou o cadastro**. Verifiquei no banco de dados:
+
+| Tabela | Registro |
+|--------|----------|
+| `profiles` | Existe registro com `created_at: 2026-01-27 14:41:24` |
+| `pending_invites` | Vazio (foi removido pelo trigger ao criar o profile) |
+
+O sistema está funcionando corretamente - quando um usuário completa o cadastro (define a senha), um profile é criado e o trigger remove automaticamente o convite pendente.
 
 ---
 
-## Solução
-
-Atualizar os headers CORS em ambas as Edge Functions para incluir o header faltante.
+## Solução para o Delete
 
 ### Arquivos a Modificar
 
-| Arquivo | Linha | Ação |
-|---------|-------|------|
-| `supabase/functions/invite-user/index.ts` | 4-7 | Adicionar header CORS |
-| `supabase/functions/send-invite-email/index.ts` | 5-9 | Adicionar header CORS |
+| Arquivo | Linha | Mudança |
+|---------|-------|---------|
+| `supabase/functions/delete-user/index.ts` | 5 | Adicionar header CORS |
+| `supabase/functions/delete-user-by-email/index.ts` | 5 | Adicionar header CORS |
 
 ### Novo Código CORS
 
@@ -46,25 +48,28 @@ const corsHeaders = {
 
 ## Passos da Implementação
 
-1. Atualizar `corsHeaders` no arquivo `invite-user/index.ts` (linha 6)
-2. Atualizar `corsHeaders` no arquivo `send-invite-email/index.ts` (linha 7-8)
-3. Fazer deploy das Edge Functions atualizadas
-4. Testar novamente no domínio de produção
+1. Atualizar `corsHeaders` no arquivo `delete-user/index.ts` (linha 5)
+2. Atualizar `corsHeaders` no arquivo `delete-user-by-email/index.ts` (linha 5)
+3. Fazer deploy das Edge Functions
+4. Testar a exclusão de usuários
 
 ---
 
 ## Por Que Isso Resolve
 
-O cliente Supabase JS moderno envia automaticamente o header `x-supabase-client-platform` em todas as requisições. Quando a Edge Function não permite esse header na resposta preflight (OPTIONS), o browser bloqueia a requisição por CORS.
-
-Ao adicionar esse header na lista de permitidos, a requisição preflight retornará sucesso e o browser permitirá a requisição POST.
+Mesma situação do `invite-user`: o cliente Supabase JS envia automaticamente o header `x-supabase-client-platform` em todas as requisições. Quando a Edge Function não permite esse header, o browser bloqueia a requisição por CORS.
 
 ---
 
 ## Resultado Esperado
 
 Após a correção:
-- Requisição OPTIONS (preflight) retornará 200 com os headers corretos
-- Requisição POST será executada normalmente
-- O convite será enviado com sucesso
+- Exclusão de usuários ativos funcionará normalmente
+- Exclusão de convites pendentes funcionará normalmente
+- O status dos usuários continuará sendo exibido corretamente (Ativo vs Pendente)
 
+---
+
+## Detalhes Técnicos
+
+A correção é idêntica à que fizemos para `invite-user` e `send-invite-email` - apenas adicionar o header `x-supabase-client-platform` na lista de headers permitidos pelo CORS.
