@@ -1,95 +1,135 @@
 
-# Plano: Adicionar Campo "Origem do Lead"
+# Plano: Corrigir Erro de Convite de Usuarios
 
-## Resumo
-Adicionar um novo campo no formulário de criação de lead para identificar a origem/fonte do lead (Instagram, Meta, campanha de mensagem, formulário nativo, etc).
+## Diagnostico
 
----
+Apos investigacao detalhada, identifiquei que:
 
-## Alterações Necessárias
+1. **A Edge Function funciona corretamente** - testes diretos retornam status 200
+2. **A requisicao do frontend nao chega ao servidor** - nos logs do Supabase, nao ha registro da chamada que falhou as 13:27:30
+3. **Tempo de execucao elevado** - a funcao leva ~5 segundos (gerar link + enviar email)
+4. **Erro generico no frontend** - o erro "Failed to send a request to the Edge Function" e muito vago
 
-### 1. Criar Nova Coluna no Banco de Dados
-**Migração SQL necessária**
+## Causa Raiz
 
-Criar a coluna `origem` na tabela `leads`:
-- Tipo: `text`
-- Nullable: sim (opcional)
-- Sem valor default
-
-### 2. Atualizar Schema de Validação
-**Arquivo:** `src/lib/validations.ts`
-
-Adicionar campo `origem` ao schema:
-- Tipo: string opcional
-- Limite de 100 caracteres
-
-### 3. Atualizar LeadForm
-**Arquivo:** `src/components/LeadForm.tsx`
-
-- Adicionar campo Select para origem (antes de Observações)
-- Opções pré-definidas:
-  - Instagram Ads
-  - Facebook Ads
-  - WhatsApp
-  - Formulário Nativo Meta
-  - Campanha de Mensagem
-  - Indicação
-  - Site/Landing Page
-  - Outro
-- Incluir no defaultValues e submitData
-
-### 4. Atualizar Edge Function webhook-lead
-**Arquivo:** `supabase/functions/webhook-lead/index.ts`
-
-- Adicionar suporte ao campo `origem` no payload do webhook
+O problema esta relacionado a uma combinacao de:
+- Timeout ou instabilidade de rede transitoria
+- Falta de tratamento de erro especifico para diferentes tipos de falha
+- Ausencia de retry automatico para falhas de rede
 
 ---
 
-## Layout do Campo
+## Solucao Proposta
 
-O campo será posicionado após "Valor Investido" e antes de "Observações":
+### 1. Melhorar Headers CORS na Edge Function
+**Arquivo:** `supabase/functions/invite-user/index.ts`
+
+Adicionar headers CORS mais completos para garantir compatibilidade:
 
 ```text
-+---------------------------+
-| ...                       |
-| Valor Investido (R$)      |
-| [_______________________] |
-|                           |
-| Origem do Lead            |
-| [▼ Selecione a origem   ] |
-|                           |
-| Observacoes               |
-| [_______________________] |
-| ...                       |
-+---------------------------+
+Antes:
+"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+
+Depois:
+"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, accept, accept-language, x-authorization"
+"Access-Control-Allow-Methods": "POST, OPTIONS"
+"Access-Control-Max-Age": "86400"
+```
+
+### 2. Implementar Tratamento de Erro Especifico
+**Arquivo:** `src/components/CreateUserDialog.tsx`
+
+Usar os tipos de erro do Supabase para mensagens mais claras:
+
+```text
+import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@supabase/supabase-js'
+
+if (error instanceof FunctionsFetchError) {
+  // Erro de rede - sugerir tentar novamente
+} else if (error instanceof FunctionsRelayError) {
+  // Erro no relay - problema temporario
+} else if (error instanceof FunctionsHttpError) {
+  // Erro HTTP - ler resposta do servidor
+}
+```
+
+### 3. Adicionar Retry Automatico
+**Arquivo:** `src/components/CreateUserDialog.tsx`
+
+Implementar logica de retry para falhas de rede:
+
+```text
+const invokeWithRetry = async (retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await supabase.functions.invoke('invite-user', { body });
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      await delay(1000 * (i + 1)); // backoff exponencial
+    }
+  }
+}
+```
+
+### 4. Adicionar Feedback Visual Melhorado
+**Arquivo:** `src/components/CreateUserDialog.tsx`
+
+- Mostrar mensagem de "Processando..." durante a espera
+- Indicar claramente quando houve falha de rede vs erro do servidor
+- Adicionar botao "Tentar Novamente" em caso de falha de rede
+
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `supabase/functions/invite-user/index.ts` | Headers CORS mais completos |
+| `src/components/CreateUserDialog.tsx` | Tratamento de erro especifico + retry |
+
+---
+
+## Fluxo Apos Correcao
+
+```text
+[Usuario clica "Enviar Convite"]
+          |
+          v
+[Tentativa 1 - invoke Edge Function]
+          |
+    [Sucesso?]
+      /      \
+   Sim        Nao
+    |          |
+    v          v
+[Toast       [Retry com backoff]
+ sucesso]          |
+                   v
+           [Tentativa 2]
+                   |
+              [Sucesso?]
+                /     \
+             Sim       Nao
+              |         |
+              v         v
+          [Toast    [Tentativa 3]
+           sucesso]     |
+                        v
+                   [Sucesso?]
+                     /     \
+                  Sim       Nao
+                   |         |
+                   v         v
+              [Toast    [Toast erro:
+               sucesso]  "Problema de rede,
+                         tente novamente"]
 ```
 
 ---
 
-## Detalhes Técnicos
+## Beneficios
 
-### Migração SQL
-```sql
-ALTER TABLE leads
-ADD COLUMN origem text;
-
-COMMENT ON COLUMN leads.origem IS 'Origem/fonte do lead (Instagram, Meta, etc)';
-```
-
-### Opções de Origem (Sugeridas)
-| Valor | Descrição |
-|-------|-----------|
-| `instagram_ads` | Instagram Ads |
-| `facebook_ads` | Facebook Ads |
-| `whatsapp` | WhatsApp |
-| `meta_form` | Formulário Nativo Meta |
-| `campanha_mensagem` | Campanha de Mensagem |
-| `indicacao` | Indicação |
-| `site` | Site/Landing Page |
-| `outro` | Outro |
-
-### Arquivos a Modificar
-1. **Migração SQL** - Criar coluna `origem`
-2. `src/lib/validations.ts` - Adicionar campo ao schema
-3. `src/components/LeadForm.tsx` - Adicionar Select de origem
-4. `supabase/functions/webhook-lead/index.ts` - Aceitar campo origem no webhook
+1. **Maior confiabilidade** - retries automaticos lidam com falhas transitorias
+2. **Melhor UX** - mensagens de erro claras e acionaveis
+3. **Debugging facilitado** - logs especificos por tipo de erro
+4. **Compatibilidade CORS** - headers completos previnem bloqueios
