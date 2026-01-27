@@ -16,37 +16,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Mail, Phone, User, Package, DollarSign } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
-
-const ETAPAS_FUNIL = [
-  "Novo Lead",
-  "Em atendimento IA",
-  "Atendimento Humano",
-  "Reunião Agendada",
-  "Proposta Enviada",
-  "Ganho",
-  "Perdido",
-  "Sem interesse",
-  "Ghost",
-  "Nutrir",
-  "Parceiro"
-];
-
-const ETAPAS_CORES: Record<string, string> = {
-  "Novo Lead": "bg-status-novo",
-  "Em atendimento IA": "bg-status-ia",
-  "Atendimento Humano": "bg-status-humano",
-  "Reunião Agendada": "bg-status-reuniao",
-  "Proposta Enviada": "bg-status-proposta",
-  "Ganho": "bg-status-ganho",
-  "Perdido": "bg-status-perdido",
-  "Sem interesse": "bg-status-semInteresse",
-  "Ghost": "bg-status-ghost",
-  "Nutrir": "bg-status-nutrir",
-  "Parceiro": "bg-status-parceiro"
-};
+import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 
 const Kanban = () => {
   const { logActivity } = useActivityLog();
+  const { etapasNomes, coresMap, isLoading: isLoadingEtapas } = useFunilEtapas();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -233,7 +207,7 @@ const Kanban = () => {
     setIsFormOpen(true);
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingEtapas) {
     return <KanbanSkeleton />;
   }
 
@@ -272,8 +246,9 @@ const Kanban = () => {
           onDrop={stopAutoScroll}
         >
           <div className="flex gap-4 items-start">
-          {ETAPAS_FUNIL.map((etapa) => {
+          {etapasNomes.map((etapa) => {
             const leadsNaEtapa = getLeadsByEtapa(etapa);
+            const corClasse = coresMap[etapa] || "bg-gray-500";
             return (
               <div
                 key={etapa}
@@ -284,7 +259,7 @@ const Kanban = () => {
                 aria-label={`Coluna ${etapa}`}
               >
                 <Card className="h-full">
-                  <CardHeader className={`${ETAPAS_CORES[etapa as keyof typeof ETAPAS_CORES]} text-white`}>
+                  <CardHeader className={`${corClasse} text-white`}>
                     <CardTitle className="flex items-center justify-between text-sm font-semibold">
                       <span>{etapa}</span>
                       <Badge variant="secondary" className="bg-white/20 text-white font-medium">

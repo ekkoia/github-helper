@@ -62,19 +62,7 @@ export const leadSchema = z.object({
     .optional()
     .or(z.literal(undefined)),
   
-  etapa_funil: z.enum([
-    "Novo Lead",
-    "Em atendimento IA",
-    "Atendimento Humano",
-    "Reunião Agendada",
-    "Proposta Enviada",
-    "Ganho",
-    "Perdido",
-    "Sem interesse",
-    "Ghost",
-    "Nutrir",
-    "Parceiro"
-  ]),
+  etapa_funil: z.string().min(1, "Selecione uma etapa do funil"),
   
   observacoes: z.string().max(1000, "Observações devem ter no máximo 1000 caracteres").optional(),
 }).refine(

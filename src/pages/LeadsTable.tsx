@@ -47,24 +47,13 @@ import { Badge } from "@/components/ui/badge";
 import { exportToCSV } from "@/lib/exportUtils";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { parseVolume } from "@/lib/volumeParser";
-
-const ETAPAS_CORES: Record<string, string> = {
-  "Novo Lead": "bg-status-novo text-white",
-  "Em atendimento IA": "bg-status-ia text-white",
-  "Atendimento Humano": "bg-status-humano text-white",
-  "Reunião Agendada": "bg-status-reuniao text-white",
-  "Proposta Enviada": "bg-status-proposta text-white",
-  "Ganho": "bg-status-ganho text-white",
-  "Perdido": "bg-status-perdido text-white",
-  "Sem interesse": "bg-status-semInteresse text-white",
-  "Ghost": "bg-status-ghost text-white",
-  "Nutrir": "bg-status-nutrir text-white"
-};
+import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 
 const ITEMS_PER_PAGE = 20;
 
 const LeadsTable = () => {
   const { logActivity } = useActivityLog();
+  const { coresMap } = useFunilEtapas();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -479,7 +468,7 @@ const LeadsTable = () => {
                             }
                           </TableCell>
                           <TableCell>
-                            <Badge className={`${ETAPAS_CORES[lead.etapa_funil as keyof typeof ETAPAS_CORES]} text-xs whitespace-nowrap px-2 py-0.5`}>
+                            <Badge className={`${coresMap[lead.etapa_funil] || "bg-gray-500"} text-white text-xs whitespace-nowrap px-2 py-0.5`}>
                               {lead.etapa_funil}
                             </Badge>
                           </TableCell>
