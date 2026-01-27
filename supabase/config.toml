@@ -1,1 +1,16 @@
 project_id = "omilhfohvstqsonhyuxp"
+
+[functions.webhook-lead]
+verify_jwt = false
+
+[functions.invite-user]
+verify_jwt = true
+
+[functions.send-invite-email]
+verify_jwt = true
+
+[functions.delete-user]
+verify_jwt = true
+
+[functions.delete-user-by-email]
+verify_jwt = true
