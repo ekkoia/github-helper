@@ -21,12 +21,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { useActivityLog } from "@/hooks/useActivityLog";
-
-// Delay helper for retry backoff
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 interface CreateUserDialogProps {
   onUserCreated: () => void;
@@ -35,7 +31,6 @@ interface CreateUserDialogProps {
 export const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Enviando...");
   const [formData, setFormData] = useState({
     email: "",
     nome_completo: "",
@@ -44,37 +39,6 @@ export const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
   });
 
   const { logActivity } = useActivityLog();
-
-  // Invoke with retry logic for network failures
-  const invokeWithRetry = async (body: any, maxRetries = 3): Promise<{ data: any; error: any }> => {
-    let lastError: any = null;
-    
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        if (attempt > 0) {
-          setLoadingMessage(`Tentativa ${attempt + 1} de ${maxRetries}...`);
-          await delay(1000 * (attempt + 1)); // Exponential backoff
-        }
-        
-        const result = await supabase.functions.invoke('invite-user', { body });
-        return result;
-      } catch (error) {
-        lastError = error;
-        console.log(`Tentativa ${attempt + 1} falhou:`, error);
-        
-        // Only retry on network/fetch errors
-        if (!(error instanceof FunctionsFetchError)) {
-          throw error;
-        }
-        
-        if (attempt === maxRetries - 1) {
-          throw error;
-        }
-      }
-    }
-    
-    throw lastError;
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,36 +49,24 @@ export const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
     }
 
     setIsLoading(true);
-    setLoadingMessage("Enviando convite...");
 
     try {
-      const body = {
-        email: formData.email,
-        nome_completo: formData.nome_completo,
-        telefone: formData.telefone || undefined,
-        role: formData.role,
-      };
+      const { data, error } = await supabase.functions.invoke('invite-user', {
+        body: {
+          email: formData.email,
+          nome_completo: formData.nome_completo,
+          telefone: formData.telefone || undefined,
+          role: formData.role,
+        },
+      });
 
-      // Use retry logic
-      const { data, error } = await invokeWithRetry(body);
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      // Check for error in response body
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      if (error) {
-        throw error;
-      }
-
-      // Log activity
       await logActivity(
         'user_created',
         `Convite enviado para: ${formData.nome_completo} (${formData.email})`,
-        { 
-          new_user_email: formData.email,
-          role: formData.role 
-        }
+        { new_user_email: formData.email, role: formData.role }
       );
 
       toast.success("Convite enviado com sucesso! O usuário receberá um email para definir a senha.");
@@ -129,35 +81,16 @@ export const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
     } catch (error: any) {
       console.error("Erro ao enviar convite:", error);
       
-      // Handle specific error types
-      if (error instanceof FunctionsFetchError) {
-        toast.error("Problema de conexão. Verifique sua internet e tente novamente.", {
-          duration: 5000,
-          action: {
-            label: "Tentar novamente",
-            onClick: () => handleSubmit(e),
-          },
-        });
-      } else if (error instanceof FunctionsRelayError) {
-        toast.error("Serviço temporariamente indisponível. Tente novamente em alguns segundos.");
-      } else if (error instanceof FunctionsHttpError) {
-        const message = error.message || "Erro no servidor";
-        toast.error(message);
+      const msg = error.message || "";
+      if (msg.includes("já está cadastrado") || msg.includes("already been registered")) {
+        toast.error("Este email já está cadastrado no sistema");
+      } else if (msg.includes("convite pendente")) {
+        toast.error("Já existe um convite pendente para este email");
       } else {
-        // Handle string error messages
-        const errorMessage = error.message || "Erro desconhecido";
-        
-        if (errorMessage.includes("já está cadastrado") || errorMessage.includes("already been registered")) {
-          toast.error("Este email já está cadastrado no sistema");
-        } else if (errorMessage.includes("convite pendente")) {
-          toast.error("Já existe um convite pendente para este email");
-        } else {
-          toast.error(errorMessage);
-        }
+        toast.error(msg || "Erro ao enviar convite");
       }
     } finally {
       setIsLoading(false);
-      setLoadingMessage("Enviando...");
     }
   };
 
@@ -248,7 +181,7 @@ export const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {loadingMessage}
+                  Enviando...
                 </>
               ) : (
                 "Enviar Convite"
