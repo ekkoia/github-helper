@@ -1,58 +1,61 @@
 
-# Alterar Título e Formato do Volume Total para Valor Investido
+
+# Corrigir Cálculo do Total Investido na Página Dashboard
 
 ## Problema Identificado
 
-O card de métricas na página de Leads exibe:
-- **Título**: "Volume Total (sacas)"
-- **Formato**: Número simples (ex: "100.000")
+Na página `/dashboard`, o cálculo do "Total Investido" está usando o campo errado:
 
-Deveria exibir:
-- **Título**: "Valor Investido" ou "Total Investido"
-- **Formato**: Moeda brasileira (ex: "R$ 100.000,00")
+**Código atual (linhas 49-52):**
+```typescript
+const volumeTotal = leads.reduce((sum, lead) => {
+  const volume = parseVolume(lead.volume);  // ❌ Usa campo "volume" (sacas)
+  return sum + volume;
+}, 0);
+```
+
+**Deveria usar:**
+```typescript
+const valorTotalInvestido = leads.reduce((sum, lead) => {
+  const valor = parseFloat(lead.valor_produto) || 0;  // ✅ Usa campo "valor_produto" (R$)
+  return sum + valor;
+}, 0);
+```
 
 ## Alteração Necessária
 
-### Arquivo: `src/components/Dashboard.tsx`
+### Arquivo: `src/pages/Dashboard.tsx`
 
-**Linha 31-36** - Alterar o quarto item do array `stats`:
+**Linhas 49-52** - Alterar o cálculo para usar `valor_produto`:
 
-**Antes:**
 ```typescript
-{
-  title: "Volume Total (sacas)",
-  value: volumeTotal.toLocaleString('pt-BR'),
-  icon: Package,
-  color: "text-status-proposta",
-},
+const valorTotalInvestido = leads.reduce((sum, lead) => {
+  const valor = parseFloat(lead.valor_produto) || 0;
+  return sum + valor;
+}, 0);
 ```
 
-**Depois:**
+**Linha 69** - Atualizar a prop passada para o componente:
+
 ```typescript
-{
-  title: "Total Investido",
-  value: new Intl.NumberFormat('pt-BR', { 
-    style: 'currency', 
-    currency: 'BRL' 
-  }).format(volumeTotal),
-  icon: Package,
-  color: "text-status-proposta",
-},
+<DashboardHero
+  totalLeads={totalLeads}
+  leadsGanhos={leadsGanhos}
+  taxaConversao={taxaConversao}
+  volumeTotal={valorTotalInvestido}  // Renomeado para clareza
+/>
 ```
-
-## Alteração no Ícone (Opcional)
-
-Podemos também trocar o ícone de `Package` (pacote) para `DollarSign` ou `Wallet` para representar melhor o conceito de valor monetário.
 
 ## Resultado Esperado
 
-| Antes | Depois |
-|-------|--------|
-| Volume Total (sacas) | Total Investido |
-| 1.200.000 | R$ 1.200.000,00 |
+| Página | Antes | Depois |
+|--------|-------|--------|
+| /dashboard | Mostrava volume em sacas | Mostra valor investido em R$ |
+| /leads | Mostra valor investido em R$ | Mantém igual (já correto) |
 
-## Resumo
+## Resumo das Alterações
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/Dashboard.tsx` | Atualizar título para "Total Investido" e formatar valor como moeda (R$) |
+| `src/pages/Dashboard.tsx` | Alterar cálculo de `volumeTotal` para somar `valor_produto` ao invés de `volume` |
+
