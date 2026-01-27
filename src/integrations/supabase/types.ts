@@ -10,310 +10,178 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
-      funil_etapas: {
+      chat_messages: {
         Row: {
-          ativo: boolean | null
-          cor: string
+          active: boolean | null
+          bot_message: string | null
           created_at: string | null
-          id: string
-          nome: string
-          ordem: number
+          id: number
+          message_type: string | null
+          nomewpp: string | null
+          phone: string | null
+          user_message: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          bot_message?: string | null
+          created_at?: string | null
+          id?: number
+          message_type?: string | null
+          nomewpp?: string | null
+          phone?: string | null
+          user_message?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          bot_message?: string | null
+          created_at?: string | null
+          id?: number
+          message_type?: string | null
+          nomewpp?: string | null
+          phone?: string | null
+          user_message?: string | null
+        }
+        Relationships: []
+      }
+      chats: {
+        Row: {
+          created_at: string | null
+          id: number
+          phone: string | null
           updated_at: string | null
         }
         Insert: {
-          ativo?: boolean | null
-          cor: string
           created_at?: string | null
-          id?: string
-          nome: string
-          ordem: number
+          id?: number
+          phone?: string | null
           updated_at?: string | null
         }
         Update: {
-          ativo?: boolean | null
-          cor?: string
           created_at?: string | null
-          id?: string
-          nome?: string
-          ordem?: number
+          id?: number
+          phone?: string | null
           updated_at?: string | null
         }
         Relationships: []
       }
-      lead_custom_fields: {
+      dados_cliente: {
         Row: {
-          ativo: boolean | null
+          atendimento_ia: string | null
           created_at: string | null
-          id: string
-          label: string
-          nome: string
-          obrigatorio: boolean | null
-          opcoes: Json | null
-          ordem: number
-          tipo: string
-          updated_at: string | null
-        }
-        Insert: {
-          ativo?: boolean | null
-          created_at?: string | null
-          id?: string
-          label: string
-          nome: string
-          obrigatorio?: boolean | null
-          opcoes?: Json | null
-          ordem: number
-          tipo: string
-          updated_at?: string | null
-        }
-        Update: {
-          ativo?: boolean | null
-          created_at?: string | null
-          id?: string
-          label?: string
-          nome?: string
-          obrigatorio?: boolean | null
-          opcoes?: Json | null
-          ordem?: number
-          tipo?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      leads: {
-        Row: {
-          armazenamento: string | null
-          cidade: string | null
-          created_at: string | null
-          data_criacao: string
-          distancia_km: number | null
-          email: string
-          estrada_terra_km: number | null
-          etapa_funil: string
-          id: string
-          intencao: string | null
-          localizacao_embarque: string | null
-          nome_completo: string
-          observacoes: string | null
-          percentual_royalties: number | null
-          perfil: string
-          protocolo_atendimento: string | null
-          qualidade: string | null
-          sentido: string | null
-          telefone: string
-          tem_royalties: string | null
-          tipo_grao: string | null
-          uf: string | null
-          updated_at: string | null
-          valor_produto: number | null
-          volume: string | null
-        }
-        Insert: {
-          armazenamento?: string | null
-          cidade?: string | null
-          created_at?: string | null
-          data_criacao?: string
-          distancia_km?: number | null
-          email: string
-          estrada_terra_km?: number | null
-          etapa_funil?: string
-          id?: string
-          intencao?: string | null
-          localizacao_embarque?: string | null
-          nome_completo: string
-          observacoes?: string | null
-          percentual_royalties?: number | null
-          perfil: string
-          protocolo_atendimento?: string | null
-          qualidade?: string | null
-          sentido?: string | null
-          telefone: string
-          tem_royalties?: string | null
-          tipo_grao?: string | null
-          uf?: string | null
-          updated_at?: string | null
-          valor_produto?: number | null
-          volume?: string | null
-        }
-        Update: {
-          armazenamento?: string | null
-          cidade?: string | null
-          created_at?: string | null
-          data_criacao?: string
-          distancia_km?: number | null
-          email?: string
-          estrada_terra_km?: number | null
-          etapa_funil?: string
-          id?: string
-          intencao?: string | null
-          localizacao_embarque?: string | null
-          nome_completo?: string
-          observacoes?: string | null
-          percentual_royalties?: number | null
-          perfil?: string
-          protocolo_atendimento?: string | null
-          qualidade?: string | null
-          sentido?: string | null
-          telefone?: string
-          tem_royalties?: string | null
-          tipo_grao?: string | null
-          uf?: string | null
-          updated_at?: string | null
-          valor_produto?: number | null
-          volume?: string | null
-        }
-        Relationships: []
-      }
-      pending_invites: {
-        Row: {
-          created_at: string
-          email: string
-          id: string
-          invited_by: string | null
-          nome_completo: string
-          role: string | null
+          id: number
+          nomewpp: string | null
           telefone: string | null
         }
         Insert: {
-          created_at?: string
-          email: string
-          id?: string
-          invited_by?: string | null
-          nome_completo: string
-          role?: string | null
+          atendimento_ia?: string | null
+          created_at?: string | null
+          id?: number
+          nomewpp?: string | null
           telefone?: string | null
         }
         Update: {
-          created_at?: string
-          email?: string
-          id?: string
-          invited_by?: string | null
-          nome_completo?: string
-          role?: string | null
+          atendimento_ia?: string | null
+          created_at?: string | null
+          id?: number
+          nomewpp?: string | null
           telefone?: string | null
         }
         Relationships: []
       }
-      profiles: {
+      documents: {
         Row: {
-          created_at: string
-          email: string | null
-          id: string
-          nome_completo: string
-          telefone: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          email?: string | null
-          id?: string
-          nome_completo: string
-          telefone?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          email?: string | null
-          id?: string
-          nome_completo?: string
-          telefone?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_activities: {
-        Row: {
-          activity_type: string
-          created_at: string
-          description: string
-          id: string
+          content: string | null
+          embedding: string | null
+          id: number
           metadata: Json | null
-          user_id: string
         }
         Insert: {
-          activity_type: string
-          created_at?: string
-          description: string
-          id?: string
+          content?: string | null
+          embedding?: string | null
+          id?: number
           metadata?: Json | null
-          user_id: string
         }
         Update: {
-          activity_type?: string
-          created_at?: string
-          description?: string
-          id?: string
+          content?: string | null
+          embedding?: string | null
+          id?: number
           metadata?: Json | null
-          user_id?: string
         }
         Relationships: []
       }
-      user_preferences: {
+      leads_feeagro: {
         Row: {
-          app_notifications: boolean | null
+          ad_id: string | null
+          ad_name: string | null
+          adset_id: string | null
+          adset_name: string | null
           created_at: string | null
-          default_view: string | null
-          density: string | null
-          digest_frequency: string | null
-          email_notifications: boolean | null
-          id: string
-          inactive_lead_alerts: boolean | null
-          theme: string | null
-          updated_at: string | null
-          user_id: string
+          created_time: string | null
+          email: string | null
+          form_id: string | null
+          form_locale: string | null
+          form_name: string | null
+          form_status: string | null
+          id: number
+          nome_completo: string | null
+          telefone: string | null
+          valor_investimento: string | null
         }
         Insert: {
-          app_notifications?: boolean | null
+          ad_id?: string | null
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
           created_at?: string | null
-          default_view?: string | null
-          density?: string | null
-          digest_frequency?: string | null
-          email_notifications?: boolean | null
-          id?: string
-          inactive_lead_alerts?: boolean | null
-          theme?: string | null
-          updated_at?: string | null
-          user_id: string
+          created_time?: string | null
+          email?: string | null
+          form_id?: string | null
+          form_locale?: string | null
+          form_name?: string | null
+          form_status?: string | null
+          id?: number
+          nome_completo?: string | null
+          telefone?: string | null
+          valor_investimento?: string | null
         }
         Update: {
-          app_notifications?: boolean | null
+          ad_id?: string | null
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
           created_at?: string | null
-          default_view?: string | null
-          density?: string | null
-          digest_frequency?: string | null
-          email_notifications?: boolean | null
-          id?: string
-          inactive_lead_alerts?: boolean | null
-          theme?: string | null
-          updated_at?: string | null
-          user_id?: string
+          created_time?: string | null
+          email?: string | null
+          form_id?: string | null
+          form_locale?: string | null
+          form_name?: string | null
+          form_status?: string | null
+          id?: number
+          nome_completo?: string | null
+          telefone?: string | null
+          valor_investimento?: string | null
         }
         Relationships: []
       }
-      user_roles: {
+      n8n_chat_histories: {
         Row: {
-          created_at: string | null
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          id: number
+          message: Json
+          session_id: string
         }
         Insert: {
-          created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          id?: number
+          message: Json
+          session_id: string
         }
         Update: {
-          created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          id?: number
+          message?: Json
+          session_id?: string
         }
         Relationships: []
       }
@@ -322,20 +190,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_user_role: {
-        Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"]
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      match_documents: {
+        Args: { filter?: Json; match_count?: number; query_embedding: string }
+        Returns: {
+          content: string
+          id: number
+          metadata: Json
+          similarity: number
+        }[]
       }
     }
     Enums: {
-      app_role: "user" | "admin" | "global"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -462,8 +328,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["user", "admin", "global"],
-    },
+    Enums: {},
   },
 } as const

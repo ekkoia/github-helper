@@ -1,10 +1,1 @@
-project_id = "smtkjkaxqtgkwimtdutr"
-
-[functions.webhook-lead]
-verify_jwt = false
-
-[functions.invite-user]
-verify_jwt = true
-
-[functions.send-invite-email]
-verify_jwt = true
+project_id = "omilhfohvstqsonhyuxp"
