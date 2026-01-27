@@ -1,116 +1,111 @@
 
-# Adaptar Card "Distribuição por Perfil" para Contexto Atual
+
+# Implementar Login com Google
 
 ## Situação Atual
 
-O gráfico de **"Distribuição por Perfil"** mostra apenas um único valor:
-- **Produtor**: 100% (75 leads)
+O código do frontend já está **100% implementado**:
+- A função `signInWithGoogle()` já existe no AuthContext
+- O botão "Continuar com Google" já existe na página de login
+- O redirecionamento para `/dashboard` após login está configurado
 
-Isso acontece porque todos os leads vindos do Meta Form recebem automaticamente o perfil "Produtor", tornando o gráfico pouco informativo.
+O que falta é a **configuração no lado do Supabase e Google Cloud**.
 
-## Opções de Substituição
+## Passos para Configurar
 
-### Opção 1: Total Investido por Faixa (Recomendada)
-Mostrar o **valor total em R$** de cada faixa de investimento (complementa o gráfico de quantidade):
+### Passo 1: Criar Projeto no Google Cloud Console
 
-| Faixa | Quantidade | Total Investido |
-|-------|------------|-----------------|
-| R$ 10.000 | 30 leads | R$ 300.000 |
-| R$ 30.000 | 16 leads | R$ 480.000 |
-| R$ 75.000 | 12 leads | R$ 900.000 |
-| R$ 100.000 | 17 leads | R$ 1.700.000 |
+1. Acesse [Google Cloud Console](https://console.cloud.google.com/)
+2. Crie um novo projeto ou selecione um existente
+3. Ative a **Google+ API** ou **Google Identity API**
 
-### Opção 2: Leads por Dia da Semana
-Mostrar distribuição de leads criados por dia da semana (Segunda a Domingo).
+### Passo 2: Configurar Tela de Consentimento OAuth
 
-### Opção 3: Manter Perfil para Uso Futuro
-Manter o gráfico, mas considerar que futuramente campanhas diferentes podem trazer perfis variados.
+1. Vá para **APIs & Services > OAuth consent screen**
+2. Escolha **External** (para usuários externos)
+3. Preencha as informações obrigatórias:
+   - Nome do aplicativo: **Imaculada Agronegócios**
+   - Email de suporte
+   - Domínios autorizados: `omilhfohvstqsonhyuxp.supabase.co`
+4. Adicione os escopos:
+   - `.../auth/userinfo.email`
+   - `.../auth/userinfo.profile`
+   - `openid`
 
-## Implementação (Opção 1 - Total Investido por Faixa)
+### Passo 3: Criar Credenciais OAuth
 
-### Arquivo: `src/components/DashboardCharts.tsx`
+1. Vá para **APIs & Services > Credentials**
+2. Clique em **Create Credentials > OAuth Client ID**
+3. Tipo de aplicação: **Web application**
+4. Nome: **Imaculada CRM**
+5. **Authorized JavaScript origins**:
+   - `https://id-preview--4857f2d3-9941-4691-862c-d1c44dc8fe55.lovable.app`
+   - (Adicione seu domínio de produção quando publicar)
+6. **Authorized redirect URIs**:
+   - `https://omilhfohvstqsonhyuxp.supabase.co/auth/v1/callback`
+7. Copie o **Client ID** e **Client Secret** gerados
 
-**Atualizar o cálculo de dados:**
+### Passo 4: Configurar no Supabase Dashboard
+
+1. Acesse [Supabase Authentication Providers](https://supabase.com/dashboard/project/omilhfohvstqsonhyuxp/auth/providers)
+2. Encontre **Google** na lista e clique para expandir
+3. Ative o toggle **Enable Sign in with Google**
+4. Cole o **Client ID** e **Client Secret** do Google Cloud
+5. Clique em **Save**
+
+### Passo 5: Configurar URLs no Supabase
+
+1. Acesse [Supabase URL Configuration](https://supabase.com/dashboard/project/omilhfohvstqsonhyuxp/auth/url-configuration)
+2. Configure:
+   - **Site URL**: `https://id-preview--4857f2d3-9941-4691-862c-d1c44dc8fe55.lovable.app`
+   - **Redirect URLs**: Adicione `https://id-preview--4857f2d3-9941-4691-862c-d1c44dc8fe55.lovable.app/dashboard`
+
+## Melhoria Opcional no Código
+
+Podemos adicionar tratamento para criar o perfil automaticamente quando o usuário fizer login com Google pela primeira vez:
 
 ```typescript
-// Dados para Total Investido por Faixa
-const totalPorFaixaData = useMemo(() => {
-  const faixas: Record<string, number> = {
-    "até R$10 mil": 0,
-    "de R$10 mil a R$50 mil": 0,
-    "de R$50 mil a R$100 mil": 0,
-    "acima de R$100 mil": 0
-  };
+// No AuthContext, atualizar o onAuthStateChange
+supabase.auth.onAuthStateChange(async (event, session) => {
+  setSession(session);
+  setUser(session?.user ?? null);
   
-  filteredLeads.forEach(lead => {
-    const valor = parseFloat(lead.valor_produto) || 0;
+  // Criar perfil automaticamente para login OAuth
+  if (event === 'SIGNED_IN' && session?.user) {
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', session.user.id)
+      .single();
     
-    if (valor <= 10000) faixas["até R$10 mil"] += valor;
-    else if (valor <= 50000) faixas["de R$10 mil a R$50 mil"] += valor;
-    else if (valor <= 100000) faixas["de R$50 mil a R$100 mil"] += valor;
-    else faixas["acima de R$100 mil"] += valor;
-  });
-
-  return Object.entries(faixas)
-    .filter(([_, value]) => value > 0)
-    .map(([name, value]) => ({ name, value }));
-}, [filteredLeads]);
+    if (!existingProfile) {
+      await supabase.from('profiles').insert({
+        user_id: session.user.id,
+        nome_completo: session.user.user_metadata?.full_name || 
+                       session.user.user_metadata?.name ||
+                       session.user.email?.split('@')[0]
+      });
+    }
+  }
+  
+  setLoading(false);
+});
 ```
 
-**Atualizar o card do gráfico:**
+## Resumo
 
-```typescript
-{/* Gráfico de Pizza - Total Investido por Faixa */}
-<Card className="col-span-1">
-  <CardHeader className="pb-4">
-    <CardTitle className="text-lg font-semibold text-foreground">
-      Total Investido por Faixa
-    </CardTitle>
-    <p className="text-sm text-muted-foreground mt-1">
-      Valor total em cada faixa de investimento
-    </p>
-  </CardHeader>
-  <CardContent className="pt-0">
-    <ResponsiveContainer width="100%" height={300}>
-      <PieChart>
-        <Pie
-          data={totalPorFaixaData}
-          // ... resto da configuração
-          label={({ name, value, percent }) => (
-            `${name}: R$ ${(value/1000).toFixed(0)}k (${(percent * 100).toFixed(0)}%)`
-          )}
-        >
-          {totalPorFaixaData.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={INVESTIMENTO_COLORS[index]} />
-          ))}
-        </Pie>
-      </PieChart>
-    </ResponsiveContainer>
-  </CardContent>
-</Card>
-```
+| Item | Status |
+|------|--------|
+| Função `signInWithGoogle()` | Implementado |
+| Botão na página de login | Implementado |
+| Redirecionamento após login | Implementado |
+| Configuração Google Cloud | **Pendente (manual)** |
+| Configuração Supabase | **Pendente (manual)** |
+| Criação automática de perfil | Opcional - pode ser adicionado |
 
-## Resultado Visual
-
-| Antes | Depois |
-|-------|--------|
-| Distribuição por Perfil | Total Investido por Faixa |
-| Produtor: 100% | até R$10 mil: R$ 300k (9%) |
-| | de R$10 mil a R$50 mil: R$ 480k (14%) |
-| | de R$50 mil a R$100 mil: R$ 900k (26%) |
-| | acima de R$100 mil: R$ 1.700k (51%) |
-
-## Complemento Visual
-
-Agora o dashboard terá dois gráficos complementares:
-1. **Leads por Faixa de Investimento** - Quantidade de leads em cada faixa
-2. **Total Investido por Faixa** - Valor total em R$ de cada faixa
-
-## Resumo das Alterações
+## Alterações de Código (Opcional)
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/DashboardCharts.tsx` | Substituir `perfilData` por `totalPorFaixaData` |
-| | Atualizar título e subtítulo do card |
-| | Ajustar formatação do label para mostrar valores em R$ |
-| | Remover código não utilizado de `perfilData` |
+| `src/contexts/AuthContext.tsx` | Adicionar criação automática de perfil para usuários OAuth |
+
