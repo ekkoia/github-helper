@@ -1,134 +1,172 @@
 
-# Ajuste da Tabela de Leads para o Padrão do Formulário
+# Sincronização de Leads do Formulário Nativo Meta
 
 ## Objetivo
 
-Simplificar a tabela de leads (`LeadsTable.tsx`) para exibir apenas as colunas relevantes ao novo modelo de captura de leads, mantendo consistência com o formulário simplificado.
+Sincronizar automaticamente todos os leads da tabela `leadsNativo_feeagro` para a tabela principal `leads` do CRM, com origem definida como "Formulário Nativo Meta" (`meta_form`).
 
-## Campos do Formulário Atual
+## Mapeamento de Campos
 
-O formulário de criação de leads captura apenas:
-- Nome Completo
-- Telefone
-- Email
-- Qtd Cotas (campo `volume`)
-- Valor Investido (campo `valor_produto`)
-- Origem do Lead
-- Observações
+| leadsNativo_feeagro | leads | Observações |
+|---------------------|-------|-------------|
+| `id` | `meta_lead_id` (novo) | Referência para evitar duplicatas |
+| `nome_completo` | `nome_completo` | Campo obrigatório |
+| `telefone` | `telefone` | Manter formato original |
+| `email` | `email` | Manter formato original |
+| `valor_investimento` | `observacoes` | Texto descritivo (ex: "até R$10 mil") |
+| `created_at` | `data_criacao` | Preservar data original |
+| - | `origem` | Sempre `meta_form` |
+| - | `etapa_funil` | Sempre `Novo Lead` |
+| `form_name`, `ad_name`, `adset_name` | `observacoes` | Concatenar informações do anúncio |
 
-## Situação Atual da Tabela
+## Estratégia de Sincronização
 
-A tabela atual exibe muitas colunas que não fazem parte do fluxo simplificado:
+### Opção Escolhida: Trigger no Banco de Dados
 
-| Coluna | Status |
-|--------|--------|
-| Nome | Manter |
-| Perfil | Remover (não é capturado no form) |
-| Contato (telefone/email) | Manter |
-| Cidade/UF | Remover (não é capturado no form) |
-| Intenção | Remover (não é capturado no form) |
-| Grão | Remover (não é capturado no form) |
-| Volume | Manter (renomear para "Qtd Cotas") |
-| Valor | Manter (renomear para "Valor Investido") |
-| Etapa | Manter |
-| Origem | Adicionar |
-| Colunas ocultas (embarque, distância, etc.) | Remover do customizador |
+Usar um trigger que dispara automaticamente quando um novo registro é inserido na tabela `leadsNativo_feeagro`, criando o lead correspondente na tabela `leads`.
 
-## Alterações Propostas
+**Vantagens:**
+- Sincronização em tempo real
+- Não requer código adicional no frontend
+- Funciona independente de como o lead chegou à tabela
 
-### 1. Simplificar colunas da tabela principal
+## Alterações Necessárias
 
-**Nova estrutura de colunas:**
-- Nome (ordenável)
-- Contato (telefone + email)
-- Qtd Cotas
-- Valor Investido
-- Origem
-- Etapa do Funil
-- Ações
+### 1. Migração SQL - Adicionar coluna de referência
 
-### 2. Remover ColumnCustomizer
+Adicionar coluna `meta_lead_id` na tabela `leads` para armazenar o ID original e evitar duplicatas.
 
-O customizador de colunas (`ColumnCustomizer`) exibe campos que não são mais relevantes. Será removido da interface.
-
-### 3. Atualizar filtros laterais
-
-Remover filtros que não fazem mais sentido:
-- Remover: Perfil, Cidade, UF, Tipo de Grão, Intenção
-- Manter: Etapa do Funil, Protocolo
-
-### 4. Atualizar modal de detalhes
-
-Simplificar o `LeadDetailsModal` para exibir apenas os campos relevantes ao novo modelo.
-
-### 5. Atualizar cálculo de KPIs
-
-Ajustar os KPIs para refletir os novos campos (por exemplo, somar "Valor Investido" em vez de "Volume").
-
----
-
-## Detalhes Técnicos
-
-### Arquivo: `src/pages/LeadsTable.tsx`
-
-**Remover imports e estados:**
-```typescript
-// Remover import
-import { ColumnCustomizer, ColumnVisibility } from "@/components/ColumnCustomizer";
-
-// Remover estado columnVisibility
-const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({...});
+```sql
+ALTER TABLE leads 
+ADD COLUMN meta_lead_id bigint UNIQUE;
 ```
 
-**Simplificar filtros:**
-```typescript
-const [filters, setFilters] = useState({
-  etapa: "all",
-  protocolo: ""
-});
+### 2. Migração SQL - Criar função de sincronização
+
+```sql
+CREATE OR REPLACE FUNCTION sync_meta_lead_to_crm()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  lead_observacoes text;
+BEGIN
+  -- Construir observações com informações do anúncio
+  lead_observacoes := 'Valor pretendido: ' || COALESCE(NEW.valor_investimento, 'Não informado');
+  
+  IF NEW.form_name IS NOT NULL THEN
+    lead_observacoes := lead_observacoes || chr(10) || 'Formulário: ' || NEW.form_name;
+  END IF;
+  
+  IF NEW.ad_name IS NOT NULL THEN
+    lead_observacoes := lead_observacoes || chr(10) || 'Anúncio: ' || NEW.ad_name;
+  END IF;
+  
+  IF NEW.adset_name IS NOT NULL THEN
+    lead_observacoes := lead_observacoes || chr(10) || 'Conjunto: ' || NEW.adset_name;
+  END IF;
+
+  -- Inserir na tabela leads
+  INSERT INTO public.leads (
+    nome_completo,
+    telefone,
+    email,
+    origem,
+    etapa_funil,
+    observacoes,
+    meta_lead_id,
+    data_criacao
+  )
+  VALUES (
+    COALESCE(NEW.nome_completo, 'Não informado'),
+    NEW.telefone,
+    NEW.email,
+    'meta_form',
+    'Novo Lead',
+    lead_observacoes,
+    NEW.id,
+    COALESCE(NEW.created_at, now())
+  )
+  ON CONFLICT (meta_lead_id) DO NOTHING;
+  
+  RETURN NEW;
+END;
+$$;
 ```
 
-**Atualizar cabeçalhos da tabela:**
+### 3. Migração SQL - Criar trigger
+
+```sql
+CREATE TRIGGER trigger_sync_meta_lead
+AFTER INSERT ON "leadsNativo_feeagro"
+FOR EACH ROW
+EXECUTE FUNCTION sync_meta_lead_to_crm();
+```
+
+### 4. Migração SQL - Sincronizar leads existentes
+
+```sql
+INSERT INTO public.leads (
+  nome_completo,
+  telefone,
+  email,
+  origem,
+  etapa_funil,
+  observacoes,
+  meta_lead_id,
+  data_criacao
+)
+SELECT
+  COALESCE(nome_completo, 'Não informado'),
+  telefone,
+  email,
+  'meta_form',
+  'Novo Lead',
+  'Valor pretendido: ' || COALESCE(valor_investimento, 'Não informado') ||
+    CASE WHEN form_name IS NOT NULL THEN chr(10) || 'Formulário: ' || form_name ELSE '' END ||
+    CASE WHEN ad_name IS NOT NULL THEN chr(10) || 'Anúncio: ' || ad_name ELSE '' END ||
+    CASE WHEN adset_name IS NOT NULL THEN chr(10) || 'Conjunto: ' || adset_name ELSE '' END,
+  id,
+  COALESCE(created_at, now())
+FROM "leadsNativo_feeagro"
+WHERE id NOT IN (SELECT meta_lead_id FROM leads WHERE meta_lead_id IS NOT NULL);
+```
+
+### 5. Atualizar tipos TypeScript
+
+Atualizar `src/integrations/supabase/types.ts` para incluir o novo campo `meta_lead_id`.
+
+## Fluxo de Sincronização
+
 ```text
-Nome | Contato | Qtd Cotas | Valor Investido | Origem | Etapa | Ações
+┌────────────────────────┐     ┌──────────────┐     ┌─────────────────┐
+│ leadsNativo_feeagro    │────▶│   Trigger    │────▶│     leads       │
+│ (Formulário Meta)      │     │    (auto)    │     │ (CRM principal) │
+└────────────────────────┘     └──────────────┘     └─────────────────┘
+                                                            │
+                                                            ▼
+                                                    ┌───────────────┐
+                                                    │   Dashboard   │
+                                                    │   (métricas)  │
+                                                    └───────────────┘
 ```
 
-**Atualizar células da tabela:**
-- Remover: Perfil, Cidade/UF, Intenção, Grão
-- Adicionar: Origem do Lead (formatado com labels)
+## Impacto no Dashboard
 
-### Arquivo: `src/components/FiltersSidebar.tsx`
+Após a sincronização, os 74 leads existentes aparecerão automaticamente no dashboard com:
 
-Remover filtros de:
-- Perfil
-- Cidade
-- UF
-- Tipo de Grão
-- Intenção
+- **Origem**: "Formulário Nativo Meta" 
+- **Etapa**: "Novo Lead"
+- **Observações**: Valor pretendido + informações do anúncio
+- **Data de criação**: Preservada da tabela original
 
-Manter apenas:
-- Etapa do Funil
-- Protocolo de Atendimento
-
-### Arquivo: `src/components/LeadDetailsModal.tsx`
-
-Simplificar para exibir:
-- Identificação: Nome, Email, Telefone
-- Negociação: Qtd Cotas, Valor Investido, Origem
-- Status: Etapa do Funil, Data de Criação
-- Observações (se houver)
-
-Remover seções:
-- Localização (Cidade, UF, Embarque, etc.)
-- Dados Técnicos (Armazenamento, Qualidade, Royalties)
-
----
+As métricas serão atualizadas automaticamente pois consultam a tabela `leads`.
 
 ## Resumo das Alterações
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/pages/LeadsTable.tsx` | Simplificar colunas, remover ColumnCustomizer, atualizar filtros |
-| `src/components/FiltersSidebar.tsx` | Remover filtros não utilizados |
-| `src/components/LeadDetailsModal.tsx` | Simplificar seções de detalhes |
-| `src/components/ColumnCustomizer.tsx` | Pode ser removido se não for mais necessário |
+| Arquivo/Recurso | Alteração |
+|-----------------|-----------|
+| Nova migração SQL | Adicionar coluna `meta_lead_id`, função e trigger |
+| `types.ts` | Incluir campo `meta_lead_id` no tipo `leads` |
+
