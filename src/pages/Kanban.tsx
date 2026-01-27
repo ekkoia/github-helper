@@ -1,0 +1,398 @@
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Layout } from "@/components/Layout";
+import { KanbanSkeleton } from "@/components/SkeletonLoader";
+import { LeadForm } from "@/components/LeadForm";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Plus, Mail, Phone, User, Package, DollarSign } from "lucide-react";
+import { useActivityLog } from "@/hooks/useActivityLog";
+
+const ETAPAS_FUNIL = [
+  "Novo Lead",
+  "Em atendimento IA",
+  "Atendimento Humano",
+  "Reunião Agendada",
+  "Proposta Enviada",
+  "Ganho",
+  "Perdido",
+  "Sem interesse",
+  "Ghost",
+  "Nutrir",
+  "Parceiro"
+];
+
+const ETAPAS_CORES: Record<string, string> = {
+  "Novo Lead": "bg-status-novo",
+  "Em atendimento IA": "bg-status-ia",
+  "Atendimento Humano": "bg-status-humano",
+  "Reunião Agendada": "bg-status-reuniao",
+  "Proposta Enviada": "bg-status-proposta",
+  "Ganho": "bg-status-ganho",
+  "Perdido": "bg-status-perdido",
+  "Sem interesse": "bg-status-semInteresse",
+  "Ghost": "bg-status-ghost",
+  "Nutrir": "bg-status-nutrir",
+  "Parceiro": "bg-status-parceiro"
+};
+
+const Kanban = () => {
+  const { logActivity } = useActivityLog();
+  const [leads, setLeads] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [draggedLead, setDraggedLead] = useState<any>(null);
+  const [editingLead, setEditingLead] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const scrollDirRef = useRef<-1 | 0 | 1>(0);
+
+  const stopAutoScroll = useCallback(() => {
+    scrollDirRef.current = 0;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
+
+  const ensureAutoScrollLoop = useCallback(() => {
+    if (rafRef.current) return;
+
+    const loop = () => {
+      const container = scrollContainerRef.current;
+      if (!container) {
+        rafRef.current = null;
+        return;
+      }
+
+      if (scrollDirRef.current !== 0) {
+        container.scrollLeft += scrollDirRef.current * 12;
+        rafRef.current = requestAnimationFrame(loop);
+      } else {
+        rafRef.current = null;
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
+  }, []);
+
+  const handleDragOverWithScroll = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const mouseX = e.clientX;
+      const scrollZone = 100; // px da borda para iniciar scroll
+
+      const isLeft = mouseX < containerRect.left + scrollZone;
+      const isRight = mouseX > containerRect.right - scrollZone;
+
+      const nextDir: -1 | 0 | 1 = isLeft ? -1 : isRight ? 1 : 0;
+
+      if (nextDir === 0) {
+        stopAutoScroll();
+        return;
+      }
+
+      scrollDirRef.current = nextDir;
+      ensureAutoScrollLoop();
+    },
+    [ensureAutoScrollLoop, stopAutoScroll]
+  );
+
+  const handleDragEnd = useCallback(() => {
+    stopAutoScroll();
+    setDraggedLead(null);
+  }, [stopAutoScroll]);
+
+  useEffect(() => {
+    fetchLeads();
+  }, []);
+
+  const fetchLeads = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from("leads")
+      .select("*")
+      .order("data_criacao", { ascending: false });
+
+    if (error) {
+      toast.error("Erro ao carregar leads");
+      console.error(error);
+      setIsLoading(false);
+      return;
+    }
+
+    setLeads(data || []);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+
+    const prevHtmlOverflowX = html.style.overflowX;
+    const prevBodyOverflowX = body.style.overflowX;
+
+    html.style.overflowX = "hidden";
+    body.style.overflowX = "hidden";
+
+    return () => {
+      html.style.overflowX = prevHtmlOverflowX;
+      body.style.overflowX = prevBodyOverflowX;
+    };
+  }, []);
+ 
+   // Filtrar leads por busca global
+  const filteredLeads = useMemo(() => {
+    if (!searchTerm) return leads;
+    
+    const term = searchTerm.toLowerCase();
+    return leads.filter(
+      (lead) =>
+        lead.nome_completo?.toLowerCase().includes(term) ||
+        lead.email?.toLowerCase().includes(term) ||
+        lead.telefone?.includes(term) ||
+        lead.cidade?.toLowerCase().includes(term)
+    );
+  }, [leads, searchTerm]);
+
+  const getLeadsByEtapa = (etapa: string) => {
+    return filteredLeads.filter((lead) => lead.etapa_funil === etapa);
+  };
+
+  const handleDragStart = (lead: any) => {
+    setDraggedLead(lead);
+  };
+
+  const handleDrop = async (etapa: string) => {
+    if (!draggedLead || draggedLead.etapa_funil === etapa) {
+      setDraggedLead(null);
+      return;
+    }
+
+    const etapaAnterior = draggedLead.etapa_funil;
+
+    const { error } = await supabase
+      .from("leads")
+      .update({ etapa_funil: etapa })
+      .eq("id", draggedLead.id);
+
+    if (error) {
+      toast.error("Erro ao mover lead");
+      return;
+    }
+
+    // Registrar atividade de mudança de etapa
+    await logActivity(
+      'lead_stage_changed',
+      `Moveu "${draggedLead.nome_completo}" de "${etapaAnterior}" para "${etapa}"`,
+      { 
+        lead_id: draggedLead.id, 
+        lead_nome: draggedLead.nome_completo,
+        etapa_anterior: etapaAnterior,
+        etapa_nova: etapa
+      }
+    );
+
+    // Registrar se foi ganho ou perdido
+    if (etapa === 'Ganho') {
+      await logActivity(
+        'lead_won',
+        `Marcou o lead "${draggedLead.nome_completo}" como Ganho`,
+        { lead_id: draggedLead.id, lead_nome: draggedLead.nome_completo, etapa_anterior: etapaAnterior }
+      );
+    } else if (etapa === 'Perdido') {
+      await logActivity(
+        'lead_lost',
+        `Marcou o lead "${draggedLead.nome_completo}" como Perdido`,
+        { lead_id: draggedLead.id, lead_nome: draggedLead.nome_completo, etapa_anterior: etapaAnterior }
+      );
+    }
+
+    toast.success(`Lead movido para ${etapa}`);
+    fetchLeads();
+    setDraggedLead(null);
+  };
+
+  const handleCardClick = (lead: any) => {
+    setEditingLead(lead);
+    setIsFormOpen(true);
+  };
+
+  if (isLoading) {
+    return <KanbanSkeleton />;
+  }
+
+  return (
+    <div className="space-y-4">
+        {/* Busca Global */}
+        <GlobalSearch value={searchTerm} onChange={setSearchTerm} placeholder="Buscar por nome, email, telefone ou cidade..." />
+
+        {/* Header com Botão */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Leads - Kanban</h1>
+            <p className="text-sm text-muted-foreground">
+              {filteredLeads.length} lead{filteredLeads.length !== 1 ? "s" : ""} encontrado{filteredLeads.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+
+          <Button
+            onClick={() => {
+              setEditingLead(null);
+              setIsFormOpen(true);
+            }}
+            className="shadow-elevation-2 gap-2 shrink-0"
+            aria-label="Criar novo lead"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span>Novo Lead</span>
+          </Button>
+        </div>
+
+        {/* Kanban Board */}
+        <div 
+          ref={scrollContainerRef}
+          className="w-full overflow-x-auto"
+          onDragOver={handleDragOverWithScroll}
+          onDrop={stopAutoScroll}
+        >
+          <div className="flex gap-4 items-start">
+          {ETAPAS_FUNIL.map((etapa) => {
+            const leadsNaEtapa = getLeadsByEtapa(etapa);
+            return (
+              <div
+                key={etapa}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleDrop(etapa)}
+                className="min-w-[280px] md:min-w-[320px] flex-shrink-0 snap-start"
+                role="region"
+                aria-label={`Coluna ${etapa}`}
+              >
+                <Card className="h-full">
+                  <CardHeader className={`${ETAPAS_CORES[etapa as keyof typeof ETAPAS_CORES]} text-white`}>
+                    <CardTitle className="flex items-center justify-between text-sm font-semibold">
+                      <span>{etapa}</span>
+                      <Badge variant="secondary" className="bg-white/20 text-white font-medium">
+                        {leadsNaEtapa.length}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 p-3 min-h-[200px]">
+                    {leadsNaEtapa.length === 0 ? (
+                      <p className="text-center text-sm text-muted-foreground py-8">
+                        Nenhum lead nesta etapa
+                      </p>
+                    ) : (
+                      leadsNaEtapa.map((lead) => (
+                        <Card
+                          key={lead.id}
+                          draggable
+                          onDragStart={() => handleDragStart(lead)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => handleCardClick(lead)}
+                          className="cursor-move hover:shadow-elevation-3 transition-all duration-300 hover:scale-[1.02] touch-manipulation active:scale-95"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Lead ${lead.nome_completo}`}
+                        >
+                          <CardContent className="p-4 space-y-2">
+                            <h4 className="font-semibold text-foreground text-sm">{lead.nome_completo}</h4>
+                            <div className="space-y-1.5 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <User className="h-3.5 w-3.5" aria-hidden="true" />
+                                <span>{lead.perfil}</span>
+                              </div>
+                              {(lead.cidade || lead.uf) && (
+                                <div className="flex items-center gap-2">
+                                  <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                                  <span>
+                                    {lead.cidade && lead.uf 
+                                      ? `${lead.cidade}/${lead.uf}`
+                                      : lead.cidade || lead.uf
+                                    }
+                                  </span>
+                                </div>
+                              )}
+                              {lead.telefone && (
+                                <div className="flex items-center gap-2">
+                                  <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                                  <span>{lead.telefone}</span>
+                                </div>
+                              )}
+                              {lead.tipo_grao && (
+                                <div className="flex items-center gap-2">
+                                  <Package className="h-3.5 w-3.5" aria-hidden="true" />
+                                  <div>
+                                    <span className="block">{lead.tipo_grao} - {lead.volume || "Volume não informado"}</span>
+                                    {lead.valor_produto && (
+                                      <span className="text-xs flex items-center gap-1 mt-0.5">
+                                        <DollarSign className="h-3 w-3" aria-hidden="true" />
+                                        {new Intl.NumberFormat('pt-BR', { 
+                                          style: 'currency', 
+                                          currency: 'BRL' 
+                                        }).format(lead.valor_produto)}/sc
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            {lead.intencao && (
+                              <Badge variant="outline" className="text-xs mt-2">
+                                {lead.intencao}
+                              </Badge>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })}
+          </div>
+        </div>
+
+        {/* Dialog do Formulário */}
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingLead ? "Editar Lead" : "Novo Lead"}
+              </DialogTitle>
+            </DialogHeader>
+            <LeadForm
+              onSuccess={() => {
+                setIsFormOpen(false);
+                setEditingLead(null);
+                fetchLeads();
+              }}
+              onCancel={() => {
+                setIsFormOpen(false);
+                setEditingLead(null);
+              }}
+              initialData={editingLead}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  };
+
+  export default Kanban;
