@@ -1,131 +1,112 @@
 
 
-# Correção: Manter Lógica "Pendente" vs "Ativo"
+# Correção: Erro "ON CONFLICT" ao Confirmar Email
 
 ## Problema Identificado
 
-O Supabase preenche `invited_at` **APÓS** o INSERT, então a verificação no trigger não funciona:
-
-```text
-ORDEM ATUAL:
-1. generateLink() → INSERT em auth.users (invited_at = NULL) → Trigger dispara → Profile criado ❌
-2. Supabase faz UPDATE para preencher invited_at
-3. Edge Function insere em pending_invites
-4. Resultado: Duplicação (profile + pending_invite)
+Ao clicar no link de convite, o Supabase retorna o erro:
 ```
+ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification (SQLSTATE 42P10)
+```
+
+### Causa Raiz
+
+O trigger `handle_user_email_confirmed` usa `ON CONFLICT (user_id) DO NOTHING` na tabela `user_roles`, porém a constraint única existente é em `(user_id, role)` (composta), não apenas `user_id`.
+
+| Tabela | Constraint Existente | Usado no Trigger |
+|--------|---------------------|------------------|
+| `user_roles` | `UNIQUE (user_id, role)` | `ON CONFLICT (user_id)` ❌ |
+| `user_preferences` | `UNIQUE (user_id)` | `ON CONFLICT (user_id)` ✅ |
 
 ## Solução
 
-**Inverter a ordem na Edge Function**: primeiro inserir em `pending_invites`, depois chamar `generateLink`. O trigger verifica se existe `pending_invite` para aquele email e, se existir, não cria o profile.
-
-```text
-NOVA ORDEM:
-1. Edge Function insere em pending_invites
-2. generateLink() → INSERT em auth.users → Trigger dispara
-3. Trigger verifica: "existe pending_invite para este email?" → SIM → Não cria profile
-4. Resultado: Apenas 1 registro "Pendente"
-```
+Corrigir o trigger `handle_user_email_confirmed` para usar a constraint correta ou remover o `ON CONFLICT` já que verificamos previamente se o profile existe.
 
 ## Alterações Necessárias
 
-### 1. Migração SQL - Atualizar `handle_new_user`
+### 1. Migração SQL - Corrigir o trigger `handle_user_email_confirmed`
 
-Mudar a verificação de `invited_at` para verificar se existe `pending_invite`:
+Duas opções:
+
+**Opção A: Remover ON CONFLICT (recomendada)**
+Como já verificamos `IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE user_id = NEW.id)`, não há risco de duplicação. Podemos simplesmente fazer INSERT direto.
 
 ```sql
-CREATE OR REPLACE FUNCTION public.handle_new_user()
+CREATE OR REPLACE FUNCTION public.handle_user_email_confirmed()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
+DECLARE
+  invite_role app_role;
+  invite_nome text;
+  invite_telefone text;
 BEGIN
-  -- Se existe pending_invite para este email, não criar profile ainda
-  -- O profile será criado quando o usuário confirmar o email
-  IF EXISTS (SELECT 1 FROM public.pending_invites WHERE email = NEW.email) THEN
-    RETURN NEW;
+  IF OLD.email_confirmed_at IS NULL 
+     AND NEW.email_confirmed_at IS NOT NULL 
+     AND NEW.invited_at IS NOT NULL THEN
+    
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE user_id = NEW.id) THEN
+      
+      SELECT role, nome_completo, telefone 
+      INTO invite_role, invite_nome, invite_telefone
+      FROM public.pending_invites 
+      WHERE email = NEW.email;
+      
+      INSERT INTO public.profiles (user_id, email, nome_completo, telefone)
+      VALUES (
+        NEW.id,
+        NEW.email,
+        COALESCE(invite_nome, NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'nome_completo', split_part(NEW.email, '@', 1)),
+        COALESCE(invite_telefone, NEW.raw_user_meta_data->>'telefone')
+      );
+      
+      -- Remover ON CONFLICT - já verificamos que não existe duplicação
+      INSERT INTO public.user_roles (user_id, role)
+      VALUES (NEW.id, COALESCE(invite_role, 'user'));
+      
+      INSERT INTO public.user_preferences (user_id)
+      VALUES (NEW.id);
+      
+      DELETE FROM public.pending_invites WHERE email = NEW.email;
+    END IF;
   END IF;
-
-  -- Criar profile normalmente para usuários auto-cadastrados
-  INSERT INTO public.profiles (user_id, email, nome_completo)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'nome_completo', split_part(NEW.email, '@', 1))
-  );
-  
-  INSERT INTO public.user_roles (user_id, role)
-  VALUES (NEW.id, 'user');
-  
-  INSERT INTO public.user_preferences (user_id)
-  VALUES (NEW.id);
   
   RETURN NEW;
 END;
 $function$;
 ```
 
-### 2. Edge Function - Inverter ordem das operações
-
-Mover a inserção em `pending_invites` para **ANTES** de `generateLink`:
-
-**Arquivo**: `supabase/functions/invite-user/index.ts`
-
-**De** (ordem atual):
-```typescript
-// 1. generateLink (cria usuário)
-const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({...});
-
-// 2. Insert pending_invite (DEPOIS)
-await supabaseAdmin.from("pending_invites").insert({...});
-```
-
-**Para** (nova ordem):
-```typescript
-// 1. Insert pending_invite PRIMEIRO
-await supabaseAdmin.from("pending_invites").insert({...});
-
-// 2. generateLink (cria usuário - trigger vai verificar pending_invite)
-const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({...});
-```
-
-### 3. Limpeza de Dados
-
-Deletar profiles de usuários que ainda não confirmaram (têm pending_invite correspondente):
+**Opção B: Usar a constraint correta**
+Alterar para `ON CONFLICT (user_id, role)` na tabela `user_roles`.
 
 ```sql
--- Identificar e limpar usuários convidados que tiveram profile criado incorretamente
-DELETE FROM public.profiles 
-WHERE email IN (SELECT email FROM public.pending_invites);
-
-DELETE FROM public.user_roles 
-WHERE user_id IN (
-  SELECT p.user_id FROM public.profiles p 
-  WHERE p.email IN (SELECT email FROM public.pending_invites)
-);
-
-DELETE FROM public.user_preferences 
-WHERE user_id IN (
-  SELECT p.user_id FROM public.profiles p 
-  WHERE p.email IN (SELECT email FROM public.pending_invites)
-);
+INSERT INTO public.user_roles (user_id, role)
+VALUES (NEW.id, COALESCE(invite_role, 'user'))
+ON CONFLICT (user_id, role) DO NOTHING;
 ```
+
+### Recomendação
+
+Usar **Opção A** (remover ON CONFLICT) porque:
+1. Já existe verificação prévia de duplicação (`IF NOT EXISTS`)
+2. É mais simples e não depende de constraints específicas
+3. Se houver erro de duplicação, será detectado e logado (melhor para debugging)
 
 ## Fluxo Após Correção
 
 | Etapa | Ação | Resultado |
 |-------|------|-----------|
-| 1 | Admin envia convite | `pending_invite` criado |
-| 2 | `generateLink` cria usuário | Trigger verifica `pending_invite` → **não cria profile** |
-| 3 | Usuário clica no link e define senha | `email_confirmed_at` preenchido |
-| 4 | Trigger `handle_user_email_confirmed` | Cria profile, role, preferences e deleta `pending_invite` |
-| 5 | Usuário aparece como "Ativo" | ✅ |
+| 1 | Usuário clica no link de convite | Supabase verifica token |
+| 2 | `email_confirmed_at` é preenchido | Trigger dispara |
+| 3 | Trigger cria profile, role e preferences | ✅ Sucesso |
+| 4 | Trigger deleta `pending_invite` | Usuário vira "Ativo" |
+| 5 | Página SetPassword exibe formulário | Usuário define senha |
 
 ## Resumo das Mudanças
 
 | Arquivo | Alteração |
 |---------|-----------|
-| Nova migração SQL | Atualizar `handle_new_user` para verificar `pending_invites` em vez de `invited_at` |
-| `supabase/functions/invite-user/index.ts` | Inverter ordem: inserir `pending_invite` ANTES de `generateLink` |
-| Migração SQL | Limpar profiles criados incorretamente para usuários com pending_invite |
+| Nova migração SQL | Corrigir `handle_user_email_confirmed` removendo `ON CONFLICT` |
 
