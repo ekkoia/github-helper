@@ -1,97 +1,63 @@
 
-# Melhorar UX do Kanban - Drag & Drop e Altura das Colunas
+# Estilizar Scrollbar Horizontal do Kanban
 
-## Problemas Identificados
+## Problema
+A barra de scroll horizontal na parte inferior do Kanban está com cor cinza/branca do sistema, destoando da paleta de cores verde da aplicacao.
 
-### 1. Drag & Drop Limitado
-O evento `onDrop` está apenas no wrapper da coluna, exigindo que o usuário arraste o card até o topo da coluna para soltar.
+## Solucao
 
-### 2. Colunas sem Limite de Altura
-As colunas usam `min-h-[200px]` sem altura maxima, crescendo infinitamente e criando scroll vertical muito longo.
+Adicionar estilos customizados para a scrollbar no `src/index.css` que combinem com o tema da aplicacao.
 
-## Solucao Proposta
+### Alteracoes no src/index.css
 
-### Alteracao 1: Propagar eventos de Drop em toda a coluna
+Adicionar estilos de scrollbar customizada na secao `@layer base`:
 
-Adicionar `onDragOver` e `onDrop` no `CardContent` para que o drop funcione em qualquer lugar da coluna:
+```css
+/* Scrollbar customizada */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
 
-```typescript
-// Antes - eventos apenas no wrapper
-<div
-  key={etapa}
-  onDragOver={(e) => e.preventDefault()}
-  onDrop={() => handleDrop(etapa)}
->
-  <Card>
-    <CardHeader>...</CardHeader>
-    <CardContent>...</CardContent>
-  </Card>
-</div>
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
 
-// Depois - eventos em toda a area clicavel
-<div key={etapa}>
-  <Card>
-    <CardHeader 
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={() => handleDrop(etapa)}
-    >...</CardHeader>
-    <CardContent 
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={() => handleDrop(etapa)}
-    >...</CardContent>
-  </Card>
-</div>
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--accent));
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
+}
 ```
 
-### Alteracao 2: Limitar altura das colunas com ScrollArea
+### Cores Aplicadas
 
-Usar o componente `ScrollArea` para criar scroll interno nas colunas:
-
-```typescript
-import { ScrollArea } from "@/components/ui/scroll-area";
-
-// Estrutura da coluna com altura limitada
-<Card className="flex flex-col h-[calc(100vh-280px)]">
-  <CardHeader>...</CardHeader>
-  <ScrollArea className="flex-1">
-    <div className="space-y-3 p-3">
-      {/* Cards dos leads */}
-    </div>
-  </ScrollArea>
-</Card>
-```
-
-## Diagrama da Nova Estrutura
-
-```text
-+------------------+
-| Header (etapa)   | <- Drop zone
-+------------------+
-| ScrollArea       |
-| +-------------+  |
-| | Lead Card 1 |  | <- Drop zone
-| +-------------+  |
-| +-------------+  |
-| | Lead Card 2 |  | <- Drop zone
-| +-------------+  |
-| | ...         |  |
-| +-------------+  |
-| | Lead Card N |  |
-| +-------------+  |
-+------------------+
-  Scroll vertical
-  interno limitado
-```
+| Elemento | Cor Light Mode | Cor Dark Mode |
+|----------|---------------|---------------|
+| Track (fundo) | Cinza claro (muted) | Verde escuro (muted) |
+| Thumb (barra) | Verde escuro (primary) | Verde escuro (primary) |
+| Thumb hover | Verde vibrante (accent) | Verde vibrante (accent) |
 
 ## Arquivo a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/pages/Kanban.tsx` | Adicionar ScrollArea, limitar altura, propagar eventos de drop |
+| `src/index.css` | Adicionar estilos customizados para scrollbar |
 
-## Beneficios
+## Resultado Esperado
 
-- **Drop em qualquer lugar**: Usuario pode soltar o card em qualquer ponto da coluna
-- **Altura controlada**: Colunas nao crescem infinitamente, mantendo visualizacao das etapas do funil
-- **Scroll suave**: ScrollArea do Radix proporciona scroll nativo e responsivo
-- **Melhor UX mobile**: Colunas com altura fixa facilitam navegacao em dispositivos moveis
+A scrollbar horizontal do Kanban ficara com:
+- Fundo em tom de verde/cinza harmonioso com o tema
+- Barra (thumb) em verde escuro (#254239)
+- Efeito hover em verde vibrante (#5bcc00)
+- Funciona tanto no modo claro quanto escuro
