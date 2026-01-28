@@ -1,70 +1,39 @@
 
-# Substituir Logo da Pagina de Autenticacao
+# Corrigir Badge do Ticket Medio no Dark Mode
 
-## Objetivo
+## Problema
 
-Trocar a logo atual (Imaculada) pela logo Feeagro enviada, com container circular mantendo o fundo na cor primaria atual (verde escuro).
+O card "Ticket Medio" usa a cor `status-ganho` (verde escuro #254239) para o badge do icone. A classe `bg-status-ganho/10` aplica apenas 10% de opacidade, que no dark mode praticamente desaparece porque:
 
-## Alteracoes Necessarias
+- Cor do badge: verde escuro com 10% opacidade
+- Fundo do card no dark mode: verde escuro (#254239 com variacao)
+- Resultado: contraste zero, badge invisivel
 
-### 1. Salvar a nova imagem no projeto
+## Solucao
 
-Arquivo: `src/assets/logo-feeagro-auth.png`
+Aumentar a opacidade do badge especificamente no dark mode usando classes condicionais do Tailwind, ou usar uma opacidade maior que funcione em ambos os modos.
 
-### 2. Modificar `src/pages/Auth.tsx`
+## Alteracao no src/components/DashboardMetrics.tsx
 
-**Alterar o import (linha 10):**
+**Linha 82 - Alterar:**
 ```typescript
 // Antes
-import logoImaculada from "@/assets/logo-imaculada.png";
+bgColor: "bg-status-ganho/10"
 
-// Depois
-import logoFeeagro from "@/assets/logo-feeagro-auth.png";
+// Depois - opacidade maior para garantir visibilidade
+bgColor: "bg-status-ganho/20 dark:bg-status-ganho/30"
 ```
 
-**Alterar o elemento da logo (linhas 99-107):**
+Isso aplica:
+- Light mode: 20% opacidade (mais visivel que os 10% atuais)
+- Dark mode: 30% opacidade (destaque adequado no fundo escuro)
 
-```typescript
-// Antes - Container horizontal
-<div className="flex justify-center mb-6">
-  <div className="bg-primary rounded-full p-6 shadow-elevation-2">
-    <img 
-      src={logoImaculada} 
-      alt="Imaculada Agronegócios" 
-      className="h-16 w-auto object-contain"
-    />
-  </div>
-</div>
+## Arquivo a Modificar
 
-// Depois - Circulo proporcional com fundo verde primario
-<div className="flex justify-center mb-6">
-  <div className="w-28 h-28 bg-primary rounded-full shadow-elevation-2 flex items-center justify-center p-4">
-    <img 
-      src={logoFeeagro} 
-      alt="Feeagro" 
-      className="w-full h-full object-contain"
-    />
-  </div>
-</div>
-```
+| Arquivo | Linha | Alteracao |
+|---------|-------|-----------|
+| `src/components/DashboardMetrics.tsx` | 82 | Aumentar opacidade do badge com variante dark |
 
-### Detalhes das Classes CSS
+## Resultado
 
-| Classe | Efeito |
-|--------|--------|
-| `w-28 h-28` | Largura e altura fixas de 112px (circulo perfeito) |
-| `bg-primary` | Fundo verde escuro (#254239) - cor atual |
-| `rounded-full` | Borda completamente arredondada |
-| `flex items-center justify-center` | Centraliza a imagem dentro do circulo |
-| `p-4` | Padding interno para a logo nao encostar nas bordas |
-
-## Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/assets/logo-feeagro-auth.png` | Nova imagem (copiar do upload) |
-| `src/pages/Auth.tsx` | Trocar import e ajustar elemento da logo |
-
-## Resultado Visual
-
-Container circular de 112px com fundo verde escuro (cor primaria atual), contendo a logo Feeagro centralizada.
+O badge do icone DollarSign no card "Ticket Medio" tera contraste adequado tanto no light quanto no dark mode.
