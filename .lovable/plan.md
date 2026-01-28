@@ -1,33 +1,16 @@
 
 
-# Substituir Logo da Sidebar
+# Aumentar Tamanho da Logo na Sidebar
 
-## Alterações
+## Problema
+A logo atual está com `h-12` (48px de altura), ficando pequena no header da sidebar.
 
-### 1. Copiar Nova Logo
-Copiar o arquivo enviado para `src/assets/logo-feeagro.png`
+## Solução
 
-### 2. Atualizar AppSidebar.tsx
+Alterar a classe de altura da logo no `src/components/AppSidebar.tsx`:
 
-Alterar o import e uso da logo:
-
+**Antes:**
 ```typescript
-// Antes
-import logoImaculada from "@/assets/logo-imaculada.png";
-
-// Depois
-import logoFeeagro from "@/assets/logo-feeagro.png";
-```
-
-```typescript
-// Antes
-<img 
-  src={logoImaculada} 
-  alt="Imaculada Agronegócios" 
-  className="h-12 w-auto object-contain"
-/>
-
-// Depois
 <img 
   src={logoFeeagro} 
   alt="Feeagro" 
@@ -35,10 +18,38 @@ import logoFeeagro from "@/assets/logo-feeagro.png";
 />
 ```
 
-## Arquivos Modificados
+**Depois:**
+```typescript
+<img 
+  src={logoFeeagro} 
+  alt="Feeagro" 
+  className="h-20 w-auto object-contain"
+/>
+```
+
+Também aumentar o padding do header para dar mais espaço:
+
+**Antes:**
+```typescript
+<SidebarHeader className="bg-primary p-5 flex items-center justify-center">
+```
+
+**Depois:**
+```typescript
+<SidebarHeader className="bg-primary p-6 flex items-center justify-center">
+```
+
+## Comparativo de Tamanhos
+
+| Classe | Altura |
+|--------|--------|
+| h-12 (atual) | 48px |
+| h-16 | 64px |
+| h-20 (proposto) | 80px |
+
+## Arquivo a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/assets/logo-feeagro.png` | Nova logo (copiada) |
-| `src/components/AppSidebar.tsx` | Atualizar import e alt text |
+| `src/components/AppSidebar.tsx` | Aumentar `h-12` para `h-20` e `p-5` para `p-6` |
 
