@@ -9,6 +9,7 @@ import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fn
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
+import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 
 import { 
   LineChart, 
@@ -32,20 +33,7 @@ interface DashboardChartsProps {
   leads: any[];
 }
 
-const ETAPA_COLORS: Record<string, string> = {
-  "Novo Lead": "hsl(211, 70%, 58%)",
-  "Em atendimento IA": "hsl(85, 100%, 40%)",
-  "Atendimento Humano": "hsl(43, 98%, 54%)",
-  "Reunião Agendada": "hsl(24, 100%, 63%)",
-  "Proposta Enviada": "hsl(276, 47%, 55%)",
-  "Ganho": "hsl(156, 26%, 17%)",
-  "Perdido": "hsl(4, 74%, 57%)",
-  "Sem interesse": "hsl(184, 6%, 59%)",
-  "Ghost": "hsl(200, 6%, 54%)",
-  "Nutrir": "hsl(204, 70%, 53%)"
-};
-
-// PERFIL_COLORS removido - não utilizado no contexto atual
+// ETAPA_COLORS removido - agora usa cores dinâmicas do banco via useFunilEtapas
 
 const INVESTIMENTO_COLORS = [
   "hsl(85, 100%, 40%)",   // Verde vibrante
@@ -55,6 +43,7 @@ const INVESTIMENTO_COLORS = [
 ];
 
 export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
+  const { coresMap } = useFunilEtapas();
   const [period, setPeriod] = useState("30");
   const [customDateFrom, setCustomDateFrom] = useState<Date>();
   const [customDateTo, setCustomDateTo] = useState<Date>();
@@ -388,7 +377,7 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
                 />
                 <Bar dataKey="count" name="Quantidade">
                   {funnelData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={ETAPA_COLORS[entry.etapa] || "hsl(204, 12%, 90%)"} />
+                    <Cell key={`cell-${index}`} fill={coresMap[entry.etapa] || "#6b7280"} />
                   ))}
                 </Bar>
               </BarChart>
