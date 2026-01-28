@@ -8,6 +8,7 @@ import { CalendarIcon } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { getTopoDaFaixa } from "@/lib/investmentUtils";
 
 import { 
   LineChart, 
@@ -149,7 +150,7 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
       .sort((a, b) => b.count - a.count);
   }, [filteredLeads]);
 
-  // Dados para Total Investido por Faixa
+  // Dados para Total Investido por Faixa (usando topo da faixa)
   const totalPorFaixaData = useMemo(() => {
     const faixas: Record<string, number> = {
       "até R$10 mil": 0,
@@ -159,12 +160,13 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
     };
     
     filteredLeads.forEach(lead => {
-      const valor = parseFloat(lead.valor_produto) || 0;
+      const valorOriginal = parseFloat(lead.valor_produto) || 0;
+      const valorTopo = getTopoDaFaixa(valorOriginal);
       
-      if (valor <= 10000) faixas["até R$10 mil"] += valor;
-      else if (valor <= 50000) faixas["de R$10 mil a R$50 mil"] += valor;
-      else if (valor <= 100000) faixas["de R$50 mil a R$100 mil"] += valor;
-      else faixas["acima de R$100 mil"] += valor;
+      if (valorOriginal <= 10000) faixas["até R$10 mil"] += valorTopo;
+      else if (valorOriginal <= 50000) faixas["de R$10 mil a R$50 mil"] += valorTopo;
+      else if (valorOriginal <= 100000) faixas["de R$50 mil a R$100 mil"] += valorTopo;
+      else faixas["acima de R$100 mil"] += valorTopo;
     });
 
     return Object.entries(faixas)
