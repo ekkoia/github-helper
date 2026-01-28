@@ -188,6 +188,7 @@ export type Database = {
           etapa_funil: string | null
           id: string
           intencao: string | null
+          investimento_real: number | null
           localizacao_embarque: string | null
           meta_lead_id: number | null
           nome_completo: string
@@ -217,6 +218,7 @@ export type Database = {
           etapa_funil?: string | null
           id?: string
           intencao?: string | null
+          investimento_real?: number | null
           localizacao_embarque?: string | null
           meta_lead_id?: number | null
           nome_completo: string
@@ -246,6 +248,7 @@ export type Database = {
           etapa_funil?: string | null
           id?: string
           intencao?: string | null
+          investimento_real?: number | null
           localizacao_embarque?: string | null
           meta_lead_id?: number | null
           nome_completo?: string

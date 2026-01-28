@@ -115,6 +115,12 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 </p>
               </div>
               <div>
+                <p className="text-sm text-muted-foreground">Investimento Real</p>
+                <p className="font-medium">
+                  {lead.investimento_real ? formatCurrency(lead.investimento_real) : "-"}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm text-muted-foreground">Origem</p>
                 <Badge variant="outline">
                   {ORIGEM_LABELS[lead.origem] || lead.origem || "-"}
