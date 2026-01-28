@@ -1,61 +1,64 @@
 
-# Corrigir Cores das Colunas do Kanban em Produção
+# Sincronizar Cores do Funil de Conversao com o Banco de Dados
 
 ## Problema Identificado
 
-O Tailwind CSS usa um compilador JIT (Just-In-Time) que escaneia o código fonte em tempo de build para gerar apenas as classes CSS necessárias. Quando construímos classes dinamicamente como `bg-[#6366f1]`, o compilador não consegue detectá-las porque elas são criadas em tempo de execução.
-
-**Por que funciona no Lovable mas não em produção?**
-- No Lovable (desenvolvimento), o hot-reload pode processar classes de forma diferente
-- Em produção, o CSS é pré-compilado e classes dinâmicas não são incluídas
-
-## Solução
-
-Usar **inline styles** em vez de classes Tailwind dinâmicas para aplicar as cores HEX do banco de dados.
-
-## Alterações Necessárias
-
-### 1. Modificar `src/hooks/useFunilEtapas.ts`
-
-Retornar o valor HEX bruto em vez de tentar convertê-lo para classe Tailwind:
+O grafico "Funil de Conversao" no Dashboard usa um mapa estatico de cores (`ETAPA_COLORS`) definido diretamente no codigo:
 
 ```typescript
-// Mapa de cores: nome da etapa -> cor (hex ou classe)
-const coresMap: Record<string, string> = {};
-query.data?.forEach((etapa) => {
-  // Retorna a cor HEX diretamente para uso com inline style
-  coresMap[etapa.nome] = etapa.cor || "#6b7280"; // gray-500 como fallback
-});
+const ETAPA_COLORS: Record<string, string> = {
+  "Novo Lead": "hsl(211, 70%, 58%)",
+  "Em atendimento IA": "hsl(85, 100%, 40%)",
+  // ... cores fixas
+};
 ```
 
-### 2. Modificar `src/pages/Kanban.tsx`
+Isso causa dois problemas:
+1. Etapas novas criadas em Configuracoes nao tem cor mapeada (ficam com fallback)
+2. Alteracoes de cor feitas no banco nao refletem no grafico
 
-Usar inline style no CardHeader em vez de classe CSS:
+## Solucao
+
+Usar o hook `useFunilEtapas` que ja existe e retorna as cores HEX diretamente do banco de dados.
+
+## Alteracoes no src/components/DashboardCharts.tsx
+
+### 1. Importar o hook
+
+```typescript
+import { useFunilEtapas } from "@/hooks/useFunilEtapas";
+```
+
+### 2. Remover o mapa estatico ETAPA_COLORS
+
+Deletar as linhas 35-46 com o objeto `ETAPA_COLORS`.
+
+### 3. Usar o hook no componente
+
+```typescript
+export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
+  const { coresMap } = useFunilEtapas();
+  // ... resto do codigo
+```
+
+### 4. Atualizar o grafico de barras
 
 **Antes:**
 ```typescript
-<CardHeader 
-  className={`${corClasse} text-white rounded-t-xl`}
+<Cell key={`cell-${index}`} fill={ETAPA_COLORS[entry.etapa] || "hsl(204, 12%, 90%)"} />
 ```
 
 **Depois:**
 ```typescript
-<CardHeader 
-  className="text-white rounded-t-xl"
-  style={{ backgroundColor: coresMap[etapa] || "#6b7280" }}
+<Cell key={`cell-${index}`} fill={coresMap[entry.etapa] || "#6b7280"} />
 ```
 
-## Arquivos a Modificar
+## Arquivo a Modificar
 
-| Arquivo | Alteração |
+| Arquivo | Alteracao |
 |---------|-----------|
-| `src/hooks/useFunilEtapas.ts` | Retornar cores HEX brutas |
-| `src/pages/Kanban.tsx` | Usar inline style para backgroundColor |
+| `src/components/DashboardCharts.tsx` | Usar cores dinamicas do banco via useFunilEtapas |
 
 ## Resultado Esperado
 
-As cores das colunas do Kanban funcionarão corretamente tanto no ambiente de desenvolvimento (Lovable) quanto em produção, pois inline styles não dependem do compilador Tailwind.
-
-## Nota Técnica
-
-Esta é uma limitação conhecida do Tailwind - classes CSS não podem ser construídas dinamicamente. A documentação oficial recomenda usar inline styles ou safelist quando cores dinâmicas são necessárias.
+As cores das barras no grafico "Funil de Conversao" serao identicas as cores das colunas do Kanban, ambas vindas da tabela `funil_etapas` do banco de dados.
