@@ -6,6 +6,8 @@ import { DashboardCharts } from "@/components/DashboardCharts";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getTopoDaFaixa } from "@/lib/investmentUtils";
+
 const DashboardPage = () => {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +48,7 @@ const DashboardPage = () => {
 
   const valorTotalInvestido = leads.reduce((sum, lead) => {
     const valor = parseFloat(lead.valor_produto) || 0;
-    return sum + valor;
+    return sum + getTopoDaFaixa(valor);
   }, 0);
 
   if (isLoading) {

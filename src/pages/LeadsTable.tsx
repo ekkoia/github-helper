@@ -38,6 +38,7 @@ import { Badge } from "@/components/ui/badge";
 import { exportToCSV } from "@/lib/exportUtils";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
+import { getTopoDaFaixa } from "@/lib/investmentUtils";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -232,7 +233,8 @@ const LeadsTable = () => {
     ).length;
 
     const valorTotal = leads.reduce((acc, lead) => {
-      return acc + (parseFloat(lead.valor_produto) || 0);
+      const valor = parseFloat(lead.valor_produto) || 0;
+      return acc + getTopoDaFaixa(valor);
     }, 0);
 
     const taxaConversao = leads.length > 0 
@@ -387,7 +389,7 @@ const LeadsTable = () => {
                               ? new Intl.NumberFormat('pt-BR', { 
                                   style: 'currency', 
                                   currency: 'BRL' 
-                                }).format(lead.valor_produto)
+                                }).format(getTopoDaFaixa(parseFloat(lead.valor_produto)))
                               : "-"
                             }
                           </TableCell>
