@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { HeaderGreeting } from "./HeaderGreeting";
+import { NotificationsPopover } from "./NotificationsPopover";
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -14,7 +15,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <div className="flex items-center gap-2">
                 <SidebarTrigger />
               </div>
-              <HeaderGreeting />
+              <div className="flex items-center gap-2">
+                <NotificationsPopover />
+                <HeaderGreeting />
+              </div>
             </div>
           </header>
 

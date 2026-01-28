@@ -497,6 +497,7 @@ const LeadsTable = () => {
             setSelectedLead(null);
           }}
           onEdit={() => handleEdit(selectedLead)}
+          onLeadUpdated={fetchLeads}
         />
 
         {/* Dialog de Confirmação de Exclusão */}
