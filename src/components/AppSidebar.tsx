@@ -3,7 +3,7 @@ import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
-import logoImaculada from "@/assets/logo-imaculada.png";
+import logoFeeagro from "@/assets/logo-feeagro.png";
 import { toast } from "sonner";
 import {
   Sidebar,
@@ -77,8 +77,8 @@ export function AppSidebar() {
     <Sidebar className="border-r border-border">
       <SidebarHeader className="bg-primary p-5 flex items-center justify-center">
         <img 
-          src={logoImaculada} 
-          alt="Imaculada Agronegócios" 
+          src={logoFeeagro} 
+          alt="Feeagro" 
           className="h-12 w-auto object-contain"
         />
       </SidebarHeader>
