@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Mail, Phone, User, Package, DollarSign } from "lucide-react";
@@ -252,14 +253,16 @@ const Kanban = () => {
             return (
               <div
                 key={etapa}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(etapa)}
                 className="min-w-[280px] md:min-w-[320px] flex-shrink-0 snap-start"
                 role="region"
                 aria-label={`Coluna ${etapa}`}
               >
-                <Card className="h-full">
-                  <CardHeader className={`${corClasse} text-white`}>
+                <Card className="flex flex-col h-[calc(100vh-280px)]">
+                  <CardHeader 
+                    className={`${corClasse} text-white rounded-t-xl`}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDrop(etapa)}
+                  >
                     <CardTitle className="flex items-center justify-between text-sm font-semibold">
                       <span>{etapa}</span>
                       <Badge variant="secondary" className="bg-white/20 text-white font-medium">
@@ -267,76 +270,82 @@ const Kanban = () => {
                       </Badge>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3 p-3 min-h-[200px]">
-                    {leadsNaEtapa.length === 0 ? (
-                      <p className="text-center text-sm text-muted-foreground py-8">
-                        Nenhum lead nesta etapa
-                      </p>
-                    ) : (
-                      leadsNaEtapa.map((lead) => (
-                        <Card
-                          key={lead.id}
-                          draggable
-                          onDragStart={() => handleDragStart(lead)}
-                          onDragEnd={handleDragEnd}
-                          onClick={() => handleCardClick(lead)}
-                          className="cursor-move hover:shadow-elevation-3 transition-all duration-300 hover:scale-[1.02] touch-manipulation active:scale-95"
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Lead ${lead.nome_completo}`}
-                        >
-                          <CardContent className="p-4 space-y-2">
-                            <h4 className="font-semibold text-foreground text-sm">{lead.nome_completo}</h4>
-                            <div className="space-y-1.5 text-xs text-muted-foreground">
-                              <div className="flex items-center gap-2">
-                                <User className="h-3.5 w-3.5" aria-hidden="true" />
-                                <span>{lead.perfil}</span>
-                              </div>
-                              {(lead.cidade || lead.uf) && (
+                  <ScrollArea 
+                    className="flex-1"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDrop(etapa)}
+                  >
+                    <div className="space-y-3 p-3 min-h-[100px]">
+                      {leadsNaEtapa.length === 0 ? (
+                        <p className="text-center text-sm text-muted-foreground py-8">
+                          Nenhum lead nesta etapa
+                        </p>
+                      ) : (
+                        leadsNaEtapa.map((lead) => (
+                          <Card
+                            key={lead.id}
+                            draggable
+                            onDragStart={() => handleDragStart(lead)}
+                            onDragEnd={handleDragEnd}
+                            onClick={() => handleCardClick(lead)}
+                            className="cursor-move hover:shadow-elevation-3 transition-all duration-300 hover:scale-[1.02] touch-manipulation active:scale-95"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Lead ${lead.nome_completo}`}
+                          >
+                            <CardContent className="p-4 space-y-2">
+                              <h4 className="font-semibold text-foreground text-sm">{lead.nome_completo}</h4>
+                              <div className="space-y-1.5 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-2">
-                                  <Mail className="h-3.5 w-3.5" aria-hidden="true" />
-                                  <span>
-                                    {lead.cidade && lead.uf 
-                                      ? `${lead.cidade}/${lead.uf}`
-                                      : lead.cidade || lead.uf
-                                    }
-                                  </span>
+                                  <User className="h-3.5 w-3.5" aria-hidden="true" />
+                                  <span>{lead.perfil}</span>
                                 </div>
-                              )}
-                              {lead.telefone && (
-                                <div className="flex items-center gap-2">
-                                  <Phone className="h-3.5 w-3.5" aria-hidden="true" />
-                                  <span>{lead.telefone}</span>
-                                </div>
-                              )}
-                              {lead.tipo_grao && (
-                                <div className="flex items-center gap-2">
-                                  <Package className="h-3.5 w-3.5" aria-hidden="true" />
-                                  <div>
-                                    <span className="block">{lead.tipo_grao} - {lead.volume || "Volume não informado"}</span>
-                                    {lead.valor_produto && (
-                                      <span className="text-xs flex items-center gap-1 mt-0.5">
-                                        <DollarSign className="h-3 w-3" aria-hidden="true" />
-                                        {new Intl.NumberFormat('pt-BR', { 
-                                          style: 'currency', 
-                                          currency: 'BRL' 
-                                        }).format(lead.valor_produto)}/sc
-                                      </span>
-                                    )}
+                                {(lead.cidade || lead.uf) && (
+                                  <div className="flex items-center gap-2">
+                                    <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                                    <span>
+                                      {lead.cidade && lead.uf 
+                                        ? `${lead.cidade}/${lead.uf}`
+                                        : lead.cidade || lead.uf
+                                      }
+                                    </span>
                                   </div>
-                                </div>
+                                )}
+                                {lead.telefone && (
+                                  <div className="flex items-center gap-2">
+                                    <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                                    <span>{lead.telefone}</span>
+                                  </div>
+                                )}
+                                {lead.tipo_grao && (
+                                  <div className="flex items-center gap-2">
+                                    <Package className="h-3.5 w-3.5" aria-hidden="true" />
+                                    <div>
+                                      <span className="block">{lead.tipo_grao} - {lead.volume || "Volume não informado"}</span>
+                                      {lead.valor_produto && (
+                                        <span className="text-xs flex items-center gap-1 mt-0.5">
+                                          <DollarSign className="h-3 w-3" aria-hidden="true" />
+                                          {new Intl.NumberFormat('pt-BR', { 
+                                            style: 'currency', 
+                                            currency: 'BRL' 
+                                          }).format(lead.valor_produto)}/sc
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {lead.intencao && (
+                                <Badge variant="outline" className="text-xs mt-2">
+                                  {lead.intencao}
+                                </Badge>
                               )}
-                            </div>
-                            {lead.intencao && (
-                              <Badge variant="outline" className="text-xs mt-2">
-                                {lead.intencao}
-                              </Badge>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))
-                    )}
-                  </CardContent>
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
                 </Card>
               </div>
             );
