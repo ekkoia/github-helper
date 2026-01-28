@@ -50,18 +50,11 @@ export function useFunilEtapas() {
   // Lista apenas os nomes das etapas
   const etapasNomes = query.data?.map((etapa) => etapa.nome) || [];
 
-  // Mapa de cores: nome da etapa -> classe de cor
+  // Mapa de cores: nome da etapa -> cor HEX para inline style
   const coresMap: Record<string, string> = {};
   query.data?.forEach((etapa) => {
-    // Prioriza a cor do banco, senão usa a cor padrão
-    if (etapa.cor) {
-      // Se a cor do banco for um hex ou classe válida
-      coresMap[etapa.nome] = etapa.cor.startsWith("#") 
-        ? `bg-[${etapa.cor}]` 
-        : etapa.cor;
-    } else {
-      coresMap[etapa.nome] = CORES_PADRAO[etapa.nome] || "bg-gray-500";
-    }
+    // Retorna a cor HEX diretamente para uso com inline style
+    coresMap[etapa.nome] = etapa.cor || "#6b7280"; // gray-500 como fallback
   });
 
   return {

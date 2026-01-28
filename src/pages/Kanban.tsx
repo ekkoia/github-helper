@@ -249,7 +249,6 @@ const Kanban = () => {
           <div className="flex gap-4 items-start">
           {etapasNomes.map((etapa) => {
             const leadsNaEtapa = getLeadsByEtapa(etapa);
-            const corClasse = coresMap[etapa] || "bg-gray-500";
             return (
               <div
                 key={etapa}
@@ -259,7 +258,8 @@ const Kanban = () => {
               >
                 <Card className="flex flex-col h-[calc(100vh-280px)]">
                   <CardHeader 
-                    className={`${corClasse} text-white rounded-t-xl`}
+                    className="text-white rounded-t-xl"
+                    style={{ backgroundColor: coresMap[etapa] || "#6b7280" }}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => handleDrop(etapa)}
                   >
