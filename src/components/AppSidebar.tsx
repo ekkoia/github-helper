@@ -75,11 +75,11 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="border-r border-border">
-      <SidebarHeader className="bg-primary p-6 flex items-center justify-center">
+      <SidebarHeader className="bg-primary h-16 flex items-center justify-center border-b border-border">
         <img 
           src={logoFeeagro} 
           alt="Feeagro" 
-          className="h-20 w-auto object-contain"
+          className="h-10 w-auto object-contain"
         />
       </SidebarHeader>
 
