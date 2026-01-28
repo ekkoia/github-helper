@@ -61,8 +61,9 @@ const DashboardPage = () => {
 
   return (
     <Layout>
-      <div className="space-y-8">
-        <DashboardHero
+      <div className="w-full max-w-[1400px] mx-auto px-4">
+        <div className="space-y-8">
+          <DashboardHero
           totalLeads={totalLeads}
           leadsGanhos={leadsGanhos}
           taxaConversao={taxaConversao}
@@ -72,6 +73,7 @@ const DashboardPage = () => {
         <DashboardCharts leads={leads} />
         
         <DashboardMetrics leads={leads} />
+        </div>
       </div>
     </Layout>
   );
