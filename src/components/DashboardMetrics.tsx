@@ -79,7 +79,7 @@ export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
       subtitle: "Investimento médio por lead",
       icon: DollarSign,
       color: "text-status-ganho",
-      bgColor: "bg-status-ganho/10"
+      bgColor: "bg-status-ganho/20 dark:bg-status-ganho/30"
     },
     {
       title: "Lead Mais Valioso",
