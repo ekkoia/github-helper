@@ -298,7 +298,7 @@ const Kanban = () => {
                               <div className="space-y-1.5 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                   <User className="h-3.5 w-3.5" aria-hidden="true" />
-                                  <span>{lead.perfil}</span>
+                                  <span>Investidor</span>
                                 </div>
                                 {(lead.cidade || lead.uf) && (
                                   <div className="flex items-center gap-2">
