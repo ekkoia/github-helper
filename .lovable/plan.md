@@ -1,123 +1,107 @@
 
-# Usar Topo da Faixa de Investimento
+
+# Adicionar Campo "Investimento Real" ao Lead
 
 ## Entendimento
 
-Os leads possuem valores fixos salvos (R$ 10.000, R$ 30.000, R$ 75.000, R$ 100.000), mas você quer que ao exibir e somar, sempre considere o **teto da faixa** correspondente:
+O campo "Valor Investido" vem do formulário de captura (faixa de investimento selecionada pelo lead) e deve permanecer **somente leitura**. O novo campo "Investimento Real" será preenchido pelo time após a reunião para registrar o valor real que o lead pretende investir.
 
-| Valor Salvo | Faixa | Exibir/Somar |
-|-------------|-------|--------------|
-| R$ 10.000 | até R$10 mil | R$ 10.000 |
-| R$ 30.000 | de R$10 mil a R$50 mil | R$ 50.000 |
-| R$ 75.000 | de R$50 mil a R$100 mil | R$ 100.000 |
-| R$ 100.000 | acima de R$100 mil | R$ 100.000 (mantém) |
+## Alterações Necessárias
 
-## Alterações
+### 1. Migração do Banco de Dados
 
-### 1. Criar Função Utilitária
+Criar nova coluna `investimento_real` na tabela `leads`:
 
-Criar uma função reutilizável para converter valor salvo → topo da faixa:
-
-```typescript
-// src/lib/investmentUtils.ts
-export const getTopoDaFaixa = (valor: number): number => {
-  if (valor <= 10000) return 10000;
-  if (valor <= 50000) return 50000;
-  if (valor <= 100000) return 100000;
-  return valor; // Acima de 100k, mantém o valor real
-};
+```sql
+ALTER TABLE leads ADD COLUMN investimento_real numeric;
 ```
 
-### 2. Dashboard Page (`src/pages/Dashboard.tsx`)
+### 2. LeadDetailsModal (`src/components/LeadDetailsModal.tsx`)
 
-Atualizar cálculo do Total Investido para usar o topo da faixa:
+Adicionar o novo campo ao lado do "Valor Investido" na seção Negociação:
 
-```typescript
-import { getTopoDaFaixa } from "@/lib/investmentUtils";
-
-const valorTotalInvestido = leads.reduce((sum, lead) => {
-  const valor = parseFloat(lead.valor_produto) || 0;
-  return sum + getTopoDaFaixa(valor);
-}, 0);
+```text
++---------------------------+---------------------------+
+| Qtd Cotas                 | Valor Investido           |
+| -                         | R$ 10.000,00              |
++---------------------------+---------------------------+
+| Investimento Real         | Etapa do Funil            |
+| R$ 15.000,00 (ou "-")     | Novo Lead                 |
++---------------------------+---------------------------+
+| Origem                    |                           |
+| meta_form                 |                           |
++---------------------------+---------------------------+
 ```
 
-### 3. LeadsTable Page (`src/pages/LeadsTable.tsx`)
+### 3. LeadForm (`src/components/LeadForm.tsx`)
 
-**Card KPI - Total Investido:**
-```typescript
-import { getTopoDaFaixa } from "@/lib/investmentUtils";
-
-const valorTotal = leads.reduce((acc, lead) => {
-  const valor = parseFloat(lead.valor_produto) || 0;
-  return acc + getTopoDaFaixa(valor);
-}, 0);
-```
-
-**Coluna Valor Investido na Tabela:**
-```typescript
-<TableCell>
-  {lead.valor_produto 
-    ? new Intl.NumberFormat('pt-BR', { 
-        style: 'currency', 
-        currency: 'BRL' 
-      }).format(getTopoDaFaixa(parseFloat(lead.valor_produto)))
-    : "-"
-  }
-</TableCell>
-```
-
-### 4. DashboardCharts (`src/components/DashboardCharts.tsx`)
-
-Atualizar o gráfico "Total Investido por Faixa" para usar o topo da faixa:
+- **Valor Investido**: Campo `disabled` quando `initialData` existe (modo edição)
+- **Investimento Real**: Novo campo editável (apenas no modo edição, opcional no cadastro)
 
 ```typescript
-import { getTopoDaFaixa } from "@/lib/investmentUtils";
+{/* Valor Investido - bloqueado na edição */}
+<Input 
+  id="valor_produto" 
+  type="number" 
+  disabled={!!initialData}
+  className={initialData ? "bg-muted cursor-not-allowed" : ""}
+  ...
+/>
 
-const totalPorFaixaData = useMemo(() => {
-  const faixas: Record<string, number> = {
-    "até R$10 mil": 0,
-    "de R$10 mil a R$50 mil": 0,
-    "de R$50 mil a R$100 mil": 0,
-    "acima de R$100 mil": 0
-  };
-  
-  filteredLeads.forEach(lead => {
-    const valorOriginal = parseFloat(lead.valor_produto) || 0;
-    const valorTopo = getTopoDaFaixa(valorOriginal);
-    
-    if (valorOriginal <= 10000) faixas["até R$10 mil"] += valorTopo;
-    else if (valorOriginal <= 50000) faixas["de R$10 mil a R$50 mil"] += valorTopo;
-    else if (valorOriginal <= 100000) faixas["de R$50 mil a R$100 mil"] += valorTopo;
-    else faixas["acima de R$100 mil"] += valorTopo;
-  });
-
-  return Object.entries(faixas)
-    .filter(([_, value]) => value > 0)
-    .map(([name, value]) => ({ name, value }));
-}, [filteredLeads]);
+{/* Investimento Real - novo campo */}
+<div>
+  <Label htmlFor="investimento_real">Investimento Real (R$)</Label>
+  <Input 
+    id="investimento_real" 
+    type="number" 
+    step="0.01"
+    placeholder="Valor após reunião"
+  />
+</div>
 ```
 
-## Exemplo de Cálculo
+### 4. Validações (`src/lib/validations.ts`)
 
-### Antes (soma dos valores reais):
-- 43 leads × R$ 10.000 = R$ 430.000
-- 21 leads × R$ 30.000 = R$ 630.000
-- 12 leads × R$ 75.000 = R$ 900.000
-- 19 leads × R$ 100.000 = R$ 1.900.000
-- **Total: R$ 3.860.000**
+Adicionar campo `investimento_real` ao schema:
 
-### Depois (soma usando topo da faixa):
-- 43 leads × R$ 10.000 = R$ 430.000
-- 21 leads × R$ 50.000 = R$ 1.050.000
-- 12 leads × R$ 100.000 = R$ 1.200.000
-- 19 leads × R$ 100.000 = R$ 1.900.000
-- **Total: R$ 4.580.000**
+```typescript
+investimento_real: z.number()
+  .positive("Valor deve ser positivo")
+  .optional()
+  .or(z.literal(undefined)),
+```
 
-## Arquivos Modificados
+## Layout Visual do Modal (Seção Negociação)
 
-| Arquivo | Alteração |
+```text
+Negociacao
++-----------------+-----------------+
+| Qtd Cotas       | Valor Investido |
+| -               | R$ 10.000,00    |
++-----------------+-----------------+
+| Investimento    | Etapa do Funil  |
+| Real            |                 |
+| R$ 15.000,00    | Novo Lead       |
++-----------------+-----------------+
+| Origem          |                 |
+| meta_form       |                 |
++-----------------+-----------------+
+```
+
+## Arquivos a Modificar
+
+| Arquivo | Alteracao |
 |---------|-----------|
-| `src/lib/investmentUtils.ts` | Criar função `getTopoDaFaixa()` |
-| `src/pages/Dashboard.tsx` | Usar `getTopoDaFaixa()` no cálculo do total |
-| `src/pages/LeadsTable.tsx` | Usar `getTopoDaFaixa()` no KPI e na coluna da tabela |
-| `src/components/DashboardCharts.tsx` | Usar `getTopoDaFaixa()` no gráfico de pizza |
+| `supabase/migrations/` | Nova migration para coluna `investimento_real` |
+| `src/components/LeadDetailsModal.tsx` | Exibir campo "Investimento Real" |
+| `src/components/LeadForm.tsx` | Adicionar campo + bloquear "Valor Investido" na edicao |
+| `src/lib/validations.ts` | Adicionar validacao do novo campo |
+
+## Comportamento Esperado
+
+| Cenario | Valor Investido | Investimento Real |
+|---------|-----------------|-------------------|
+| Criar lead | Editavel | Opcional (vazio) |
+| Editar lead | Bloqueado (readonly) | Editavel |
+| Modal detalhes | Exibe valor | Exibe valor ou "-" |
+
