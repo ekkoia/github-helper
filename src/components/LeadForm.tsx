@@ -38,6 +38,7 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
       email: initialData.email || "",
       volume: initialData.volume || "",
       valor_produto: initialData.valor_produto || undefined,
+      investimento_real: initialData.investimento_real || undefined,
       origem: initialData.origem || "",
       observacoes: initialData.observacoes || "",
     } : {}
@@ -50,7 +51,8 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
         telefone: data.telefone,
         email: data.email,
         volume: data.volume || null,
-        valor_produto: data.valor_produto || null,
+        valor_produto: initialData ? initialData.valor_produto : (data.valor_produto || null),
+        investimento_real: data.investimento_real || null,
         origem: data.origem || null,
         observacoes: data.observacoes || null,
         etapa_funil: initialData?.etapa_funil || "Novo Lead",
@@ -155,9 +157,26 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
           step="0.01" 
           {...register("valor_produto", { valueAsNumber: true })} 
           placeholder="0,00"
+          disabled={!!initialData}
+          className={initialData ? "bg-muted cursor-not-allowed" : ""}
         />
         {errors.valor_produto && (
           <p className="text-xs text-destructive mt-1">{String(errors.valor_produto.message)}</p>
+        )}
+      </div>
+
+      {/* Investimento Real */}
+      <div>
+        <Label htmlFor="investimento_real">Investimento Real (R$)</Label>
+        <Input 
+          id="investimento_real" 
+          type="number" 
+          step="0.01" 
+          {...register("investimento_real", { valueAsNumber: true })} 
+          placeholder="Valor após reunião"
+        />
+        {errors.investimento_real && (
+          <p className="text-xs text-destructive mt-1">{String(errors.investimento_real.message)}</p>
         )}
       </div>
 

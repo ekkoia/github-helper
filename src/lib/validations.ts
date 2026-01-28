@@ -22,6 +22,11 @@ export const leadSchema = z.object({
     .optional()
     .or(z.literal(undefined)),
   
+  investimento_real: z.number()
+    .positive("Valor deve ser positivo")
+    .optional()
+    .or(z.literal(undefined)),
+  
   etapa_funil: z.string().min(1, "Selecione uma etapa do funil").optional(),
   
   origem: z.string().max(100, "Origem deve ter no máximo 100 caracteres").optional(),
