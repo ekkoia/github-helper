@@ -1,107 +1,44 @@
 
 
-# Adicionar Campo "Investimento Real" ao Lead
+# Substituir Logo da Sidebar
 
-## Entendimento
+## Alterações
 
-O campo "Valor Investido" vem do formulário de captura (faixa de investimento selecionada pelo lead) e deve permanecer **somente leitura**. O novo campo "Investimento Real" será preenchido pelo time após a reunião para registrar o valor real que o lead pretende investir.
+### 1. Copiar Nova Logo
+Copiar o arquivo enviado para `src/assets/logo-feeagro.png`
 
-## Alterações Necessárias
+### 2. Atualizar AppSidebar.tsx
 
-### 1. Migração do Banco de Dados
-
-Criar nova coluna `investimento_real` na tabela `leads`:
-
-```sql
-ALTER TABLE leads ADD COLUMN investimento_real numeric;
-```
-
-### 2. LeadDetailsModal (`src/components/LeadDetailsModal.tsx`)
-
-Adicionar o novo campo ao lado do "Valor Investido" na seção Negociação:
-
-```text
-+---------------------------+---------------------------+
-| Qtd Cotas                 | Valor Investido           |
-| -                         | R$ 10.000,00              |
-+---------------------------+---------------------------+
-| Investimento Real         | Etapa do Funil            |
-| R$ 15.000,00 (ou "-")     | Novo Lead                 |
-+---------------------------+---------------------------+
-| Origem                    |                           |
-| meta_form                 |                           |
-+---------------------------+---------------------------+
-```
-
-### 3. LeadForm (`src/components/LeadForm.tsx`)
-
-- **Valor Investido**: Campo `disabled` quando `initialData` existe (modo edição)
-- **Investimento Real**: Novo campo editável (apenas no modo edição, opcional no cadastro)
+Alterar o import e uso da logo:
 
 ```typescript
-{/* Valor Investido - bloqueado na edição */}
-<Input 
-  id="valor_produto" 
-  type="number" 
-  disabled={!!initialData}
-  className={initialData ? "bg-muted cursor-not-allowed" : ""}
-  ...
+// Antes
+import logoImaculada from "@/assets/logo-imaculada.png";
+
+// Depois
+import logoFeeagro from "@/assets/logo-feeagro.png";
+```
+
+```typescript
+// Antes
+<img 
+  src={logoImaculada} 
+  alt="Imaculada Agronegócios" 
+  className="h-12 w-auto object-contain"
 />
 
-{/* Investimento Real - novo campo */}
-<div>
-  <Label htmlFor="investimento_real">Investimento Real (R$)</Label>
-  <Input 
-    id="investimento_real" 
-    type="number" 
-    step="0.01"
-    placeholder="Valor após reunião"
-  />
-</div>
+// Depois
+<img 
+  src={logoFeeagro} 
+  alt="Feeagro" 
+  className="h-12 w-auto object-contain"
+/>
 ```
 
-### 4. Validações (`src/lib/validations.ts`)
+## Arquivos Modificados
 
-Adicionar campo `investimento_real` ao schema:
-
-```typescript
-investimento_real: z.number()
-  .positive("Valor deve ser positivo")
-  .optional()
-  .or(z.literal(undefined)),
-```
-
-## Layout Visual do Modal (Seção Negociação)
-
-```text
-Negociacao
-+-----------------+-----------------+
-| Qtd Cotas       | Valor Investido |
-| -               | R$ 10.000,00    |
-+-----------------+-----------------+
-| Investimento    | Etapa do Funil  |
-| Real            |                 |
-| R$ 15.000,00    | Novo Lead       |
-+-----------------+-----------------+
-| Origem          |                 |
-| meta_form       |                 |
-+-----------------+-----------------+
-```
-
-## Arquivos a Modificar
-
-| Arquivo | Alteracao |
+| Arquivo | Alteração |
 |---------|-----------|
-| `supabase/migrations/` | Nova migration para coluna `investimento_real` |
-| `src/components/LeadDetailsModal.tsx` | Exibir campo "Investimento Real" |
-| `src/components/LeadForm.tsx` | Adicionar campo + bloquear "Valor Investido" na edicao |
-| `src/lib/validations.ts` | Adicionar validacao do novo campo |
-
-## Comportamento Esperado
-
-| Cenario | Valor Investido | Investimento Real |
-|---------|-----------------|-------------------|
-| Criar lead | Editavel | Opcional (vazio) |
-| Editar lead | Bloqueado (readonly) | Editavel |
-| Modal detalhes | Exibe valor | Exibe valor ou "-" |
+| `src/assets/logo-feeagro.png` | Nova logo (copiada) |
+| `src/components/AppSidebar.tsx` | Atualizar import e alt text |
 
