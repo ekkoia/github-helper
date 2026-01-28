@@ -1,64 +1,70 @@
 
-# Sincronizar Cores do Funil de Conversao com o Banco de Dados
+# Substituir Logo da Pagina de Autenticacao
 
-## Problema Identificado
+## Objetivo
 
-O grafico "Funil de Conversao" no Dashboard usa um mapa estatico de cores (`ETAPA_COLORS`) definido diretamente no codigo:
+Trocar a logo atual (Imaculada) pela logo Feeagro enviada, com container circular mantendo o fundo na cor primaria atual (verde escuro).
 
+## Alteracoes Necessarias
+
+### 1. Salvar a nova imagem no projeto
+
+Arquivo: `src/assets/logo-feeagro-auth.png`
+
+### 2. Modificar `src/pages/Auth.tsx`
+
+**Alterar o import (linha 10):**
 ```typescript
-const ETAPA_COLORS: Record<string, string> = {
-  "Novo Lead": "hsl(211, 70%, 58%)",
-  "Em atendimento IA": "hsl(85, 100%, 40%)",
-  // ... cores fixas
-};
+// Antes
+import logoImaculada from "@/assets/logo-imaculada.png";
+
+// Depois
+import logoFeeagro from "@/assets/logo-feeagro-auth.png";
 ```
 
-Isso causa dois problemas:
-1. Etapas novas criadas em Configuracoes nao tem cor mapeada (ficam com fallback)
-2. Alteracoes de cor feitas no banco nao refletem no grafico
-
-## Solucao
-
-Usar o hook `useFunilEtapas` que ja existe e retorna as cores HEX diretamente do banco de dados.
-
-## Alteracoes no src/components/DashboardCharts.tsx
-
-### 1. Importar o hook
+**Alterar o elemento da logo (linhas 99-107):**
 
 ```typescript
-import { useFunilEtapas } from "@/hooks/useFunilEtapas";
+// Antes - Container horizontal
+<div className="flex justify-center mb-6">
+  <div className="bg-primary rounded-full p-6 shadow-elevation-2">
+    <img 
+      src={logoImaculada} 
+      alt="Imaculada Agronegócios" 
+      className="h-16 w-auto object-contain"
+    />
+  </div>
+</div>
+
+// Depois - Circulo proporcional com fundo verde primario
+<div className="flex justify-center mb-6">
+  <div className="w-28 h-28 bg-primary rounded-full shadow-elevation-2 flex items-center justify-center p-4">
+    <img 
+      src={logoFeeagro} 
+      alt="Feeagro" 
+      className="w-full h-full object-contain"
+    />
+  </div>
+</div>
 ```
 
-### 2. Remover o mapa estatico ETAPA_COLORS
+### Detalhes das Classes CSS
 
-Deletar as linhas 35-46 com o objeto `ETAPA_COLORS`.
+| Classe | Efeito |
+|--------|--------|
+| `w-28 h-28` | Largura e altura fixas de 112px (circulo perfeito) |
+| `bg-primary` | Fundo verde escuro (#254239) - cor atual |
+| `rounded-full` | Borda completamente arredondada |
+| `flex items-center justify-center` | Centraliza a imagem dentro do circulo |
+| `p-4` | Padding interno para a logo nao encostar nas bordas |
 
-### 3. Usar o hook no componente
-
-```typescript
-export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
-  const { coresMap } = useFunilEtapas();
-  // ... resto do codigo
-```
-
-### 4. Atualizar o grafico de barras
-
-**Antes:**
-```typescript
-<Cell key={`cell-${index}`} fill={ETAPA_COLORS[entry.etapa] || "hsl(204, 12%, 90%)"} />
-```
-
-**Depois:**
-```typescript
-<Cell key={`cell-${index}`} fill={coresMap[entry.etapa] || "#6b7280"} />
-```
-
-## Arquivo a Modificar
+## Arquivos a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/DashboardCharts.tsx` | Usar cores dinamicas do banco via useFunilEtapas |
+| `src/assets/logo-feeagro-auth.png` | Nova imagem (copiar do upload) |
+| `src/pages/Auth.tsx` | Trocar import e ajustar elemento da logo |
 
-## Resultado Esperado
+## Resultado Visual
 
-As cores das barras no grafico "Funil de Conversao" serao identicas as cores das colunas do Kanban, ambas vindas da tabela `funil_etapas` do banco de dados.
+Container circular de 112px com fundo verde escuro (cor primaria atual), contendo a logo Feeagro centralizada.
