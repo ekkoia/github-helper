@@ -78,8 +78,8 @@ export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
       value: `R$ ${ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       subtitle: "Investimento médio por lead",
       icon: DollarSign,
-      color: "text-status-ganho",
-      bgColor: "bg-status-ganho/20 dark:bg-status-ganho/30"
+      color: "text-status-ganho dark:text-secondary",
+      bgColor: "bg-status-ganho/20 dark:bg-secondary/20"
     },
     {
       title: "Lead Mais Valioso",
