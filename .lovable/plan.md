@@ -1,56 +1,58 @@
 
-# Alinhar Linha do Header da Sidebar com o Header Principal
+# Centralizar Container do Dashboard
 
-## Problema Identificado
-- Header principal: `h-16` (64px de altura)
-- Header da sidebar: `p-6` padding + logo `h-20` = aproximadamente 128px
-- Resultado: a linha divisoria da sidebar fica muito abaixo da linha do header principal
+## Problema
+A pagina Dashboard nao tem limitacao de largura maxima, fazendo o conteudo ocupar toda a tela. Ja a pagina Leads usa `max-w-[1400px] mx-auto px-4` para centralizar e compactar o conteudo.
 
-## Solucao Proposta
+## Solucao
 
-Ajustar o SidebarHeader para ter altura fixa de `h-16` e centralizar a logo verticalmente, usando `max-h` para que a logo se adapte ao espaco disponivel sem alterar suas dimensoes base.
+Adicionar o mesmo wrapper de centralizacao da pagina Leads no Dashboard.
 
-### Alteracao no src/components/AppSidebar.tsx
+### Alteracao no src/pages/Dashboard.tsx
 
-**Antes (linha 78-84):**
+**Antes (linhas 63-76):**
 ```typescript
-<SidebarHeader className="bg-primary p-6 flex items-center justify-center">
-  <img 
-    src={logoFeeagro} 
-    alt="Feeagro" 
-    className="h-20 w-auto object-contain"
-  />
-</SidebarHeader>
+return (
+  <Layout>
+    <div className="space-y-8">
+      <DashboardHero ... />
+      <DashboardCharts leads={leads} />
+      <DashboardMetrics leads={leads} />
+    </div>
+  </Layout>
+);
 ```
 
 **Depois:**
 ```typescript
-<SidebarHeader className="bg-primary h-16 flex items-center justify-center border-b border-border">
-  <img 
-    src={logoFeeagro} 
-    alt="Feeagro" 
-    className="h-10 w-auto object-contain"
-  />
-</SidebarHeader>
+return (
+  <Layout>
+    <div className="w-full max-w-[1400px] mx-auto px-4">
+      <div className="space-y-8">
+        <DashboardHero ... />
+        <DashboardCharts leads={leads} />
+        <DashboardMetrics leads={leads} />
+      </div>
+    </div>
+  </Layout>
+);
 ```
 
-### Detalhes Tecnicos
+### Classes Adicionadas
 
-| Propriedade | Antes | Depois | Motivo |
-|-------------|-------|--------|--------|
-| Altura header | automatica (~128px) | `h-16` (64px) | Alinhar com header principal |
-| Padding | `p-6` (24px) | removido | Altura fixa dispensa padding |
-| Logo altura | `h-20` (80px) | `h-10` (40px) | Caber no espaco de 64px com margem |
-| Border | nenhum | `border-b border-border` | Linha divisoria visivel |
-
-**Nota:** A logo sera exibida menor (40px ao inves de 80px) para caber no espaco de 64px. Se desejar manter a logo maior, seria necessario aumentar a altura do header principal tambem. Caso prefira essa abordagem, posso ajustar o plano.
+| Classe | Efeito |
+|--------|--------|
+| `w-full` | Largura total do container pai |
+| `max-w-[1400px]` | Largura maxima de 1400px |
+| `mx-auto` | Centraliza horizontalmente |
+| `px-4` | Padding horizontal de 16px |
 
 ## Arquivo a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/AppSidebar.tsx` | Ajustar altura do SidebarHeader e tamanho da logo |
+| `src/pages/Dashboard.tsx` | Envolver conteudo com container centralizado |
 
-## Resultado Esperado
+## Resultado
 
-A linha divisoria abaixo da logo da sidebar ficara perfeitamente alinhada com a linha do header principal da pagina, criando uma aparencia mais coesa e profissional.
+Os cards e graficos do Dashboard ficarao centralizados e com largura maxima de 1400px, identico ao layout da pagina Leads.
