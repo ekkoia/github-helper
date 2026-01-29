@@ -1,198 +1,129 @@
 
-# Implementar Atribuicao de Leads e Sistema de Notificacoes
+# Adicionar Menu de Acoes e Modal de Detalhes no Kanban
 
 ## Resumo
 
-Implementar a funcionalidade de atribuicao de leads com controle de acesso para admins e um sistema de notificacoes in-app para alertar usuarios quando um lead for atribuido a eles.
+Adicionar um botao de 3 pontos (menu de acoes) em cada card do Kanban que abre o modal de detalhes do lead (LeadDetailsModal), permitindo visualizar informacoes completas e atribuir responsavel - mesma funcionalidade ja existente na tabela.
 
-## Componentes da Solucao
+## Componentes a Reutilizar
 
-### 1. Banco de Dados - Nova Tabela de Notificacoes
+O sistema ja possui os componentes necessarios:
+- `LeadDetailsModal` - Modal com detalhes do lead e botao de atribuicao
+- `AssignLeadDialog` - Dialog para atribuir lead (ja integrado no LeadDetailsModal)
+- `useUserRole` - Hook para verificar permissoes de admin
 
-Criar tabela `notifications` para armazenar notificacoes dos usuarios:
+## Alteracoes no Kanban.tsx
 
-```sql
-CREATE TABLE notifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  type TEXT NOT NULL DEFAULT 'info',
-  read BOOLEAN DEFAULT false,
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+### 1. Novos Imports
 
--- RLS: usuarios veem apenas suas proprias notificacoes
-ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own notifications"
-  ON notifications FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own notifications"
-  ON notifications FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Admins podem criar notificacoes para qualquer usuario
-CREATE POLICY "Admins can create notifications"
-  ON notifications FOR INSERT
-  WITH CHECK (is_admin(auth.uid()));
-
--- Indice para performance
-CREATE INDEX idx_notifications_user_unread
-  ON notifications(user_id, read) WHERE read = false;
-```
-
-### 2. Arquivos Frontend a Criar
-
-| Arquivo | Descricao |
-|---------|-----------|
-| `src/hooks/useNotifications.ts` | Hook para buscar, marcar como lida e contar notificacoes |
-| `src/components/NotificationsPopover.tsx` | Popover com lista de notificacoes no header |
-| `src/components/AssignLeadDialog.tsx` | Dialog para atribuir lead a um usuario |
-
-### 3. Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/integrations/supabase/types.ts` | Adicionar tipos da tabela notifications |
-| `src/components/Layout.tsx` | Adicionar NotificationsPopover no header |
-| `src/components/LeadDetailsModal.tsx` | Adicionar botao de atribuicao (apenas admins) |
-| `src/pages/LeadsTable.tsx` | Adicionar coluna "Responsavel" na tabela |
-| `src/pages/Kanban.tsx` | Mostrar responsavel nos cards |
-| `src/hooks/useActivityLog.ts` | Adicionar tipo lead_assigned |
-
-### 4. Hook de Notificacoes (useNotifications.ts)
-
+Adicionar imports necessarios:
 ```typescript
-// Funcionalidades:
-// - fetchNotifications(): buscar notificacoes do usuario
-// - unreadCount: contador de nao lidas
-// - markAsRead(id): marcar individual como lida
-// - markAllAsRead(): marcar todas como lidas
-// - createNotification(userId, title, message, type, metadata): criar notificacao
-// - Realtime subscription para novas notificacoes
+import { MoreVertical } from "lucide-react";
+import { LeadDetailsModal } from "@/components/LeadDetailsModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 ```
 
-### 5. Componente NotificationsPopover
+### 2. Novos Estados
 
-- Icone de sino com badge de contador no header
-- Dropdown com lista de notificacoes recentes
-- Click em notificacao marca como lida e navega (se aplicavel)
-- Botao "Marcar todas como lidas"
-- Link para ver historico completo
-
-### 6. Dialog de Atribuicao (AssignLeadDialog)
-
-- Select com lista de usuarios ativos (busca de profiles)
-- Apenas visivel para admin/global
-- Ao atribuir:
-  1. Atualiza `responsavel_id` no lead
-  2. Cria notificacao para o usuario atribuido
-  3. Registra atividade no log
-
-### 7. Fluxo de Atribuicao
-
-```text
-Admin abre LeadDetailsModal
-      |
-      v
-Clica em "Atribuir" (botao visivel apenas para admins)
-      |
-      v
-AssignLeadDialog abre com select de usuarios
-      |
-      v
-Admin seleciona usuario e confirma
-      |
-      v
-Sistema:
-  1. UPDATE leads SET responsavel_id = X
-  2. INSERT INTO notifications (user_id = X, ...)
-  3. INSERT INTO user_activities (lead_assigned)
-      |
-      v
-Usuario X recebe notificacao em tempo real
-```
-
-### 8. Detalhes Tecnicos
-
-**Controle de Acesso:**
-- Hook `useUserRole` verifica se usuario e admin/global
-- Botao de atribuicao renderizado condicionalmente
-- RLS no banco impede criacao de notificacoes por usuarios normais
-
-**Realtime:**
-- Subscription no canal de notificacoes filtrado por user_id
-- Badge atualiza automaticamente quando nova notificacao chega
-
-**Tipos de Notificacao:**
+Adicionar estados para controlar o modal de detalhes:
 ```typescript
-type NotificationType = 
-  | 'lead_assigned'  // Lead atribuido
-  | 'info'           // Informativo geral
-  | 'warning'        // Alerta
-  | 'success';       // Sucesso
+const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+const [selectedLead, setSelectedLead] = useState<any>(null);
 ```
 
-### 9. Interface Visual
+### 3. Handler para Abrir Detalhes
 
-**Header com Notificacoes:**
+Criar funcao para abrir o modal de detalhes:
+```typescript
+const handleOpenDetails = (lead: any, e: React.MouseEvent) => {
+  e.stopPropagation(); // Evita conflito com drag
+  setSelectedLead(lead);
+  setIsDetailsOpen(true);
+};
+```
+
+### 4. Alterar o Card
+
+Adicionar o menu de 3 pontos no card:
+
 ```text
-┌──────────────────────────────────────────────────┐
-│  [=] Sidebar    │  Boa tarde, Usuario!     [🔔3] │
-└──────────────────────────────────────────────────┘
-                                              │
-                                              v
-                               ┌────────────────────────┐
-                               │  Notificacoes          │
-                               ├────────────────────────┤
-                               │ • Lead atribuido a voce│
-                               │   Jose Silva           │
-                               │   há 5 min             │
-                               ├────────────────────────┤
-                               │ • Lead atribuido a voce│
-                               │   Maria Santos         │
-                               │   há 1 hora            │
-                               ├────────────────────────┤
-                               │ [Marcar todas como     │
-                               │  lidas]                │
-                               └────────────────────────┘
+┌─────────────────────────────┐
+│ Nome do Lead          [⋮]  │  <- Botao 3 pontos
+│ Investidor                  │
+│ Cidade/UF                   │
+│ Telefone                    │
+│ Produto - Volume            │
+│ [Badge Intencao]            │
+└─────────────────────────────┘
 ```
 
-**LeadDetailsModal com Atribuicao:**
+O menu dropdown tera opcoes:
+- Ver detalhes (abre LeadDetailsModal)
+- Editar (abre formulario de edicao)
+
+### 5. Adicionar LeadDetailsModal
+
+Incluir o modal no final do componente:
+```typescript
+<LeadDetailsModal
+  lead={selectedLead}
+  isOpen={isDetailsOpen}
+  onClose={() => {
+    setIsDetailsOpen(false);
+    setSelectedLead(null);
+  }}
+  onEdit={() => handleCardClick(selectedLead)}
+  onLeadUpdated={fetchLeads}
+/>
+```
+
+## Fluxo de Usuario
+
 ```text
-┌─────────────────────────────────────────┐
-│ Detalhes do Lead            [Editar]   │
-├─────────────────────────────────────────┤
-│ Identificacao                           │
-│ Nome: Jose Silva                        │
-│ Email: jose@email.com                   │
-│ Telefone: (11) 99999-9999              │
-│                                         │
-│ Responsavel: Nao atribuido [Atribuir]  │  <-- Apenas admins
-│                                         │
-│ ...                                     │
-└─────────────────────────────────────────┘
+Usuario ve card no Kanban
+        │
+        v
+Clica no botao de 3 pontos (⋮)
+        │
+        v
+Dropdown aparece:
+  - Ver detalhes
+  - Editar
+        │
+        v
+Seleciona "Ver detalhes"
+        │
+        v
+LeadDetailsModal abre
+        │
+        v
+Se for admin, ve botao "Atribuir"
+        │
+        v
+Pode atribuir lead ao usuario
 ```
 
-### 10. Ordem de Implementacao
+## Arquivo a Modificar
 
-1. Criar migration para tabela notifications
-2. Atualizar types.ts com novos tipos
-3. Criar hook useNotifications
-4. Criar componente NotificationsPopover
-5. Adicionar popover no Layout/Header
-6. Criar AssignLeadDialog
-7. Atualizar LeadDetailsModal com botao de atribuicao
-8. Atualizar LeadsTable para mostrar responsavel
-9. Atualizar Kanban para mostrar responsavel
-10. Testar fluxo completo
+| Arquivo | Alteracoes |
+|---------|------------|
+| `src/pages/Kanban.tsx` | Adicionar menu 3 pontos, estados e LeadDetailsModal |
 
-### 11. Seguranca
+## Detalhes Tecnicos
 
-- RLS impede usuarios normais de criar notificacoes
-- useUserRole valida permissao no frontend
-- is_admin() valida permissao no backend
-- Apenas o proprio usuario pode marcar suas notificacoes como lidas
+**Prevenir conflito com drag-and-drop:**
+- O clique no menu usa `e.stopPropagation()` para nao iniciar o drag
+- O dropdown menu tem `onPointerDown` para evitar que o card seja arrastado
+
+**Responsividade:**
+- Menu aparece no canto superior direito do card
+- Dropdown alinhado a direita para nao sair da tela
+
+**Reutilizacao:**
+- O mesmo `LeadDetailsModal` da tabela e reutilizado
+- A atribuicao e notificacao funcionam identicamente
