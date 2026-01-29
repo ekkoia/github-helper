@@ -3,6 +3,7 @@ import { Layout } from "@/components/Layout";
 import { KanbanSkeleton } from "@/components/SkeletonLoader";
 import { LeadForm } from "@/components/LeadForm";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { LeadDetailsModal } from "@/components/LeadDetailsModal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,12 +11,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Mail, Phone, User, Package, DollarSign } from "lucide-react";
+import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 
@@ -28,6 +35,8 @@ const Kanban = () => {
   const [draggedLead, setDraggedLead] = useState<any>(null);
   const [editingLead, setEditingLead] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<any>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const scrollDirRef = useRef<-1 | 0 | 1>(0);
@@ -208,6 +217,18 @@ const Kanban = () => {
     setIsFormOpen(true);
   };
 
+  const handleOpenDetails = (lead: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedLead(lead);
+    setIsDetailsOpen(true);
+  };
+
+  const handleEditFromMenu = (lead: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingLead(lead);
+    setIsFormOpen(true);
+  };
+
   if (isLoading || isLoadingEtapas) {
     return <KanbanSkeleton />;
   }
@@ -287,14 +308,39 @@ const Kanban = () => {
                             draggable
                             onDragStart={() => handleDragStart(lead)}
                             onDragEnd={handleDragEnd}
-                            onClick={() => handleCardClick(lead)}
                             className="cursor-move hover:shadow-elevation-3 transition-all duration-300 hover:scale-[1.02] touch-manipulation active:scale-95"
-                            role="button"
+                            role="article"
                             tabIndex={0}
                             aria-label={`Lead ${lead.nome_completo}`}
                           >
                             <CardContent className="p-4 space-y-2">
-                              <h4 className="font-semibold text-foreground text-sm">{lead.nome_completo}</h4>
+                              <div className="flex items-start justify-between gap-2">
+                                <h4 className="font-semibold text-foreground text-sm flex-1">{lead.nome_completo}</h4>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 shrink-0"
+                                      onClick={(e) => e.stopPropagation()}
+                                      onPointerDown={(e) => e.stopPropagation()}
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                      <span className="sr-only">Ações</span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="z-50">
+                                    <DropdownMenuItem onClick={(e) => handleOpenDetails(lead, e)}>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Ver detalhes
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => handleEditFromMenu(lead, e)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Editar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
                               <div className="space-y-1.5 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                   <User className="h-3.5 w-3.5" aria-hidden="true" />
@@ -375,6 +421,21 @@ const Kanban = () => {
             />
           </DialogContent>
         </Dialog>
+
+        {/* Modal de Detalhes do Lead */}
+        <LeadDetailsModal
+          lead={selectedLead}
+          isOpen={isDetailsOpen}
+          onClose={() => {
+            setIsDetailsOpen(false);
+            setSelectedLead(null);
+          }}
+          onEdit={() => {
+            setIsDetailsOpen(false);
+            handleCardClick(selectedLead);
+          }}
+          onLeadUpdated={fetchLeads}
+        />
       </div>
     );
   };

@@ -19,6 +19,7 @@ export type Database = {
           active: boolean | null
           bot_message: string | null
           created_at: string | null
+          etapa_atendimento: string | null
           id: number
           message_type: string | null
           nomewpp: string | null
@@ -29,6 +30,7 @@ export type Database = {
           active?: boolean | null
           bot_message?: string | null
           created_at?: string | null
+          etapa_atendimento?: string | null
           id?: number
           message_type?: string | null
           nomewpp?: string | null
@@ -39,6 +41,7 @@ export type Database = {
           active?: boolean | null
           bot_message?: string | null
           created_at?: string | null
+          etapa_atendimento?: string | null
           id?: number
           message_type?: string | null
           nomewpp?: string | null
