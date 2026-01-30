@@ -56,20 +56,17 @@ export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
     };
   }, [leads]);
 
-  // Taxa de resposta IA
+  // Taxa de resposta IA - leads que saíram de "Novo Lead" (processados pelo Clóvis)
   const taxaRespostaIA = useMemo(() => {
     const totalLeads = leads.length;
     if (totalLeads === 0) return 0;
     
-    const leadsIA = leads.filter(lead => 
-      lead.etapa_funil === "Em atendimento IA" || 
-      lead.etapa_funil === "Atendimento Humano" ||
-      lead.etapa_funil === "Reunião Agendada" ||
-      lead.etapa_funil === "Proposta Enviada" ||
-      lead.etapa_funil === "Ganho"
+    // Leads processados pela IA = todos que saíram de "Novo Lead"
+    const leadsProcessadosIA = leads.filter(lead => 
+      lead.etapa_funil && lead.etapa_funil !== "Novo Lead"
     ).length;
     
-    return (leadsIA / totalLeads) * 100;
+    return (leadsProcessadosIA / totalLeads) * 100;
   }, [leads]);
 
   const metrics = [
