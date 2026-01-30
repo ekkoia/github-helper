@@ -14,7 +14,8 @@ interface LeadWebhookData {
   intencao?: string;
   tipo_grao?: string;
   volume?: string;
-  valor_produto?: number;
+  valor_produto?: number | string;    // Aceita número ou texto
+  valor_investido?: number | string;  // Alias para valor_produto
   cidade?: string;
   uf?: string;
   localizacao_embarque?: string;
@@ -166,6 +167,43 @@ serve(async (req) => {
       return isNaN(parsed) ? null : parsed;
     };
 
+    // Helper function to parse valor_investido (accepts number, text ranges, or formatted currency)
+    const parseValorInvestido = (value: any): number | null => {
+      if (value === null || value === undefined || value === '' || value === 'nao_informado') {
+        return null;
+      }
+      
+      // Se já for número, retorna direto
+      if (typeof value === 'number') {
+        return value;
+      }
+      
+      // Converte string para lowercase para comparação
+      const valorStr = String(value).toLowerCase().trim();
+      
+      // Mapeamento de faixas de texto para valores numéricos (topo da faixa)
+      const faixas: Record<string, number> = {
+        'até r$10 mil': 10000,
+        'ate r$10 mil': 10000,
+        'de r$10 mil a r$50 mil': 50000,
+        'de r$50 mil a r$100 mil': 100000,
+        'acima de r$100 mil': 150000,
+      };
+      
+      // Verifica se é uma faixa conhecida
+      for (const [faixa, valor] of Object.entries(faixas)) {
+        if (valorStr.includes(faixa) || faixa.includes(valorStr)) {
+          return valor;
+        }
+      }
+      
+      // Tenta extrair número da string (ex: "50000", "R$ 50.000")
+      const numStr = valorStr.replace(/[^\d.,]/g, '').replace(',', '.');
+      const parsed = parseFloat(numStr);
+      
+      return isNaN(parsed) ? null : parsed;
+    };
+
     // Helper function to convert volume to string (database expects text)
     const parseVolumeToString = (value: any): string | null => {
       if (value === null || value === undefined || value === '' || value === 'nao_informado') {
@@ -220,6 +258,11 @@ serve(async (req) => {
       ? null
       : sentidoLookup.get(normalizeText(sentidoInput)) ?? null;
 
+    // Usar valor_investido como fallback para valor_produto
+    const valorProdutoRaw = leadData.valor_produto ?? leadData.valor_investido;
+    const valorProduto = parseValorInvestido(valorProdutoRaw);
+    console.log('Valor produto raw:', valorProdutoRaw, '-> parsed:', valorProduto);
+
     // Prepare lead data for insertion
     const leadToInsert = {
       nome_completo: leadData.nome_completo.trim(),
@@ -230,7 +273,7 @@ serve(async (req) => {
       intencao: leadData.intencao || null,
       tipo_grao: leadData.tipo_grao || null,
       volume: parseVolumeToString(leadData.volume),
-      valor_produto: parseNumericValue(leadData.valor_produto),
+      valor_produto: valorProduto,
       cidade: leadData.cidade || null,
       uf: leadData.uf || null,
       localizacao_embarque: leadData.localizacao_embarque || null,
