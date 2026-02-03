@@ -1,158 +1,133 @@
 
 
-# Implementar Visibilidade de Leads por Atribuição
+# Gestão de Atribuições para Admin e Global Admin
 
-## Problema Identificado
+## Visão Geral
 
-Atualmente a política RLS da tabela `leads` usa `USING (true)`, permitindo que todos os usuários autenticados vejam TODOS os leads. Precisamos implementar visibilidade baseada em atribuição.
+Implementar ferramentas de gestão de atribuições que permitam aos administradores:
+1. Visualizar rapidamente quem é o responsável por cada lead
+2. Filtrar leads por responsável (incluindo leads não atribuídos)
+3. Atribuir leads em massa ou individualmente de forma rápida
 
-## Regras de Visibilidade
+## Alterações Propostas
+
+### 1. Adicionar Coluna "Responsável" na Tabela de Leads
+
+Na página LeadsTable, adicionar uma nova coluna visível **apenas para admins** mostrando quem é o responsável por cada lead.
+
+**Arquivo:** `src/pages/LeadsTable.tsx`
+
+- Buscar dados do responsável junto com os leads
+- Adicionar coluna "Responsável" no header e nas linhas da tabela
+- Mostrar "Não atribuído" com destaque visual para leads sem responsável
+- Botão de atribuição rápida diretamente na tabela
+
+### 2. Adicionar Filtro por Responsável no FiltersSidebar
+
+Adicionar um novo filtro no painel lateral para admins filtrarem leads por:
+- Todos os leads
+- Leads não atribuídos
+- Leads de um usuário específico
+
+**Arquivo:** `src/components/FiltersSidebar.tsx`
+
+- Adicionar select com lista de usuários
+- Opção "Não atribuídos" para ver leads pendentes
+- Visível apenas para admins
+
+### 3. Mostrar Responsável nos Cards do Kanban
+
+Adicionar indicação visual do responsável nos cards do Kanban para admins.
+
+**Arquivo:** `src/pages/Kanban.tsx`
+
+- Mostrar avatar/nome do responsável no card
+- Indicação visual para cards sem responsável
+
+### 4. Criar Hook para Buscar Usuários com Cache
+
+Criar um hook reutilizável para buscar a lista de usuários (para usar em filtros e atribuições).
+
+**Arquivo:** `src/hooks/useUsers.ts` (novo)
+
+```typescript
+export const useUsers = () => {
+  const [users, setUsers] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Buscar perfis do Supabase
+  // Cachear resultado para evitar requisições repetidas
+  
+  return { users, loading, usersMap };
+};
+```
+
+## Detalhes Técnicos
+
+### Estrutura do Filtro por Responsável
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                    REGRAS DE VISIBILIDADE                   │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ADMIN / GLOBAL:                                            │
-│  ├── Vê TODOS os leads (com ou sem responsável)             │
-│  ├── Pode editar qualquer lead                              │
-│  ├── Pode excluir qualquer lead                             │
-│  └── Pode atribuir leads a qualquer usuário                 │
-│                                                             │
-│  USER:                                                      │
-│  ├── Vê APENAS leads onde responsavel_id = seu user_id      │
-│  ├── NÃO vê leads sem responsável (NULL)                    │
-│  ├── Pode editar apenas seus leads atribuídos               │
-│  └── NÃO pode excluir leads                                 │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ Responsável                             │
+├─────────────────────────────────────────┤
+│  [▼] Todos                              │
+│      ─────────────────────────          │
+│      ⚠️ Não atribuídos                   │
+│      ─────────────────────────          │
+│      👤 Ana Carolina Goulart            │
+│      👤 Rodolfo Felipe Saavedra         │
+│      👤 Lucas Silva                     │
+│      ...                                │
+└─────────────────────────────────────────┘
 ```
 
-## Alterações no Banco de Dados
+### Nova Coluna na Tabela (Admins)
 
-### Migration SQL - Novas Políticas RLS
+| Nome | Contato | Responsável | Etapa | Ações |
+|------|---------|-------------|-------|-------|
+| João Silva | ... | 👤 Ana Carolina | Novo Lead | ... |
+| Maria Santos | ... | ⚠️ Não atribuído | Qualificação | ... |
 
-```sql
--- Remover políticas existentes da tabela leads
-DROP POLICY IF EXISTS "Authenticated users can view leads" ON leads;
-DROP POLICY IF EXISTS "Authenticated users can create leads" ON leads;
-DROP POLICY IF EXISTS "Authenticated users can update leads" ON leads;
-DROP POLICY IF EXISTS "Authenticated users can delete leads" ON leads;
+### Visual do Card Kanban (Admins)
 
--- SELECT: Admins veem tudo, users veem APENAS leads atribuídos a eles
-CREATE POLICY "Users can view assigned leads"
-ON leads FOR SELECT
-TO authenticated
-USING (
-  is_admin(auth.uid()) 
-  OR responsavel_id = auth.uid()
-);
-
--- INSERT: Qualquer usuário autenticado pode criar leads
-CREATE POLICY "Authenticated users can create leads"
-ON leads FOR INSERT
-TO authenticated
-WITH CHECK (true);
-
--- UPDATE: Admins podem atualizar qualquer lead, users apenas os atribuídos
-CREATE POLICY "Users can update assigned leads"
-ON leads FOR UPDATE
-TO authenticated
-USING (
-  is_admin(auth.uid()) 
-  OR responsavel_id = auth.uid()
-);
-
--- DELETE: Apenas admins podem excluir leads
-CREATE POLICY "Only admins can delete leads"
-ON leads FOR DELETE
-TO authenticated
-USING (is_admin(auth.uid()));
+```text
+┌─────────────────────────────────┐
+│ João Silva                    ⋮ │
+├─────────────────────────────────┤
+│ 📍 São Paulo/SP                 │
+│ 📞 (11) 99999-9999              │
+├─────────────────────────────────┤
+│ 👤 Ana Carolina          [🔄]   │  ← Novo: responsável + botão trocar
+└─────────────────────────────────┘
 ```
 
-**Diferença importante:** Removido `OR responsavel_id IS NULL` da política SELECT. Agora leads sem responsável são visíveis **apenas para admins**.
-
-## Alterações no Frontend
-
-### Arquivo: `src/pages/Dashboard.tsx`
-
-Adicionar indicador visual do contexto de visualização:
-
-```typescript
-// Adicionar import
-import { useUserRole } from "@/hooks/useUserRole";
-
-// No componente, antes do return
-const { isAdmin } = useUserRole();
-
-// No JSX, após o DashboardHero
-{!isAdmin && (
-  <div className="bg-muted/50 rounded-lg p-3 mb-4">
-    <p className="text-sm text-muted-foreground">
-      📊 Exibindo métricas dos leads atribuídos a você
-    </p>
-  </div>
-)}
+Para leads não atribuídos:
+```text
+│ ⚠️ Não atribuído        [➕]   │  ← Destaque amarelo + botão atribuir
 ```
 
-### Arquivo: `src/pages/LeadsTable.tsx`
+## Arquivos a Criar/Modificar
 
-Atualizar o texto do contador de leads:
+| Arquivo | Tipo | Alteração |
+|---------|------|-----------|
+| `src/hooks/useUsers.ts` | Novo | Hook para buscar e cachear lista de usuários |
+| `src/components/FiltersSidebar.tsx` | Modificar | Adicionar filtro por responsável (somente admin) |
+| `src/pages/LeadsTable.tsx` | Modificar | Adicionar coluna responsável + buscar dados + filtro |
+| `src/pages/Kanban.tsx` | Modificar | Mostrar responsável nos cards + botão atribuir rápido |
 
-```typescript
-// Adicionar import
-import { useUserRole } from "@/hooks/useUserRole";
+## Fluxo de Uso para Admin
 
-// No componente
-const { isAdmin } = useUserRole();
+1. Admin acessa `/leads`
+2. Vê a coluna "Responsável" na tabela
+3. Usa filtro "Não atribuídos" para ver leads pendentes
+4. Clica no botão de atribuir na linha ou abre detalhes
+5. Seleciona usuário e confirma
+6. Lead some da lista de "Não atribuídos" e aparece para o usuário atribuído
 
-// Atualizar o texto existente
-<p className="text-sm text-muted-foreground">
-  {filteredAndSortedLeads.length} lead{filteredAndSortedLeads.length !== 1 ? "s" : ""} 
-  {isAdmin ? " no total" : " atribuído(s) a você"}
-</p>
-```
+## Benefícios
 
-### Arquivo: `src/pages/Kanban.tsx`
-
-Mesmo padrão:
-
-```typescript
-// Adicionar import
-import { useUserRole } from "@/hooks/useUserRole";
-
-// No componente
-const { isAdmin } = useUserRole();
-
-// Atualizar o texto existente
-<p className="text-sm text-muted-foreground">
-  {filteredLeads.length} lead{filteredLeads.length !== 1 ? "s" : ""} 
-  {isAdmin ? " encontrado(s)" : " atribuído(s) a você"}
-</p>
-```
-
-## Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| Nova migration SQL | Novas políticas RLS (sem visibilidade de NULL para users) |
-| `src/pages/Dashboard.tsx` | Adicionar hook useUserRole e indicador visual |
-| `src/pages/LeadsTable.tsx` | Adicionar hook useUserRole e atualizar texto |
-| `src/pages/Kanban.tsx` | Adicionar hook useUserRole e atualizar texto |
-
-## Comportamento Final
-
-| Tipo de Lead | Admin/Global | User |
-|--------------|--------------|------|
-| `responsavel_id = NULL` | ✅ Visível | ❌ Não visível |
-| `responsavel_id = outro_user` | ✅ Visível | ❌ Não visível |
-| `responsavel_id = meu_user_id` | ✅ Visível | ✅ Visível |
-
-## Fluxo de Atribuição
-
-1. Lead entra via webhook → `responsavel_id = NULL`
-2. Apenas admins veem o lead no CRM
-3. Admin atribui lead a um usuário → `responsavel_id = user_id`
-4. Notificação é criada para o usuário
-5. Usuário agora vê o lead em seu Dashboard/Leads/Kanban
+- **Visibilidade**: Admin sabe instantaneamente quem está cuidando de cada lead
+- **Gestão**: Filtrar leads não atribuídos para distribuição
+- **Eficiência**: Atribuir sem precisar abrir modal de detalhes
+- **Organização**: Visualizar carga de trabalho por usuário
 
