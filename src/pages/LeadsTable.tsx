@@ -33,13 +33,14 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, AlertCircle, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV } from "@/lib/exportUtils";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useUsers } from "@/hooks/useUsers";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -58,6 +59,7 @@ const LeadsTable = () => {
   const { logActivity } = useActivityLog();
   const { coresMap } = useFunilEtapas();
   const { isAdmin } = useUserRole();
+  const { usersMap } = useUsers();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -73,9 +75,9 @@ const LeadsTable = () => {
   
   const [filters, setFilters] = useState({
     etapa: "all",
-    protocolo: ""
+    protocolo: "",
+    responsavel: "all"
   });
-
   useEffect(() => {
     fetchLeads();
   }, []);
@@ -122,6 +124,14 @@ const LeadsTable = () => {
         lead.protocolo_atendimento?.toLowerCase().includes(filters.protocolo.toLowerCase())
       );
     }
+    // Filtro por responsável (apenas para admins)
+    if (isAdmin && filters.responsavel !== "all") {
+      if (filters.responsavel === "unassigned") {
+        filtered = filtered.filter((lead) => !lead.responsavel_id);
+      } else {
+        filtered = filtered.filter((lead) => lead.responsavel_id === filters.responsavel);
+      }
+    }
 
     // Ordenação
     filtered.sort((a, b) => {
@@ -148,7 +158,7 @@ const LeadsTable = () => {
     });
 
     return filtered;
-  }, [leads, searchTerm, filters, sortBy, sortOrder]);
+  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin]);
 
   // Paginação
   const totalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
@@ -210,7 +220,8 @@ const LeadsTable = () => {
   const handleClearFilters = () => {
     setFilters({
       etapa: "all",
-      protocolo: ""
+      protocolo: "",
+      responsavel: "all"
     });
   };
 
@@ -359,6 +370,7 @@ const LeadsTable = () => {
                         </div>
                       </TableHead>
                       <TableHead>Origem</TableHead>
+                      {isAdmin && <TableHead>Responsável</TableHead>}
                       <TableHead>Etapa</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -366,7 +378,7 @@ const LeadsTable = () => {
                   <TableBody>
                     {paginatedLeads.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={isAdmin ? 8 : 7} className="text-center py-8 text-muted-foreground">
                           Nenhum lead encontrado
                         </TableCell>
                       </TableRow>
@@ -401,6 +413,23 @@ const LeadsTable = () => {
                               {ORIGEM_LABELS[lead.origem] || lead.origem || "-"}
                             </Badge>
                           </TableCell>
+                          {isAdmin && (
+                            <TableCell>
+                              {lead.responsavel_id ? (
+                                <div className="flex items-center gap-1.5 text-sm">
+                                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="truncate max-w-[120px]">
+                                    {usersMap[lead.responsavel_id]?.nome_completo || "Usuário"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5 text-sm text-amber-600">
+                                  <AlertCircle className="h-3.5 w-3.5" />
+                                  <span>Não atribuído</span>
+                                </div>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell>
                             <Badge className={`${coresMap[lead.etapa_funil] || "bg-gray-500"} text-white text-xs whitespace-nowrap px-2 py-0.5`}>
                               {lead.etapa_funil || "-"}
