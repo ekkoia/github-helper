@@ -25,10 +25,12 @@ import { toast } from "sonner";
 import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const Kanban = () => {
   const { logActivity } = useActivityLog();
   const { etapasNomes, coresMap, isLoading: isLoadingEtapas } = useFunilEtapas();
+  const { isAdmin } = useUserRole();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -243,7 +245,8 @@ const Kanban = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">Leads - Kanban</h1>
             <p className="text-sm text-muted-foreground">
-              {filteredLeads.length} lead{filteredLeads.length !== 1 ? "s" : ""} encontrado{filteredLeads.length !== 1 ? "s" : ""}
+              {filteredLeads.length} lead{filteredLeads.length !== 1 ? "s" : ""} 
+              {isAdmin ? " encontrado(s)" : " atribuído(s) a você"}
             </p>
           </div>
 

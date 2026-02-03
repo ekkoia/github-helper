@@ -7,8 +7,10 @@ import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const DashboardPage = () => {
+  const { isAdmin, loading: loadingRole } = useUserRole();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -51,7 +53,7 @@ const DashboardPage = () => {
     return sum + getTopoDaFaixa(valor);
   }, 0);
 
-  if (isLoading) {
+  if (isLoading || loadingRole) {
     return (
       <Layout>
         <DashboardSkeleton />
@@ -63,16 +65,24 @@ const DashboardPage = () => {
     <Layout>
       <div className="w-full max-w-[1400px] mx-auto px-4">
         <div className="space-y-8">
+          {!isAdmin && (
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="text-sm text-muted-foreground">
+                📊 Exibindo métricas dos leads atribuídos a você
+              </p>
+            </div>
+          )}
+          
           <DashboardHero
-          totalLeads={totalLeads}
-          leadsGanhos={leadsGanhos}
-          taxaConversao={taxaConversao}
-          volumeTotal={valorTotalInvestido}
-        />
+            totalLeads={totalLeads}
+            leadsGanhos={leadsGanhos}
+            taxaConversao={taxaConversao}
+            volumeTotal={valorTotalInvestido}
+          />
         
-        <DashboardCharts leads={leads} />
+          <DashboardCharts leads={leads} />
         
-        <DashboardMetrics leads={leads} />
+          <DashboardMetrics leads={leads} />
         </div>
       </div>
     </Layout>
