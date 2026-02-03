@@ -20,17 +20,20 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit } from "lucide-react";
+import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit, AlertCircle } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useUsers } from "@/hooks/useUsers";
 
 const Kanban = () => {
   const { logActivity } = useActivityLog();
   const { etapasNomes, coresMap, isLoading: isLoadingEtapas } = useFunilEtapas();
   const { isAdmin } = useUserRole();
+  const { usersMap } = useUsers();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -388,6 +391,26 @@ const Kanban = () => {
                                 <Badge variant="outline" className="text-xs mt-2">
                                   {lead.intencao}
                                 </Badge>
+                              )}
+                              
+                              {/* Responsável - apenas para admins */}
+                              {isAdmin && (
+                                <>
+                                  <Separator className="my-2" />
+                                  {lead.responsavel_id ? (
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <User className="h-3 w-3" />
+                                      <span className="truncate">
+                                        {usersMap[lead.responsavel_id]?.nome_completo || "Usuário"}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 rounded px-1.5 py-1">
+                                      <AlertCircle className="h-3 w-3" />
+                                      <span>Não atribuído</span>
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </CardContent>
                           </Card>

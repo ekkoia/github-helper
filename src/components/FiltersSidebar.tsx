@@ -8,13 +8,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, AlertCircle, User } from "lucide-react";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
+import { useUsers } from "@/hooks/useUsers";
+import { useUserRole } from "@/hooks/useUserRole";
+import { Separator } from "@/components/ui/separator";
 
 interface FiltersSidebarProps {
   filters: {
     etapa: string;
     protocolo: string;
+    responsavel?: string;
   };
   onFilterChange: (key: string, value: string) => void;
   onClearFilters: () => void;
@@ -30,6 +34,9 @@ export const FiltersSidebar = ({
   filteredLeads = 0
 }: FiltersSidebarProps) => {
   const { etapasNomes, isLoading: isLoadingEtapas } = useFunilEtapas();
+  const { users, loading: isLoadingUsers } = useUsers();
+  const { isAdmin } = useUserRole();
+  
   const hasActiveFilters = Object.values(filters).some(value => value !== "all" && value !== "");
 
   return (
@@ -79,6 +86,47 @@ export const FiltersSidebar = ({
             placeholder="Buscar protocolo..."
           />
         </div>
+
+        {/* Filtro por Responsável - apenas para admins */}
+        {isAdmin && (
+          <>
+            <Separator className="my-2" />
+            <div>
+              <Label className="text-sm">Responsável</Label>
+              <Select 
+                value={filters.responsavel || "all"} 
+                onValueChange={(value) => onFilterChange("responsavel", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <span className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5" />
+                      Todos
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="unassigned">
+                    <span className="flex items-center gap-2 text-amber-600">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      Não atribuídos
+                    </span>
+                  </SelectItem>
+                  <Separator className="my-1" />
+                  {users.map((user) => (
+                    <SelectItem key={user.user_id} value={user.user_id}>
+                      <span className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5" />
+                        {user.nome_completo || user.email || "Usuário"}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
