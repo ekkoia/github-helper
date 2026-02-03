@@ -39,6 +39,7 @@ import { exportToCSV } from "@/lib/exportUtils";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -56,6 +57,7 @@ const ORIGEM_LABELS: Record<string, string> = {
 const LeadsTable = () => {
   const { logActivity } = useActivityLog();
   const { coresMap } = useFunilEtapas();
+  const { isAdmin } = useUserRole();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -289,7 +291,8 @@ const LeadsTable = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">Leads - Tabela</h1>
             <p className="text-sm text-muted-foreground">
-              {filteredAndSortedLeads.length} lead{filteredAndSortedLeads.length !== 1 ? "s" : ""} encontrado{filteredAndSortedLeads.length !== 1 ? "s" : ""}
+              {filteredAndSortedLeads.length} lead{filteredAndSortedLeads.length !== 1 ? "s" : ""} 
+              {isAdmin ? " no total" : " atribuído(s) a você"}
             </p>
           </div>
           <div className="flex gap-2">
