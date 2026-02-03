@@ -1,97 +1,158 @@
 
-# Corrigir Taxa de Resposta IA no Dashboard
+
+# Implementar Visibilidade de Leads por Atribuição
 
 ## Problema Identificado
 
-O card "Taxa de Resposta IA" está mostrando 0% porque o código está comparando com nomes de etapas que não existem no sistema.
+Atualmente a política RLS da tabela `leads` usa `USING (true)`, permitindo que todos os usuários autenticados vejam TODOS os leads. Precisamos implementar visibilidade baseada em atribuição.
 
-**Etapas usadas no código (incorretas):**
-- "Em atendimento IA"
-- "Atendimento Humano"
-- "Reunião Agendada"
-- "Proposta Enviada"
-- "Ganho"
+## Regras de Visibilidade
 
-**Etapas reais no banco de dados:**
-1. Novo Lead
-2. Atendimento IA
-3. Qualificação
-4. Não qualificado
-5. Follow-up
-6. Aceito
-7. Não aceito
-8. Sem interesse
-9. Ghost
-10. Em aberto
-11. Parceiro
-
-## Lógica da Métrica
-
-A "Taxa de Resposta IA" mede a porcentagem de leads que foram processados pelo Clóvis (IA) - ou seja, leads que avançaram além da etapa "Novo Lead".
-
-**Fórmula:**
-```
-Taxa = (Leads que saíram de "Novo Lead") / (Total de Leads) × 100
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    REGRAS DE VISIBILIDADE                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ADMIN / GLOBAL:                                            │
+│  ├── Vê TODOS os leads (com ou sem responsável)             │
+│  ├── Pode editar qualquer lead                              │
+│  ├── Pode excluir qualquer lead                             │
+│  └── Pode atribuir leads a qualquer usuário                 │
+│                                                             │
+│  USER:                                                      │
+│  ├── Vê APENAS leads onde responsavel_id = seu user_id      │
+│  ├── NÃO vê leads sem responsável (NULL)                    │
+│  ├── Pode editar apenas seus leads atribuídos               │
+│  └── NÃO pode excluir leads                                 │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Um lead é considerado "processado pela IA" se está em qualquer etapa EXCETO "Novo Lead".
+## Alterações no Banco de Dados
 
-## Dados Atuais
+### Migration SQL - Novas Políticas RLS
 
-| Etapa | Quantidade |
-|-------|------------|
-| Novo Lead | 148 |
-| Qualificação | 9 |
-| Atendimento IA | 4 |
-| Não qualificado | 1 |
+```sql
+-- Remover políticas existentes da tabela leads
+DROP POLICY IF EXISTS "Authenticated users can view leads" ON leads;
+DROP POLICY IF EXISTS "Authenticated users can create leads" ON leads;
+DROP POLICY IF EXISTS "Authenticated users can update leads" ON leads;
+DROP POLICY IF EXISTS "Authenticated users can delete leads" ON leads;
 
-**Total:** 162 leads
-**Processados pela IA:** 14 leads (9 + 4 + 1)
-**Taxa esperada:** 8.6%
+-- SELECT: Admins veem tudo, users veem APENAS leads atribuídos a eles
+CREATE POLICY "Users can view assigned leads"
+ON leads FOR SELECT
+TO authenticated
+USING (
+  is_admin(auth.uid()) 
+  OR responsavel_id = auth.uid()
+);
 
-## Alteração no Código
+-- INSERT: Qualquer usuário autenticado pode criar leads
+CREATE POLICY "Authenticated users can create leads"
+ON leads FOR INSERT
+TO authenticated
+WITH CHECK (true);
 
-### Arquivo: `src/components/DashboardMetrics.tsx`
+-- UPDATE: Admins podem atualizar qualquer lead, users apenas os atribuídos
+CREATE POLICY "Users can update assigned leads"
+ON leads FOR UPDATE
+TO authenticated
+USING (
+  is_admin(auth.uid()) 
+  OR responsavel_id = auth.uid()
+);
 
-Atualizar o cálculo de `taxaRespostaIA` para usar a lógica correta:
+-- DELETE: Apenas admins podem excluir leads
+CREATE POLICY "Only admins can delete leads"
+ON leads FOR DELETE
+TO authenticated
+USING (is_admin(auth.uid()));
+```
 
-**Código atual (incorreto):**
+**Diferença importante:** Removido `OR responsavel_id IS NULL` da política SELECT. Agora leads sem responsável são visíveis **apenas para admins**.
+
+## Alterações no Frontend
+
+### Arquivo: `src/pages/Dashboard.tsx`
+
+Adicionar indicador visual do contexto de visualização:
+
 ```typescript
-const taxaRespostaIA = useMemo(() => {
-  const totalLeads = leads.length;
-  if (totalLeads === 0) return 0;
-  
-  const leadsIA = leads.filter(lead => 
-    lead.etapa_funil === "Em atendimento IA" || 
-    lead.etapa_funil === "Atendimento Humano" ||
-    lead.etapa_funil === "Reunião Agendada" ||
-    lead.etapa_funil === "Proposta Enviada" ||
-    lead.etapa_funil === "Ganho"
-  ).length;
-  
-  return (leadsIA / totalLeads) * 100;
-}, [leads]);
+// Adicionar import
+import { useUserRole } from "@/hooks/useUserRole";
+
+// No componente, antes do return
+const { isAdmin } = useUserRole();
+
+// No JSX, após o DashboardHero
+{!isAdmin && (
+  <div className="bg-muted/50 rounded-lg p-3 mb-4">
+    <p className="text-sm text-muted-foreground">
+      📊 Exibindo métricas dos leads atribuídos a você
+    </p>
+  </div>
+)}
 ```
 
-**Código corrigido:**
+### Arquivo: `src/pages/LeadsTable.tsx`
+
+Atualizar o texto do contador de leads:
+
 ```typescript
-const taxaRespostaIA = useMemo(() => {
-  const totalLeads = leads.length;
-  if (totalLeads === 0) return 0;
-  
-  // Leads processados pela IA = todos que saíram de "Novo Lead"
-  const leadsProcessadosIA = leads.filter(lead => 
-    lead.etapa_funil && lead.etapa_funil !== "Novo Lead"
-  ).length;
-  
-  return (leadsProcessadosIA / totalLeads) * 100;
-}, [leads]);
+// Adicionar import
+import { useUserRole } from "@/hooks/useUserRole";
+
+// No componente
+const { isAdmin } = useUserRole();
+
+// Atualizar o texto existente
+<p className="text-sm text-muted-foreground">
+  {filteredAndSortedLeads.length} lead{filteredAndSortedLeads.length !== 1 ? "s" : ""} 
+  {isAdmin ? " no total" : " atribuído(s) a você"}
+</p>
 ```
 
-## Resultado Esperado
+### Arquivo: `src/pages/Kanban.tsx`
 
-Após a correção, o card "Taxa de Resposta IA" mostrará:
-- **Valor:** 8.6% (baseado nos dados atuais)
-- **Subtítulo:** "Leads processados pelo Clóvis"
+Mesmo padrão:
 
-O card será atualizado automaticamente conforme mais leads forem processados pela IA.
+```typescript
+// Adicionar import
+import { useUserRole } from "@/hooks/useUserRole";
+
+// No componente
+const { isAdmin } = useUserRole();
+
+// Atualizar o texto existente
+<p className="text-sm text-muted-foreground">
+  {filteredLeads.length} lead{filteredLeads.length !== 1 ? "s" : ""} 
+  {isAdmin ? " encontrado(s)" : " atribuído(s) a você"}
+</p>
+```
+
+## Arquivos a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| Nova migration SQL | Novas políticas RLS (sem visibilidade de NULL para users) |
+| `src/pages/Dashboard.tsx` | Adicionar hook useUserRole e indicador visual |
+| `src/pages/LeadsTable.tsx` | Adicionar hook useUserRole e atualizar texto |
+| `src/pages/Kanban.tsx` | Adicionar hook useUserRole e atualizar texto |
+
+## Comportamento Final
+
+| Tipo de Lead | Admin/Global | User |
+|--------------|--------------|------|
+| `responsavel_id = NULL` | ✅ Visível | ❌ Não visível |
+| `responsavel_id = outro_user` | ✅ Visível | ❌ Não visível |
+| `responsavel_id = meu_user_id` | ✅ Visível | ✅ Visível |
+
+## Fluxo de Atribuição
+
+1. Lead entra via webhook → `responsavel_id = NULL`
+2. Apenas admins veem o lead no CRM
+3. Admin atribui lead a um usuário → `responsavel_id = user_id`
+4. Notificação é criada para o usuário
+5. Usuário agora vê o lead em seu Dashboard/Leads/Kanban
+
