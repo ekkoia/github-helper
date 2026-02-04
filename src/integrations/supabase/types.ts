@@ -289,6 +289,69 @@ export type Database = {
           nome_completo: string | null
           telefone: string | null
           valor_investimento: string | null
+          "Você concorda que esse formulário não trata-se de empréstim":
+            | string
+            | null
+        }
+        Insert: {
+          ad_id?: string | null
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          created_at?: string | null
+          created_time?: string | null
+          email?: string | null
+          form_id?: string | null
+          form_locale?: string | null
+          form_name?: string | null
+          form_status?: string | null
+          id?: number
+          nome_completo?: string | null
+          telefone?: string | null
+          valor_investimento?: string | null
+          "Você concorda que esse formulário não trata-se de empréstim"?:
+            | string
+            | null
+        }
+        Update: {
+          ad_id?: string | null
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          created_at?: string | null
+          created_time?: string | null
+          email?: string | null
+          form_id?: string | null
+          form_locale?: string | null
+          form_name?: string | null
+          form_status?: string | null
+          id?: number
+          nome_completo?: string | null
+          telefone?: string | null
+          valor_investimento?: string | null
+          "Você concorda que esse formulário não trata-se de empréstim"?:
+            | string
+            | null
+        }
+        Relationships: []
+      }
+      leadsNativo_feeagro_2: {
+        Row: {
+          ad_id: string | null
+          ad_name: string | null
+          adset_id: string | null
+          adset_name: string | null
+          created_at: string | null
+          created_time: string | null
+          email: string | null
+          form_id: string | null
+          form_locale: string | null
+          form_name: string | null
+          form_status: string | null
+          id: number
+          nome_completo: string | null
+          telefone: string | null
+          valor_investimento: string | null
         }
         Insert: {
           ad_id?: string | null

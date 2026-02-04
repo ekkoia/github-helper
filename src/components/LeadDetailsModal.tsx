@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, User, TrendingUp, Edit, UserPlus } from "lucide-react";
+import { Mail, Phone, User, TrendingUp, Edit, UserPlus, Check, AlertTriangle } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AssignLeadDialog } from "./AssignLeadDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,11 +37,46 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [responsavelNome, setResponsavelNome] = useState<string | null>(null);
   const [currentLead, setCurrentLead] = useState(lead);
+  const [concordaEmprestimo, setConcordaEmprestimo] = useState<string | null>(null);
+
+  // Verificar se é formulário 02
+  const isFormulario02 = currentLead?.observacoes?.includes('02 - Formulário FeeAgro');
 
   // Atualizar currentLead quando lead mudar
   useEffect(() => {
     setCurrentLead(lead);
+    setConcordaEmprestimo(null); // Reset ao mudar de lead
   }, [lead]);
+
+  // Buscar resposta de concordância para formulário 02
+  useEffect(() => {
+    const fetchConcordancia = async () => {
+      if (!isFormulario02 || !currentLead?.email) {
+        setConcordaEmprestimo(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('leadsNativo_feeagro')
+          .select('"Você concorda que esse formulário não trata-se de empréstim"')
+          .ilike('email', currentLead.email)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Erro ao buscar concordância:", error);
+          return;
+        }
+
+        const resposta = data?.["Você concorda que esse formulário não trata-se de empréstim"];
+        setConcordaEmprestimo(resposta || null);
+      } catch (error) {
+        console.error("Erro ao buscar concordância:", error);
+      }
+    };
+
+    fetchConcordancia();
+  }, [isFormulario02, currentLead?.email]);
 
   // Buscar nome do responsável
   useEffect(() => {
@@ -243,14 +278,44 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
               </div>
             </div>
 
-            {currentLead.observacoes && (
+            {(currentLead.observacoes || isFormulario02) && (
               <>
                 <Separator />
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Observações</h3>
-                  <p className="text-sm whitespace-pre-wrap bg-muted p-4 rounded-lg">
-                    {currentLead.observacoes}
-                  </p>
+                  
+                  {/* Destaque para concordância de empréstimo - Formulário 02 */}
+                  {isFormulario02 && concordaEmprestimo !== null && (
+                    <div className={`mb-4 p-4 rounded-lg border-2 ${
+                      concordaEmprestimo?.toLowerCase() === 'sim' 
+                        ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' 
+                        : 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800'
+                    }`}>
+                      <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        Entende que não é empréstimo?
+                      </p>
+                      <Badge 
+                        className={`text-sm px-3 py-1 ${
+                          concordaEmprestimo?.toLowerCase() === 'sim'
+                            ? 'bg-green-500 hover:bg-green-600 text-white'
+                            : 'bg-amber-500 hover:bg-amber-600 text-white'
+                        }`}
+                      >
+                        {concordaEmprestimo?.toLowerCase() === 'sim' ? (
+                          <><Check className="h-4 w-4 mr-1" /> Sim</>
+                        ) : (
+                          <><AlertTriangle className="h-4 w-4 mr-1" /> Não</>
+                        )}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {currentLead.observacoes && (
+                    <p className="text-sm whitespace-pre-wrap bg-muted p-4 rounded-lg">
+                      {currentLead.observacoes}
+                    </p>
+                  )}
                 </div>
               </>
             )}
