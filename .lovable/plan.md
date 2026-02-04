@@ -1,133 +1,85 @@
 
 
-# Gestão de Atribuições para Admin e Global Admin
+# Exibir Campo de Concordância com Empréstimo no Modal de Detalhes
 
-## Visão Geral
+## Contexto
 
-Implementar ferramentas de gestão de atribuições que permitam aos administradores:
-1. Visualizar rapidamente quem é o responsável por cada lead
-2. Filtrar leads por responsável (incluindo leads não atribuídos)
-3. Atribuir leads em massa ou individualmente de forma rápida
+Quando um lead vem do **Formulário 02 - Formulário FeeAgro (Pergunta Empréstimo)**, precisamos exibir de forma destacada a resposta à pergunta sobre concordância de que não se trata de empréstimo.
 
-## Alterações Propostas
+## Fonte dos Dados
 
-### 1. Adicionar Coluna "Responsável" na Tabela de Leads
+- A informação de concordância está na tabela `leadsNativo_feeagro`
+- Coluna: `"Você concorda que esse formulário não trata-se de empréstim"` (valores: "sim" ou "não")
+- O vínculo entre as tabelas é feito pelo **email** do lead
+- O formulário 02 é identificado pela observação contendo "02 - Formulário FeeAgro (Pergunta Empréstimo)"
 
-Na página LeadsTable, adicionar uma nova coluna visível **apenas para admins** mostrando quem é o responsável por cada lead.
+## Visual Proposto
 
-**Arquivo:** `src/pages/LeadsTable.tsx`
+Na seção **Observações** do modal, antes do texto das observações, adicionar um destaque visual:
 
-- Buscar dados do responsável junto com os leads
-- Adicionar coluna "Responsável" no header e nas linhas da tabela
-- Mostrar "Não atribuído" com destaque visual para leads sem responsável
-- Botão de atribuição rápida diretamente na tabela
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ Observações                                                 │
+├─────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ ⚠️ Entende que não é empréstimo?                         │ │
+│ │                                                         │ │
+│ │ [✓ Sim]  ou  [✗ Não]  (badge colorido)                  │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ Valor pretendido: até R$10 mil                              │
+│ Formulário: 02 - Formulário FeeAgro (Pergunta Empréstimo)   │
+│ Anúncio: AD01 - I1 - 01/26                                  │
+│ ...                                                         │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### 2. Adicionar Filtro por Responsável no FiltersSidebar
+- **Sim**: Badge verde com ícone de check
+- **Não**: Badge vermelho/amarelo com ícone de alerta (destaque para atenção)
 
-Adicionar um novo filtro no painel lateral para admins filtrarem leads por:
-- Todos os leads
-- Leads não atribuídos
-- Leads de um usuário específico
+## Alterações Técnicas
 
-**Arquivo:** `src/components/FiltersSidebar.tsx`
+### Arquivo: `src/components/LeadDetailsModal.tsx`
 
-- Adicionar select com lista de usuários
-- Opção "Não atribuídos" para ver leads pendentes
-- Visível apenas para admins
+1. **Adicionar estado** para armazenar a resposta de concordância
+2. **Buscar no Supabase** a informação da tabela `leadsNativo_feeagro` quando:
+   - As observações contenham "02 - Formulário FeeAgro (Pergunta Empréstimo)"
+   - Usar o email do lead para fazer o vínculo
+3. **Renderizar seção destacada** acima das observações mostrando:
+   - Pergunta: "Entende que não é empréstimo?"
+   - Resposta: Badge colorido com "Sim" ou "Não"
 
-### 3. Mostrar Responsável nos Cards do Kanban
-
-Adicionar indicação visual do responsável nos cards do Kanban para admins.
-
-**Arquivo:** `src/pages/Kanban.tsx`
-
-- Mostrar avatar/nome do responsável no card
-- Indicação visual para cards sem responsável
-
-### 4. Criar Hook para Buscar Usuários com Cache
-
-Criar um hook reutilizável para buscar a lista de usuários (para usar em filtros e atribuições).
-
-**Arquivo:** `src/hooks/useUsers.ts` (novo)
+### Lógica de Implementação
 
 ```typescript
-export const useUsers = () => {
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Buscar perfis do Supabase
-  // Cachear resultado para evitar requisições repetidas
-  
-  return { users, loading, usersMap };
-};
+// Verificar se é formulário 02
+const isFormulario02 = currentLead.observacoes?.includes('02 - Formulário FeeAgro');
+
+// Se for, buscar na tabela leadsNativo_feeagro pelo email
+useEffect(() => {
+  if (isFormulario02 && currentLead.email) {
+    // Buscar resposta de concordância
+    supabase
+      .from('leadsNativo_feeagro')
+      .select('"Você concorda que esse formulário não trata-se de empréstim"')
+      .ilike('email', currentLead.email)
+      .maybeSingle()
+      .then(({ data }) => {
+        setConcordaEmprestimo(data?.['Você concorda...']);
+      });
+  }
+}, [currentLead]);
 ```
 
-## Detalhes Técnicos
+## Arquivo a Modificar
 
-### Estrutura do Filtro por Responsável
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/LeadDetailsModal.tsx` | Adicionar busca e exibição do campo de concordância |
 
-```text
-┌─────────────────────────────────────────┐
-│ Responsável                             │
-├─────────────────────────────────────────┤
-│  [▼] Todos                              │
-│      ─────────────────────────          │
-│      ⚠️ Não atribuídos                   │
-│      ─────────────────────────          │
-│      👤 Ana Carolina Goulart            │
-│      👤 Rodolfo Felipe Saavedra         │
-│      👤 Lucas Silva                     │
-│      ...                                │
-└─────────────────────────────────────────┘
-```
+## Resultado Esperado
 
-### Nova Coluna na Tabela (Admins)
-
-| Nome | Contato | Responsável | Etapa | Ações |
-|------|---------|-------------|-------|-------|
-| João Silva | ... | 👤 Ana Carolina | Novo Lead | ... |
-| Maria Santos | ... | ⚠️ Não atribuído | Qualificação | ... |
-
-### Visual do Card Kanban (Admins)
-
-```text
-┌─────────────────────────────────┐
-│ João Silva                    ⋮ │
-├─────────────────────────────────┤
-│ 📍 São Paulo/SP                 │
-│ 📞 (11) 99999-9999              │
-├─────────────────────────────────┤
-│ 👤 Ana Carolina          [🔄]   │  ← Novo: responsável + botão trocar
-└─────────────────────────────────┘
-```
-
-Para leads não atribuídos:
-```text
-│ ⚠️ Não atribuído        [➕]   │  ← Destaque amarelo + botão atribuir
-```
-
-## Arquivos a Criar/Modificar
-
-| Arquivo | Tipo | Alteração |
-|---------|------|-----------|
-| `src/hooks/useUsers.ts` | Novo | Hook para buscar e cachear lista de usuários |
-| `src/components/FiltersSidebar.tsx` | Modificar | Adicionar filtro por responsável (somente admin) |
-| `src/pages/LeadsTable.tsx` | Modificar | Adicionar coluna responsável + buscar dados + filtro |
-| `src/pages/Kanban.tsx` | Modificar | Mostrar responsável nos cards + botão atribuir rápido |
-
-## Fluxo de Uso para Admin
-
-1. Admin acessa `/leads`
-2. Vê a coluna "Responsável" na tabela
-3. Usa filtro "Não atribuídos" para ver leads pendentes
-4. Clica no botão de atribuir na linha ou abre detalhes
-5. Seleciona usuário e confirma
-6. Lead some da lista de "Não atribuídos" e aparece para o usuário atribuído
-
-## Benefícios
-
-- **Visibilidade**: Admin sabe instantaneamente quem está cuidando de cada lead
-- **Gestão**: Filtrar leads não atribuídos para distribuição
-- **Eficiência**: Atribuir sem precisar abrir modal de detalhes
-- **Organização**: Visualizar carga de trabalho por usuário
+- Para leads do Formulário 02: aparece destaque visual com a resposta "Sim" ou "Não"
+- Para leads de outros formulários: nenhuma alteração
+- Informação clara e visível para o usuário entender rapidamente a resposta
 
