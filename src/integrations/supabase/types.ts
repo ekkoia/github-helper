@@ -183,6 +183,7 @@ export type Database = {
         Row: {
           armazenamento: string | null
           cidade: string | null
+          created_time_brasil: string | null
           data_atualizacao: string
           data_criacao: string
           distancia_km: number | null
@@ -213,6 +214,7 @@ export type Database = {
         Insert: {
           armazenamento?: string | null
           cidade?: string | null
+          created_time_brasil?: string | null
           data_atualizacao?: string
           data_criacao?: string
           distancia_km?: number | null
@@ -243,6 +245,7 @@ export type Database = {
         Update: {
           armazenamento?: string | null
           cidade?: string | null
+          created_time_brasil?: string | null
           data_atualizacao?: string
           data_criacao?: string
           distancia_km?: number | null
