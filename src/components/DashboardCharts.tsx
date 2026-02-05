@@ -51,12 +51,17 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
 
   // Função para obter a data do lead no horário Brasil
   const getLeadDate = (lead: any): Date => {
-    // Se tiver created_time_brasil, usa (leads do Meta)
+    // Prioriza created_time_brasil (horário Brasil real)
     if (lead.created_time_brasil) {
-      return new Date(lead.created_time_brasil);
+      // Extrai apenas a parte da data para evitar problemas de timezone
+      const dateStr = lead.created_time_brasil.split('T')[0];
+      return new Date(dateStr + 'T12:00:00');
     }
-    // Fallback para data_criacao (leads manuais/whatsapp)
-    return new Date(lead.data_criacao);
+    // Fallback: converte data_criacao considerando que está em UTC
+    const date = new Date(lead.data_criacao);
+    // Ajusta para Brasil (UTC-3)
+    date.setHours(date.getHours() - 3);
+    return date;
   };
 
   // Filtrar leads por período
