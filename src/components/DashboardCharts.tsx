@@ -49,13 +49,23 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
   const [customDateTo, setCustomDateTo] = useState<Date>();
   const [showCustomDates, setShowCustomDates] = useState(false);
 
+  // Função para obter a data do lead no horário Brasil
+  const getLeadDate = (lead: any): Date => {
+    // Se tiver created_time_brasil, usa (leads do Meta)
+    if (lead.created_time_brasil) {
+      return new Date(lead.created_time_brasil);
+    }
+    // Fallback para data_criacao (leads manuais/whatsapp)
+    return new Date(lead.data_criacao);
+  };
+
   // Filtrar leads por período
   const filteredLeads = useMemo(() => {
     const now = new Date();
     
     if (period === "custom" && customDateFrom && customDateTo) {
       return leads.filter(lead => {
-        const leadDate = new Date(lead.data_criacao);
+        const leadDate = getLeadDate(lead);
         return isWithinInterval(leadDate, {
           start: startOfDay(customDateFrom),
           end: endOfDay(customDateTo)
@@ -65,7 +75,7 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
     
     if (period === "hoje") {
       return leads.filter(lead => {
-        const leadDate = new Date(lead.data_criacao);
+        const leadDate = getLeadDate(lead);
         return leadDate.toDateString() === now.toDateString();
       });
     }
@@ -73,7 +83,7 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
     if (period === "ontem") {
       const yesterday = subDays(now, 1);
       return leads.filter(lead => {
-        const leadDate = new Date(lead.data_criacao);
+        const leadDate = getLeadDate(lead);
         return leadDate.toDateString() === yesterday.toDateString();
       });
     }
@@ -82,7 +92,7 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
     const startDate = subDays(now, days);
     
     return leads.filter(lead => {
-      const leadDate = new Date(lead.data_criacao);
+      const leadDate = getLeadDate(lead);
       return leadDate >= startDate;
     });
   }, [leads, period, customDateFrom, customDateTo]);
@@ -101,11 +111,11 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
       daysToShow = Math.ceil((customDateTo.getTime() - customDateFrom.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     }
 
-    // Criar mapa de contagem de leads por data
+    // Criar mapa de contagem de leads por data usando created_time_brasil
     const leadsCountByDate: Record<string, number> = {};
     
     filteredLeads.forEach(lead => {
-      const leadDate = new Date(lead.data_criacao);
+      const leadDate = getLeadDate(lead);
       const dateKey = format(leadDate, "dd/MM");
       leadsCountByDate[dateKey] = (leadsCountByDate[dateKey] || 0) + 1;
     });
