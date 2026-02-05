@@ -1,85 +1,134 @@
 
 
-# Exibir Campo de Concordância com Empréstimo no Modal de Detalhes
+# Adicionar created_time_brasil na Tabela Leads
 
-## Contexto
+## Objetivo
 
-Quando um lead vem do **Formulário 02 - Formulário FeeAgro (Pergunta Empréstimo)**, precisamos exibir de forma destacada a resposta à pergunta sobre concordância de que não se trata de empréstimo.
+Adicionar uma coluna `created_time_brasil` na tabela `leads` para armazenar a data/hora exata de chegada do lead no fuso horário do Brasil, garantindo que todos os gráficos e métricas mostrem a contagem correta por dia.
 
-## Fonte dos Dados
+## Por que essa abordagem?
 
-- A informação de concordância está na tabela `leadsNativo_feeagro`
-- Coluna: `"Você concorda que esse formulário não trata-se de empréstim"` (valores: "sim" ou "não")
-- O vínculo entre as tabelas é feito pelo **email** do lead
-- O formulário 02 é identificado pela observação contendo "02 - Formulário FeeAgro (Pergunta Empréstimo)"
+- A tabela `leads` é a fonte central de dados para toda a aplicação
+- Todos os componentes (Dashboard, Kanban, Leads, etc.) já consomem dados dessa tabela
+- Evita dependência de tabelas secundárias como `leadsNativo_feeagro`
+- Mantém consistência em toda a aplicação
 
-## Visual Proposto
-
-Na seção **Observações** do modal, antes do texto das observações, adicionar um destaque visual:
+## Fluxo de Dados
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ Observações                                                 │
-├─────────────────────────────────────────────────────────────┤
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ ⚠️ Entende que não é empréstimo?                         │ │
-│ │                                                         │ │
-│ │ [✓ Sim]  ou  [✗ Não]  (badge colorido)                  │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                                                             │
-│ Valor pretendido: até R$10 mil                              │
-│ Formulário: 02 - Formulário FeeAgro (Pergunta Empréstimo)   │
-│ Anúncio: AD01 - I1 - 01/26                                  │
-│ ...                                                         │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                     Meta/Facebook                               │
+│                         │                                       │
+│                         ▼                                       │
+│              leadsNativo_feeagro                                │
+│              (created_time: "04/02/2026 - 23:53")               │
+│                         │                                       │
+│                         ▼  (trigger sync)                       │
+│                      leads                                      │
+│              (created_time_brasil: timestamp)                   │
+│                         │                                       │
+│           ┌─────────────┼─────────────┐                         │
+│           ▼             ▼             ▼                         │
+│       Dashboard      Kanban        Leads                        │
+│       (gráficos)    (cards)       (tabela)                      │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-- **Sim**: Badge verde com ícone de check
-- **Não**: Badge vermelho/amarelo com ícone de alerta (destaque para atenção)
+## Alterações Necessárias
 
-## Alterações Técnicas
+### 1. Migração no Banco de Dados
 
-### Arquivo: `src/components/LeadDetailsModal.tsx`
+Adicionar a coluna e popular com dados existentes:
 
-1. **Adicionar estado** para armazenar a resposta de concordância
-2. **Buscar no Supabase** a informação da tabela `leadsNativo_feeagro` quando:
-   - As observações contenham "02 - Formulário FeeAgro (Pergunta Empréstimo)"
-   - Usar o email do lead para fazer o vínculo
-3. **Renderizar seção destacada** acima das observações mostrando:
-   - Pergunta: "Entende que não é empréstimo?"
-   - Resposta: Badge colorido com "Sim" ou "Não"
+```sql
+-- Adicionar coluna timestamp para horário Brasil
+ALTER TABLE leads ADD COLUMN created_time_brasil timestamp with time zone;
 
-### Lógica de Implementação
+-- Popular dados existentes convertendo o formato texto
+UPDATE leads l
+SET created_time_brasil = TO_TIMESTAMP(
+  lf.created_time, 
+  'DD/MM/YYYY - HH24:MI'
+) AT TIME ZONE 'America/Sao_Paulo'
+FROM "leadsNativo_feeagro" lf
+WHERE l.meta_lead_id = lf.id
+  AND lf.created_time IS NOT NULL;
+```
+
+### 2. Atualizar Trigger de Sincronização
+
+Modificar a função `sync_meta_lead_to_crm()` para incluir o `created_time_brasil`:
+
+```sql
+-- No INSERT da função, adicionar:
+created_time_brasil = TO_TIMESTAMP(
+  NEW.created_time, 
+  'DD/MM/YYYY - HH24:MI'
+) AT TIME ZONE 'America/Sao_Paulo'
+```
+
+### 3. Arquivo: `src/pages/Dashboard.tsx`
+
+Incluir o novo campo na query de busca:
 
 ```typescript
-// Verificar se é formulário 02
-const isFormulario02 = currentLead.observacoes?.includes('02 - Formulário FeeAgro');
-
-// Se for, buscar na tabela leadsNativo_feeagro pelo email
-useEffect(() => {
-  if (isFormulario02 && currentLead.email) {
-    // Buscar resposta de concordância
-    supabase
-      .from('leadsNativo_feeagro')
-      .select('"Você concorda que esse formulário não trata-se de empréstim"')
-      .ilike('email', currentLead.email)
-      .maybeSingle()
-      .then(({ data }) => {
-        setConcordaEmprestimo(data?.['Você concorda...']);
-      });
-  }
-}, [currentLead]);
+const { data, error } = await supabase
+  .from("leads")
+  .select("*")  // já inclui created_time_brasil automaticamente
+  .order("data_criacao", { ascending: false });
 ```
 
-## Arquivo a Modificar
+### 4. Arquivo: `src/components/DashboardCharts.tsx`
+
+Modificar a lógica de agrupamento por data para usar `created_time_brasil`:
+
+```typescript
+// Função para obter a data do lead no horário Brasil
+const getLeadDate = (lead: any): Date => {
+  // Se tiver created_time_brasil, usa (leads do Meta)
+  if (lead.created_time_brasil) {
+    return new Date(lead.created_time_brasil);
+  }
+  // Fallback para data_criacao (leads manuais/whatsapp)
+  return new Date(lead.data_criacao);
+};
+
+// Usar nos filtros de período
+const filteredLeads = useMemo(() => {
+  return leads.filter(lead => {
+    const leadDate = getLeadDate(lead);
+    // ... lógica de filtro
+  });
+}, [leads, period]);
+
+// Usar no agrupamento por data
+filteredLeads.forEach(lead => {
+  const leadDate = getLeadDate(lead);
+  const dateKey = format(leadDate, "dd/MM");
+  leadsCountByDate[dateKey] = (leadsCountByDate[dateKey] || 0) + 1;
+});
+```
+
+### 5. Atualizar Types do Supabase
+
+O campo será automaticamente incluído nos tipos após a migração.
+
+## Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/LeadDetailsModal.tsx` | Adicionar busca e exibição do campo de concordância |
+| Migration (novo) | Adicionar coluna `created_time_brasil` + popular dados |
+| `sync_meta_lead_to_crm` (trigger) | Incluir `created_time_brasil` no INSERT |
+| `src/components/DashboardCharts.tsx` | Usar `created_time_brasil` para cálculos de data |
 
 ## Resultado Esperado
 
-- Para leads do Formulário 02: aparece destaque visual com a resposta "Sim" ou "Não"
-- Para leads de outros formulários: nenhuma alteração
-- Informação clara e visível para o usuário entender rapidamente a resposta
+- Dia 04/02 mostrará corretamente **18 leads** (incluindo Jhon 21:50 e Danillo 23:53)
+- Todos os gráficos de período usarão o horário Brasil
+- Leads manuais/WhatsApp continuam funcionando com `data_criacao`
+- Novos leads do Meta terão automaticamente o `created_time_brasil` preenchido
+
+## Observação sobre Leads Não-Meta
+
+Para leads que não vêm do Meta (ex: cadastro manual, WhatsApp), o campo `created_time_brasil` ficará nulo e o sistema usará `data_criacao` como fallback. Se desejado, podemos também preencher `created_time_brasil` com `data_criacao` convertido para horário Brasil.
 
