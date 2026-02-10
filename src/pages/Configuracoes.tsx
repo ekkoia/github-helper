@@ -65,6 +65,12 @@ const Configuracoes = () => {
                   <CamposCustomizadosSection />
                 </div>
               </TabsContent>
+
+              <TabsContent value="distribuicao">
+                <div className="max-w-5xl mx-auto">
+                  <DistribuicaoSection />
+                </div>
+              </TabsContent>
             </>
           )}
         </Tabs>
