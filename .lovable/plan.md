@@ -1,76 +1,84 @@
 
 
-# Correção da Contagem de Leads no Gráfico
+# Atribuicao Automatica de Leads por Faixa de Investimento
 
-## Problema Identificado
+## Resumo
 
-O gráfico "Volume de Negociações" está mostrando **13 leads** no dia 04/02, quando deveria mostrar **15 leads** (13 Meta + 2 WhatsApp).
+Criar um sistema de distribuicao automatica de leads usando round-robin, dividido em **duas filas**:
+- **Fila 1**: Leads com investimento ate R$10 mil (valor_produto <= 10000)
+- **Fila 2**: Leads com investimento acima de R$10 mil (valor_produto > 10000)
 
-### Causa Raiz
+Administradores poderao selecionar quais usuarios participam de cada fila na pagina de Configuracoes.
 
-A função `getLeadDate()` no `DashboardCharts.tsx` tem um problema de timezone:
+## Como Vai Funcionar
 
-```typescript
-const getLeadDate = (lead: any): Date => {
-  if (lead.created_time_brasil) {
-    return new Date(lead.created_time_brasil); // Meta leads
-  }
-  return new Date(lead.data_criacao); // WhatsApp leads - PROBLEMA!
-};
+1. Na pagina de **Configuracoes**, uma nova aba "Distribuicao" permite ao admin arrastar/selecionar usuarios para cada fila
+2. Quando um lead novo entra (de qualquer origem), um trigger no banco verifica o valor de investimento e atribui automaticamente ao proximo usuario da fila correspondente
+3. O round-robin garante distribuicao igualitaria - cada usuario recebe um lead por vez, em sequencia
+
+## Detalhes Tecnicos
+
+### 1. Novas Tabelas no Banco de Dados
+
+**Tabela `auto_assign_config`** - Define quais usuarios participam de cada fila:
+
+```text
++--------------------+-------------------------------------------+
+| Coluna             | Tipo                                      |
++--------------------+-------------------------------------------+
+| id                 | uuid (PK)                                 |
+| user_id            | uuid (FK -> auth.users)                   |
+| faixa              | text ('ate_10k' ou 'acima_10k')           |
+| ordem              | integer (posicao no round-robin)          |
+| ativo              | boolean (default true)                    |
+| created_at         | timestamptz                                |
++--------------------+-------------------------------------------+
 ```
 
-**Situação atual no banco:**
+**Tabela `auto_assign_state`** - Rastreia a posicao atual do round-robin:
 
-| Lead | created_time_brasil | data_criacao (UTC) |
-|------|--------------------|--------------------|
-| Oscar (WhatsApp) | null | 2026-02-04 16:45+00 |
-| Andre (WhatsApp) | null | 2026-02-04 19:52+00 |
-| Jhon (Meta) | 2026-02-04 21:50+00 | 2026-02-05 00:50+00 |
-
-Os leads WhatsApp não têm `created_time_brasil` preenchido, então usam `data_criacao`. A comparação de datas no JavaScript pode interpretar incorretamente o timezone.
-
-## Solução Proposta
-
-### Parte 1: Preencher `created_time_brasil` para Leads WhatsApp
-
-Atualizar os leads WhatsApp para terem `created_time_brasil` baseado no `data_criacao` convertido para horário Brasil:
-
-```sql
-UPDATE leads
-SET created_time_brasil = data_criacao AT TIME ZONE 'America/Sao_Paulo'
-WHERE origem = 'whatsapp'
-  AND created_time_brasil IS NULL;
+```text
++--------------------+-------------------------------------------+
+| Coluna             | Tipo                                      |
++--------------------+-------------------------------------------+
+| id                 | uuid (PK)                                 |
+| faixa              | text (unique, 'ate_10k' ou 'acima_10k')   |
+| last_assigned_order| integer (ultima posicao atribuida)        |
+| updated_at         | timestamptz                                |
++--------------------+-------------------------------------------+
 ```
 
-### Parte 2: Melhorar a Lógica de Data no Frontend
+### 2. Funcao de Atribuicao Automatica (Database Trigger)
 
-Atualizar a função `getLeadDate()` para lidar melhor com timezones, extraindo apenas a parte da data sem conversão:
+Uma funcao PL/pgSQL `auto_assign_lead()` que:
+- Verifica se o lead nao tem `responsavel_id`
+- Determina a faixa com base no `valor_produto` (null ou <= 10000 -> ate_10k, > 10000 -> acima_10k)
+- Busca o proximo usuario ativo na fila (round-robin)
+- Atribui o `responsavel_id` e atualiza o estado do round-robin
+- Funciona como trigger BEFORE INSERT na tabela `leads`
 
-```typescript
-const getLeadDate = (lead: any): Date => {
-  // Prioriza created_time_brasil (horário Brasil real)
-  if (lead.created_time_brasil) {
-    const dateStr = lead.created_time_brasil.split('T')[0];
-    return new Date(dateStr + 'T12:00:00');
-  }
-  // Fallback: converte data_criacao considerando que está em UTC
-  const date = new Date(lead.data_criacao);
-  // Ajusta para Brasil (UTC-3)
-  date.setHours(date.getHours() - 3);
-  return date;
-};
-```
+Isso garante que a atribuicao funcione para **todas as origens** (Meta trigger, webhook, criacao manual) sem alterar nenhum codigo existente.
 
-## Resultado Esperado
+### 3. Interface de Configuracao (Frontend)
 
-Após as correções:
-- 04/02: **15 leads** (13 Meta + 2 WhatsApp)
-- Todos os outros dias também terão contagem correta
+Nova aba **"Distribuicao"** na pagina de Configuracoes (visivel apenas para admins), contendo:
+- Duas colunas/listas: "Ate R$10 mil" e "Acima de R$10 mil"
+- Lista de todos os usuarios com checkbox para adicionar/remover de cada fila
+- Possibilidade de reordenar a sequencia do round-robin
+- Switch para ativar/desativar a distribuicao automatica
 
-## Arquivos a Modificar
+### 4. Arquivos a Criar/Modificar
 
-| Arquivo | Alteração |
-|---------|-----------|
-| Nova migração SQL | Preencher `created_time_brasil` para leads WhatsApp |
-| `src/components/DashboardCharts.tsx` | Melhorar lógica de `getLeadDate()` para lidar com timezone |
+| Arquivo | Acao |
+|---------|------|
+| Nova migracao SQL | Criar tabelas, funcao trigger e politicas RLS |
+| `src/components/configuracoes/DistribuicaoSection.tsx` | Nova interface de configuracao de filas |
+| `src/pages/Configuracoes.tsx` | Adicionar aba "Distribuicao" |
+| `src/hooks/useAutoAssign.ts` | Hook para gerenciar configuracao de distribuicao |
+| `src/integrations/supabase/types.ts` | Atualizar tipos gerados |
+
+### 5. Seguranca (RLS)
+
+- Somente admins/globals podem ler e modificar `auto_assign_config` e `auto_assign_state`
+- A funcao trigger usa `SECURITY DEFINER` para bypassing RLS ao atribuir leads
 
