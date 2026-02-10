@@ -38,7 +38,10 @@ const Configuracoes = () => {
                     <Plus className="h-4 w-4" />
                     Campos Customizados
                   </TabsTrigger>
-                </>
+                  <TabsTrigger value="distribuicao" className="gap-2">
+                    <Users className="h-4 w-4" />
+                    Distribuição
+                  </TabsTrigger>
               )}
             </TabsList>
           </div>
