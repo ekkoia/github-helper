@@ -1,9 +1,10 @@
 import { Layout } from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Sliders, Plus } from "lucide-react";
+import { Settings, Sliders, Plus, Users } from "lucide-react";
 import { PreferenciasSection } from "@/components/configuracoes/PreferenciasSection";
 import { FunilSection } from "@/components/configuracoes/FunilSection";
 import { CamposCustomizadosSection } from "@/components/configuracoes/CamposCustomizadosSection";
+import { DistribuicaoSection } from "@/components/configuracoes/DistribuicaoSection";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const Configuracoes = () => {
