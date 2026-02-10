@@ -42,6 +42,7 @@ const Configuracoes = () => {
                     <Users className="h-4 w-4" />
                     Distribuição
                   </TabsTrigger>
+                </>
               )}
             </TabsList>
           </div>
