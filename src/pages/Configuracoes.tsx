@@ -1,9 +1,10 @@
 import { Layout } from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Sliders, Plus } from "lucide-react";
+import { Settings, Sliders, Plus, Users } from "lucide-react";
 import { PreferenciasSection } from "@/components/configuracoes/PreferenciasSection";
 import { FunilSection } from "@/components/configuracoes/FunilSection";
 import { CamposCustomizadosSection } from "@/components/configuracoes/CamposCustomizadosSection";
+import { DistribuicaoSection } from "@/components/configuracoes/DistribuicaoSection";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const Configuracoes = () => {
@@ -37,6 +38,10 @@ const Configuracoes = () => {
                     <Plus className="h-4 w-4" />
                     Campos Customizados
                   </TabsTrigger>
+                  <TabsTrigger value="distribuicao" className="gap-2">
+                    <Users className="h-4 w-4" />
+                    Distribuição
+                  </TabsTrigger>
                 </>
               )}
             </TabsList>
@@ -59,6 +64,12 @@ const Configuracoes = () => {
               <TabsContent value="campos">
                 <div className="max-w-3xl mx-auto">
                   <CamposCustomizadosSection />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="distribuicao">
+                <div className="max-w-5xl mx-auto">
+                  <DistribuicaoSection />
                 </div>
               </TabsContent>
             </>
