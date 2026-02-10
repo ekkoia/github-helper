@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      auto_assign_config: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          faixa: string
+          id: string
+          ordem: number
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          faixa: string
+          id?: string
+          ordem?: number
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          faixa?: string
+          id?: string
+          ordem?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      auto_assign_state: {
+        Row: {
+          faixa: string
+          id: string
+          last_assigned_order: number
+          updated_at: string
+        }
+        Insert: {
+          faixa: string
+          id?: string
+          last_assigned_order?: number
+          updated_at?: string
+        }
+        Update: {
+          faixa?: string
+          id?: string
+          last_assigned_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           active: boolean | null
