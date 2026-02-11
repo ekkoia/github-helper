@@ -160,10 +160,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/set-password`,
-      });
-      return { error };
+      const response = await fetch(
+        `https://omilhfohvstqsonhyuxp.supabase.co/functions/v1/reset-password`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { error: new Error(data.error || 'Erro ao enviar email de recuperação') };
+      }
+
+      return { error: null };
     } catch (error) {
       return { error: error as Error };
     }
