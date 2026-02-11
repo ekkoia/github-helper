@@ -648,6 +648,7 @@ export type Database = {
           callix_name: string | null
           created_at: string
           id: string
+          update_at: string | null
           user_id: string
         }
         Insert: {
@@ -656,6 +657,7 @@ export type Database = {
           callix_name?: string | null
           created_at?: string
           id?: string
+          update_at?: string | null
           user_id: string
         }
         Update: {
@@ -664,6 +666,7 @@ export type Database = {
           callix_name?: string | null
           created_at?: string
           id?: string
+          update_at?: string | null
           user_id?: string
         }
         Relationships: []
