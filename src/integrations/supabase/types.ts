@@ -641,6 +641,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_callix_mapping: {
+        Row: {
+          callix_assessor_id: string
+          callix_list_id: string
+          callix_name: string | null
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          callix_assessor_id: string
+          callix_list_id: string
+          callix_name?: string | null
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          callix_assessor_id?: string
+          callix_list_id?: string
+          callix_name?: string | null
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           app_notifications: boolean | null
