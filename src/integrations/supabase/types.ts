@@ -62,6 +62,33 @@ export type Database = {
         }
         Relationships: []
       }
+      campaing_callix: {
+        Row: {
+          assessores_id: string | null
+          created_at: string
+          id: number
+          list_id: string | null
+          name_assessores: string | null
+          update_at: string | null
+        }
+        Insert: {
+          assessores_id?: string | null
+          created_at?: string
+          id?: number
+          list_id?: string | null
+          name_assessores?: string | null
+          update_at?: string | null
+        }
+        Update: {
+          assessores_id?: string | null
+          created_at?: string
+          id?: number
+          list_id?: string | null
+          name_assessores?: string | null
+          update_at?: string | null
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           active: boolean | null
@@ -329,6 +356,7 @@ export type Database = {
           ad_name: string | null
           adset_id: string | null
           adset_name: string | null
+          assessor_atribuido: string | null
           created_at: string | null
           created_time: string | null
           email: string | null
@@ -349,6 +377,7 @@ export type Database = {
           ad_name?: string | null
           adset_id?: string | null
           adset_name?: string | null
+          assessor_atribuido?: string | null
           created_at?: string | null
           created_time?: string | null
           email?: string | null
@@ -369,6 +398,7 @@ export type Database = {
           ad_name?: string | null
           adset_id?: string | null
           adset_name?: string | null
+          assessor_atribuido?: string | null
           created_at?: string | null
           created_time?: string | null
           email?: string | null
@@ -554,6 +584,36 @@ export type Database = {
         }
         Relationships: []
       }
+      round_robin_control: {
+        Row: {
+          assessores_ids: string
+          contador: number | null
+          data_atualizacao: string | null
+          faixa: string
+          id: number
+          list_id: string | null
+          ultimo_assessor_id: number | null
+        }
+        Insert: {
+          assessores_ids?: string
+          contador?: number | null
+          data_atualizacao?: string | null
+          faixa?: string
+          id?: number
+          list_id?: string | null
+          ultimo_assessor_id?: number | null
+        }
+        Update: {
+          assessores_ids?: string
+          contador?: number | null
+          data_atualizacao?: string | null
+          faixa?: string
+          id?: number
+          list_id?: string | null
+          ultimo_assessor_id?: number | null
+        }
+        Relationships: []
+      }
       user_activities: {
         Row: {
           activity_type: string
@@ -649,6 +709,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_proximo_assessor: {
+        Args: { faixa_investimento: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
