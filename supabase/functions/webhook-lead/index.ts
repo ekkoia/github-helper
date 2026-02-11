@@ -314,6 +314,36 @@ serve(async (req) => {
 
     console.log('Lead successfully created:', data);
 
+    // Buscar dados do responsável e mapeamento Callix
+    let responsavelNome: string | null = null;
+    let callixData: { assessores_id: string; list_id: string; name_assessores: string } | null = null;
+
+    if (data.responsavel_id) {
+      // Buscar profile e callix mapping em paralelo
+      const [profileResult, callixResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('nome_completo')
+          .eq('user_id', data.responsavel_id)
+          .maybeSingle(),
+        supabase
+          .from('user_callix_mapping')
+          .select('callix_assessor_id, callix_list_id, callix_name')
+          .eq('user_id', data.responsavel_id)
+          .maybeSingle(),
+      ]);
+
+      responsavelNome = profileResult.data?.nome_completo || null;
+
+      if (callixResult.data) {
+        callixData = {
+          assessores_id: callixResult.data.callix_assessor_id,
+          list_id: callixResult.data.callix_list_id,
+          name_assessores: callixResult.data.callix_name || '',
+        };
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,
@@ -321,7 +351,10 @@ serve(async (req) => {
         data: {
           id: data.id,
           protocolo: data.protocolo_atendimento,
-          nome: data.nome_completo
+          nome: data.nome_completo,
+          responsavel_id: data.responsavel_id || null,
+          responsavel_nome: responsavelNome,
+          callix: callixData,
         }
       }),
       {
