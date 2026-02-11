@@ -17,12 +17,13 @@ const authSchema = z.object({
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, signInWithGoogle, user } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,10 +32,30 @@ export default function Auth() {
     }
   }, [user, navigate]);
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      toast.error("Informe seu email");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await resetPassword(email);
+      if (error) {
+        toast.error("Erro ao enviar link: " + error.message);
+      } else {
+        toast.success("Link de recuperação enviado! Verifique seu email.");
+      }
+    } catch {
+      toast.error("Erro inesperado. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação
     try {
       if (isLogin) {
         authSchema.parse({ nome: "placeholder", email, password });
@@ -108,12 +129,12 @@ export default function Auth() {
 
           {/* Título */}
           <h2 className="text-center text-muted-foreground text-sm mb-6 font-medium">
-            {isLogin ? "Entre com suas credenciais" : "Crie sua conta"}
+            {isForgotPassword ? "Recuperar senha" : isLogin ? "Entre com suas credenciais" : "Crie sua conta"}
           </h2>
 
           {/* Formulário */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
+          <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} className="space-y-4">
+            {!isLogin && !isForgotPassword && (
               <div className="space-y-2">
                 <Label htmlFor="nome" className="text-sm font-medium text-foreground">
                   Nome Completo
@@ -145,34 +166,37 @@ export default function Auth() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-foreground">
-                Senha
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••"
-                  className="h-12 pr-10"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
+            {!isForgotPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                  Senha
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••"
+                    className="h-12 pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {isLogin && (
+            {isLogin && !isForgotPassword && (
               <div className="text-right">
                 <button
                   type="button"
+                  onClick={() => setIsForgotPassword(true)}
                   className="text-sm text-accent hover:text-accent/80 font-medium transition-colors"
                 >
                   Esqueceu a senha?
@@ -180,47 +204,57 @@ export default function Auth() {
               </div>
             )}
 
-            {/* Botão Entrar */}
             <Button
               type="submit"
               disabled={loading}
               className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full transition-colors"
             >
-              {loading ? "Carregando..." : isLogin ? "Entrar" : "Criar Conta"}
+              {loading ? "Carregando..." : isForgotPassword ? "Enviar link de recuperação" : isLogin ? "Entrar" : "Criar Conta"}
             </Button>
 
-            {/* Botão Google */}
-            <Button
-              type="button"
-              onClick={handleGoogleSignIn}
-              variant="outline"
-              className="w-full h-12 rounded-full font-medium hover:bg-muted/50 transition-colors"
-            >
-              <img 
-                src="https://www.google.com/favicon.ico" 
-                alt="Google" 
-                className="w-5 h-5 mr-2"
-              />
-              Continuar com Google
-            </Button>
+            {!isForgotPassword && (
+              <Button
+                type="button"
+                onClick={handleGoogleSignIn}
+                variant="outline"
+                className="w-full h-12 rounded-full font-medium hover:bg-muted/50 transition-colors"
+              >
+                <img 
+                  src="https://www.google.com/favicon.ico" 
+                  alt="Google" 
+                  className="w-5 h-5 mr-2"
+                />
+                Continuar com Google
+              </Button>
+            )}
           </form>
 
-          {/* Trocar entre Login/Cadastro */}
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">
-              {isLogin ? "Não tem uma conta? " : "Já tem uma conta? "}
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-accent hover:text-accent/80 font-semibold transition-colors"
-            >
-              {isLogin ? "Cadastre-se grátis!" : "Faça login"}
-            </button>
+            {isForgotPassword ? (
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(false)}
+                className="text-accent hover:text-accent/80 font-semibold transition-colors"
+              >
+                ← Voltar ao login
+              </button>
+            ) : (
+              <>
+                <span className="text-muted-foreground">
+                  {isLogin ? "Não tem uma conta? " : "Já tem uma conta? "}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="text-accent hover:text-accent/80 font-semibold transition-colors"
+                >
+                  {isLogin ? "Cadastre-se grátis!" : "Faça login"}
+                </button>
+              </>
+            )}
           </div>
 
-          {/* Termos */}
-          {!isLogin && (
+          {!isLogin && !isForgotPassword && (
             <p className="mt-4 text-xs text-center text-muted-foreground">
               Ao criar uma conta, você concorda com nossos{" "}
               <a href="#" className="text-accent hover:text-accent/80 transition-colors underline">
