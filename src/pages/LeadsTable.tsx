@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { Dashboard } from "@/components/Dashboard";
 import { DashboardSkeleton, TableSkeleton } from "@/components/SkeletonLoader";
@@ -34,6 +34,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, AlertCircle, User } from "lucide-react";
+import { subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV } from "@/lib/exportUtils";
 import { useActivityLog } from "@/hooks/useActivityLog";
@@ -73,13 +74,57 @@ const LeadsTable = () => {
   const [sortBy, setSortBy] = useState<string>("data_criacao");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<{
+    etapa: string;
+    protocolo: string;
+    responsavel: string;
+    origem: string;
+    campanha: string;
+    periodo: string;
+    dataInicio?: Date;
+    dataFim?: Date;
+  }>({
     etapa: "all",
     protocolo: "",
-    responsavel: "all"
+    responsavel: "all",
+    origem: "all",
+    campanha: "all",
+    periodo: "all",
+    dataInicio: undefined,
+    dataFim: undefined,
   });
+
+  // Mapa de meta_lead_id -> adset_name para filtro por campanha
+  const [campaignMap, setCampaignMap] = useState<Record<number, string>>({});
+
   useEffect(() => {
     fetchLeads();
+    fetchCampaignMap();
+  }, []);
+
+  const fetchCampaignMap = async () => {
+    const { data, error } = await supabase
+      .from("leadsNativo_feeagro")
+      .select("id, adset_name");
+    
+    if (!error && data) {
+      const map: Record<number, string> = {};
+      data.forEach(row => {
+        if (row.adset_name) map[row.id] = row.adset_name;
+      });
+      setCampaignMap(map);
+    }
+  };
+
+  // Função para obter a data do lead no horário Brasil (mesma lógica do Dashboard)
+  const getLeadDate = useCallback((lead: any): Date => {
+    if (lead.created_time_brasil) {
+      const dateStr = lead.created_time_brasil.split('T')[0];
+      return new Date(dateStr + 'T12:00:00');
+    }
+    const date = new Date(lead.data_criacao);
+    date.setHours(date.getHours() - 3);
+    return date;
   }, []);
 
   const fetchLeads = async () => {
@@ -133,7 +178,53 @@ const LeadsTable = () => {
       }
     }
 
-    // Ordenação
+    // Filtro por origem
+    if (filters.origem && filters.origem !== "all") {
+      filtered = filtered.filter((lead) => lead.origem === filters.origem);
+    }
+
+    // Filtro por campanha (via mapa leadsNativo_feeagro)
+    if (filters.campanha && filters.campanha !== "all") {
+      filtered = filtered.filter((lead) => {
+        if (!lead.meta_lead_id) return false;
+        return campaignMap[lead.meta_lead_id] === filters.campanha;
+      });
+    }
+
+    // Filtro por período/data
+    if (filters.periodo && filters.periodo !== "all") {
+      const now = new Date();
+      
+      if (filters.periodo === "custom" && filters.dataInicio && filters.dataFim) {
+        filtered = filtered.filter(lead => {
+          const leadDate = getLeadDate(lead);
+          return isWithinInterval(leadDate, {
+            start: startOfDay(filters.dataInicio!),
+            end: endOfDay(filters.dataFim!)
+          });
+        });
+      } else if (filters.periodo === "hoje") {
+        filtered = filtered.filter(lead => {
+          const leadDate = getLeadDate(lead);
+          return leadDate.toDateString() === now.toDateString();
+        });
+      } else if (filters.periodo === "ontem") {
+        const yesterday = subDays(now, 1);
+        filtered = filtered.filter(lead => {
+          const leadDate = getLeadDate(lead);
+          return leadDate.toDateString() === yesterday.toDateString();
+        });
+      } else {
+        const days = parseInt(filters.periodo);
+        if (!isNaN(days)) {
+          const startDate = subDays(now, days);
+          filtered = filtered.filter(lead => {
+            const leadDate = getLeadDate(lead);
+            return leadDate >= startDate;
+          });
+        }
+      }
+    }
     filtered.sort((a, b) => {
       let aVal = a[sortBy];
       let bVal = b[sortBy];
@@ -158,7 +249,7 @@ const LeadsTable = () => {
     });
 
     return filtered;
-  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin]);
+  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin, campaignMap, getLeadDate]);
 
   // Paginação
   const totalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
@@ -221,8 +312,17 @@ const LeadsTable = () => {
     setFilters({
       etapa: "all",
       protocolo: "",
-      responsavel: "all"
+      responsavel: "all",
+      origem: "all",
+      campanha: "all",
+      periodo: "all",
+      dataInicio: undefined,
+      dataFim: undefined,
     });
+  };
+
+  const handleDateChange = (key: string, value: Date | undefined) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
   };
 
   const toggleSort = (field: string) => {
@@ -337,6 +437,7 @@ const LeadsTable = () => {
           <FiltersSidebar
             filters={filters}
             onFilterChange={handleFilterChange}
+            onDateChange={handleDateChange}
             onClearFilters={handleClearFilters}
             totalLeads={leads.length}
             filteredLeads={filteredAndSortedLeads.length}
