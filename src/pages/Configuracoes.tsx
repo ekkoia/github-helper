@@ -22,24 +22,25 @@ const Configuracoes = () => {
         </div>
 
         <Tabs defaultValue="preferencias" className="space-y-6">
-          <div className="max-w-3xl mx-auto">
-            <TabsList>
+          <div className="max-w-3xl mx-auto overflow-x-auto">
+            <TabsList className="w-full md:w-auto">
               <TabsTrigger value="preferencias" className="gap-2">
-                <Settings className="h-4 w-4" />
+                <Settings className="h-4 w-4 hidden md:inline" />
                 Preferências
               </TabsTrigger>
               {isAdmin && (
                 <>
                   <TabsTrigger value="funil" className="gap-2">
-                    <Sliders className="h-4 w-4" />
+                    <Sliders className="h-4 w-4 hidden md:inline" />
                     Funil
                   </TabsTrigger>
                   <TabsTrigger value="campos" className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Campos Customizados
+                    <Plus className="h-4 w-4 hidden md:inline" />
+                    <span className="md:hidden">Campos</span>
+                    <span className="hidden md:inline">Campos Customizados</span>
                   </TabsTrigger>
                   <TabsTrigger value="distribuicao" className="gap-2">
-                    <Users className="h-4 w-4" />
+                    <Users className="h-4 w-4 hidden md:inline" />
                     Distribuição
                   </TabsTrigger>
                 </>
