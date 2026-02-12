@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layout } from "@/components/Layout";
 import { LayoutGrid, Table } from "lucide-react";
+import { cn } from "@/lib/utils";
 import LeadsTable from "./LeadsTable";
 import Kanban from "./Kanban";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
@@ -19,7 +20,7 @@ const Leads = () => {
 
   return (
     <Layout>
-      <div className="w-full max-w-[1400px] mx-auto px-4">
+      <div className={cn("w-full max-w-[1400px] mx-auto", activeTab === "kanban" ? "px-0 md:px-4" : "px-4")}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center justify-between">
             <TabsList className="bg-secondary">
