@@ -281,7 +281,7 @@ const Kanban = () => {
             return (
               <div
                 key={etapa}
-                className="min-w-[82vw] md:min-w-[320px] flex-shrink-0 snap-start"
+                className="min-w-[78vw] md:min-w-[320px] flex-shrink-0 snap-start"
                 role="region"
                 aria-label={`Coluna ${etapa}`}
               >
@@ -304,7 +304,7 @@ const Kanban = () => {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => handleDrop(etapa)}
                   >
-                    <div className="space-y-3 p-3 min-h-[100px]">
+                    <div className="space-y-3 px-5 py-3 min-h-[100px]">
                       {leadsNaEtapa.length === 0 ? (
                         <p className="text-center text-sm text-muted-foreground py-8">
                           Nenhum lead nesta etapa
