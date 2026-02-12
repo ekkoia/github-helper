@@ -28,7 +28,7 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
-import { useIsMobile } from "@/hooks/use-mobile";
+
 
 const Kanban = () => {
   const { logActivity } = useActivityLog();
@@ -46,8 +46,6 @@ const Kanban = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const scrollDirRef = useRef<-1 | 0 | 1>(0);
-  const isMobile = useIsMobile();
-  const [columnWidth, setColumnWidth] = useState(0);
 
   const stopAutoScroll = useCallback(() => {
     scrollDirRef.current = 0;
@@ -132,19 +130,6 @@ const Kanban = () => {
     setIsLoading(false);
   };
 
-  // Medir largura real do scroll container para colunas mobile
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width;
-      if (width) setColumnWidth(width - 16);
-    });
-
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -286,7 +271,7 @@ const Kanban = () => {
         {/* Kanban Board */}
         <div 
           ref={scrollContainerRef}
-          className="w-full overflow-x-auto"
+          className="w-full overflow-x-auto -mx-4 md:mx-0 px-2 md:px-0"
           onDragOver={handleDragOverWithScroll}
           onDrop={stopAutoScroll}
         >
@@ -296,8 +281,7 @@ const Kanban = () => {
             return (
               <div
                 key={etapa}
-                className="md:min-w-[320px] flex-shrink-0 snap-start"
-                style={isMobile && columnWidth > 0 ? { minWidth: columnWidth } : undefined}
+                className="min-w-[calc(100vw-1rem)] md:min-w-[320px] flex-shrink-0 snap-start"
                 role="region"
                 aria-label={`Coluna ${etapa}`}
               >
