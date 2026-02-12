@@ -1,50 +1,44 @@
 
+# Abas de Configuracoes responsivas no mobile
 
-# Corrigir largura dos cards do Kanban no mobile - causa raiz encontrada
+## Problema
 
-## Problema real identificado
-
-O CSS usa `min-w-[78vw]` que define uma largura **minima**, nao uma largura **exata**. Isso significa que se qualquer conteudo interno (nome longo, texto sem quebra) for mais largo que 78vw, a coluna inteira se expande para acomodar, ficando maior que a tela. Por isso os cards aparecem cortados - a coluna esta se expandindo alem do viewport.
+A `TabsList` com 4 abas ("Preferencias", "Funil", "Campos Customizados", "Distribuicao") nao cabe na tela mobile. O texto "Campos Customizados" e longo e as abas ficam cortadas.
 
 ## Solucao
 
-Duas mudancas no arquivo `src/pages/Kanban.tsx`:
+Duas mudancas no arquivo `src/pages/Configuracoes.tsx`:
 
-### 1. Largura FIXA no mobile (linha 284)
+### 1. TabsList com scroll horizontal e largura total
 
-Trocar `min-w-[78vw]` por `w-[78vw]` para forcar uma largura exata, nao um minimo:
-
-```
-// De:
-className="min-w-[78vw] md:min-w-[320px] flex-shrink-0 snap-start"
-
-// Para:
-className="w-[78vw] md:w-auto md:min-w-[320px] flex-shrink-0 snap-start"
-```
-
-- `w-[78vw]`: largura exata de 78% do viewport no mobile
-- `md:w-auto md:min-w-[320px]`: no desktop volta ao comportamento anterior
-
-### 2. Overflow hidden no Card da coluna (linha 288)
-
-Impedir que conteudo interno (nomes longos) expanda o Card alem da largura da coluna:
+Adicionar `w-full` na TabsList e envolver em um container com `overflow-x-auto` para permitir scroll horizontal quando as abas nao cabem:
 
 ```
-// De:
-<Card className="flex flex-col h-[calc(100vh-280px)]">
-
-// Para:
-<Card className="flex flex-col h-[calc(100vh-280px)] overflow-hidden">
+<div className="max-w-3xl mx-auto overflow-x-auto">
+  <TabsList className="w-full md:w-auto">
 ```
 
-## Por que vai funcionar desta vez
+### 2. Esconder icones no mobile para economizar espaco
 
-As tentativas anteriores usavam `min-w` (largura minima), que permite o elemento crescer. `w-` (largura exata) + `overflow-hidden` garante que a coluna NUNCA ultrapasse 78vw no mobile, independente do conteudo interno. E uma restricao absoluta, nao uma sugestao.
+Adicionar `hidden md:inline` nos icones das abas para que no mobile so apareca o texto, liberando espaco:
+
+```
+<Settings className="h-4 w-4 hidden md:inline" />
+```
+
+### 3. Texto mais curto no mobile para "Campos Customizados"
+
+Usar texto abreviado no mobile:
+
+```
+<TabsTrigger value="campos" className="gap-2">
+  <Plus className="h-4 w-4 hidden md:inline" />
+  <span className="md:hidden">Campos</span>
+  <span className="hidden md:inline">Campos Customizados</span>
+</TabsTrigger>
+```
 
 ## Resultado esperado
 
-- Coluna com exatamente 78% da largura da tela (~304px em celular de 390px)
-- Margens visiveis de ~43px de cada lado
-- Cards estreitos com padding interno de 20px (px-5 ja aplicado)
-- Texto longo quebra automaticamente em vez de expandir a coluna
-- Visual limpo e profissional no mobile
+- No mobile: abas com texto compacto, sem icones, cabem na tela sem cortar
+- No desktop: visual atual mantido com icones e texto completo
