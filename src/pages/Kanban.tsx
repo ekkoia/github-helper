@@ -279,7 +279,7 @@ const Kanban = () => {
             return (
               <div
                 key={etapa}
-                className="min-w-[calc(100vw-4rem)] md:min-w-[320px] flex-shrink-0 snap-start"
+                className="min-w-[calc(100vw-6rem)] md:min-w-[320px] flex-shrink-0 snap-start"
                 role="region"
                 aria-label={`Coluna ${etapa}`}
               >
