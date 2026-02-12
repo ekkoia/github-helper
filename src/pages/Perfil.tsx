@@ -204,30 +204,30 @@ const Perfil = () => {
           <Card>
             <CardContent className="pt-6">
               {/* Header com Avatar e Info Principal */}
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-20 w-20">
-                    <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-semibold">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-6 gap-4">
+                <div className="flex items-center gap-3 md:gap-4">
+                  <Avatar className="h-16 w-16 md:h-20 md:w-20">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xl md:text-2xl font-semibold">
                       {profile?.nome_completo ? getInitials(profile.nome_completo) : "?"}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h2 className="text-2xl font-bold text-foreground">
+                  <div className="min-w-0">
+                    <h2 className="text-xl md:text-2xl font-bold text-foreground truncate">
                       {profile?.nome_completo || "Nome não informado"}
                     </h2>
-                    <p className="text-muted-foreground">{user?.email}</p>
+                    <p className="text-muted-foreground text-sm md:text-base truncate">{user?.email}</p>
                     <Badge variant="secondary" className="mt-2">
                       {getRoleName()}
                     </Badge>
                   </div>
                 </div>
                 {!isEditing ? (
-                  <Button variant="outline" className="gap-2" onClick={handleEdit}>
+                  <Button variant="outline" className="gap-2 w-full md:w-auto" onClick={handleEdit}>
                     <Edit className="h-4 w-4" />
                     Editar
                   </Button>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full md:w-auto">
                     <Button
                       variant="outline"
                       size="icon"
