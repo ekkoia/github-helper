@@ -1,49 +1,71 @@
 
 
-# Correcao definitiva: largura das colunas do Kanban no mobile
+# Correcao DEFINITIVA: largura das colunas do Kanban no mobile
 
-## Diagnostico raiz
+## Causa raiz real
 
-O problema persiste porque existem **3 camadas de restricao** que impedem o card de aparecer inteiro:
+Todas as tentativas anteriores usaram `calc(100vw - Xrem)`. O problema e que `100vw` mede a largura do viewport (iframe), mas o espaco real disponivel para o Kanban e menor por causa de multiplas camadas de padding e containers:
 
 ```text
-Layout (overflow-x-hidden)
-  main (p-4 = 16px cada lado, overflow-x-hidden)
-    Leads div (max-w-[1400px], px-4 = 16px cada lado)
-      Kanban div
-        scroll container (overflow-x-auto)
-          coluna (min-w-[calc(100vw-6rem)])  <-- valor relativo ao viewport, nao ao container real
+Viewport (100vw)
+  SidebarProvider wrapper (w-full, overflow-x-hidden)
+    div.flex-1 (largura variavel)
+      main (p-4, overflow-x-hidden)  <-- 32px removidos
+        Leads div (px-0 no kanban mobile)
+          Kanban
+            scrollContainer (w-full, overflow-x-auto)  <-- ESPACO REAL
+              flex container
+                coluna (min-w-[calc(100vw-X)])  <-- NUNCA BATE COM O ESPACO REAL
 ```
 
-O `100vw` mede a largura total da tela, mas o espaco real disponivel ja foi reduzido por 64px de padding (32px do Layout + 32px do Leads). Alem disso, os dois `overflow-x-hidden` nos pais cortam qualquer conteudo que ultrapasse, anulando o scroll horizontal.
+Nenhum calculo com `vw` vai funcionar de forma confiavel porque a largura real do scroll container depende de fatores dinamicos (largura do iframe, sidebar, padding do Layout).
 
-## Solucao definitiva (duas alteracoes)
+## Solucao definitiva
 
-### 1. `src/pages/Leads.tsx` - Remover padding horizontal no mobile quando estiver no Kanban
+Medir a largura REAL do scroll container com JavaScript e usar esse valor como largura das colunas no mobile. Isso funciona independentemente de qualquer container pai.
 
-Trocar o container fixo `px-4` por padding condicional: no mobile quando a aba ativa for "kanban", usar `px-0`; caso contrario, manter `px-4`.
+## Detalhes Tecnicos
 
-Isso elimina 32px de restricao desnecessaria no mobile.
+### Arquivo: `src/pages/Kanban.tsx`
 
-### 2. `src/pages/Kanban.tsx` - Usar largura que cabe no espaco real
+1. Adicionar estado `columnWidth` para guardar a largura medida do container
+2. Usar `useEffect` com `ResizeObserver` no `scrollContainerRef` para medir a largura real disponivel
+3. Importar `useIsMobile` de `@/hooks/use-mobile`
+4. No mobile, aplicar a largura medida via `style={{ minWidth: columnWidth }}` em cada coluna
+5. No desktop, manter o comportamento atual com `md:min-w-[320px]`
+6. Remover a classe `min-w-[calc(100vw-2.5rem)]` que nunca funcionou
 
-Trocar `min-w-[calc(100vw-6rem)]` por `min-w-[calc(100vw-2.5rem)]` -- agora so precisa compensar o padding do Layout (p-4 = 2rem) mais uma pequena margem de seguranca (0.5rem).
+Trecho principal da mudanca:
 
-Com a remocao do padding do Leads no mobile (passo 1), a conta fecha corretamente.
+```typescript
+const isMobile = useIsMobile();
+const [columnWidth, setColumnWidth] = useState(0);
 
-## Detalhes tecnicos
+useEffect(() => {
+  const container = scrollContainerRef.current;
+  if (!container) return;
+  
+  const observer = new ResizeObserver((entries) => {
+    const width = entries[0]?.contentRect.width;
+    if (width) setColumnWidth(width - 16); // 16px de margem
+  });
+  
+  observer.observe(container);
+  return () => observer.disconnect();
+}, []);
+```
 
-### `src/pages/Leads.tsx`
-- Importar o estado `activeTab` ja existente
-- Alterar a div container de `className="w-full max-w-[1400px] mx-auto px-4"` para `className={cn("w-full max-w-[1400px] mx-auto", activeTab === "kanban" ? "px-0 md:px-4" : "px-4")}`
-- Importar `cn` de `@/lib/utils`
+Na coluna, trocar a classe CSS por estilo inline no mobile:
 
-### `src/pages/Kanban.tsx`
-- Alterar a classe da coluna de `min-w-[calc(100vw-6rem)]` para `min-w-[calc(100vw-2.5rem)]`
+```tsx
+<div
+  key={etapa}
+  className="md:min-w-[320px] flex-shrink-0 snap-start"
+  style={isMobile && columnWidth > 0 ? { minWidth: columnWidth } : undefined}
+>
+```
 
-## Por que esta solucao e definitiva
+### Nenhuma alteracao em outros arquivos
 
-- Elimina a fonte do problema (padding duplo desnecessario) em vez de tentar compensar com calculos cada vez maiores
-- O padding do Leads so e removido no mobile e apenas na aba Kanban, sem afetar a tabela ou o desktop
-- A conta `100vw - 2.5rem` agora corresponde ao espaco real disponivel (viewport menos padding do Layout)
+A mudanca em `Leads.tsx` (px-0 no mobile para kanban) ja feita esta correta e sera mantida.
 
