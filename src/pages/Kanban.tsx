@@ -271,7 +271,7 @@ const Kanban = () => {
         {/* Kanban Board */}
         <div 
           ref={scrollContainerRef}
-          className="w-full overflow-x-auto -mx-4 md:mx-0 px-2 md:px-0"
+          className="overflow-x-auto -mx-4 md:mx-0 px-2 md:px-0"
           onDragOver={handleDragOverWithScroll}
           onDrop={stopAutoScroll}
         >
