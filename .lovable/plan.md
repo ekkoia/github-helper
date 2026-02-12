@@ -1,44 +1,51 @@
 
-# Abas de Configuracoes responsivas no mobile
+# Perfil responsivo no mobile
 
-## Problema
+## Problemas identificados
 
-A `TabsList` com 4 abas ("Preferencias", "Funil", "Campos Customizados", "Distribuicao") nao cabe na tela mobile. O texto "Campos Customizados" e longo e as abas ficam cortadas.
+Na screenshot, o header do perfil (avatar + nome + email + botao Editar) fica apertado no mobile porque usa `flex` horizontal com o botao "Editar" ao lado. O avatar grande (80px), o nome, o email e o botao competem pelo espaco, fazendo o conteudo ser cortado.
 
 ## Solucao
 
-Duas mudancas no arquivo `src/pages/Configuracoes.tsx`:
+### Arquivo: `src/pages/Perfil.tsx`
 
-### 1. TabsList com scroll horizontal e largura total
+**1. Header do perfil empilhado no mobile (linhas 207-248)**
 
-Adicionar `w-full` na TabsList e envolver em um container com `overflow-x-auto` para permitir scroll horizontal quando as abas nao cabem:
+Mudar o layout do header para empilhar verticalmente no mobile:
+- Avatar + nome/email ficam em coluna no mobile, lado a lado no desktop
+- Botao "Editar" fica abaixo no mobile, ao lado no desktop
+- Avatar menor no mobile (h-16 w-16 vs h-20 w-20)
+- Nome com texto menor no mobile (text-xl vs text-2xl)
 
+```tsx
+// Header container: empilhar no mobile
+<div className="flex flex-col md:flex-row md:items-start md:justify-between mb-6 gap-4">
+  <div className="flex items-center gap-3 md:gap-4">
+    <Avatar className="h-16 w-16 md:h-20 md:w-20">
+      ...
+    </Avatar>
+    <div className="min-w-0">
+      <h2 className="text-xl md:text-2xl font-bold text-foreground truncate">
+        ...
+      </h2>
+      <p className="text-muted-foreground text-sm md:text-base truncate">{user?.email}</p>
+      ...
+    </div>
+  </div>
+  {/* Botao Editar - largura total no mobile */}
+  <Button variant="outline" className="gap-2 w-full md:w-auto">...</Button>
+</div>
 ```
-<div className="max-w-3xl mx-auto overflow-x-auto">
-  <TabsList className="w-full md:w-auto">
-```
 
-### 2. Esconder icones no mobile para economizar espaco
+**2. Grid de informacoes pessoais (linha ~261)**
 
-Adicionar `hidden md:inline` nos icones das abas para que no mobile so apareca o texto, liberando espaco:
+O grid `grid-cols-1 md:grid-cols-2` ja e responsivo, nao precisa de mudanca.
 
-```
-<Settings className="h-4 w-4 hidden md:inline" />
-```
+**3. Email longo com truncate**
 
-### 3. Texto mais curto no mobile para "Campos Customizados"
-
-Usar texto abreviado no mobile:
-
-```
-<TabsTrigger value="campos" className="gap-2">
-  <Plus className="h-4 w-4 hidden md:inline" />
-  <span className="md:hidden">Campos</span>
-  <span className="hidden md:inline">Campos Customizados</span>
-</TabsTrigger>
-```
+Adicionar `truncate` e `min-w-0` nos textos longos (nome e email) para evitar overflow no mobile.
 
 ## Resultado esperado
 
-- No mobile: abas com texto compacto, sem icones, cabem na tela sem cortar
-- No desktop: visual atual mantido com icones e texto completo
+- No mobile: avatar e nome empilham melhor, botao Editar aparece por completo, textos longos sao truncados
+- No desktop: layout atual mantido sem alteracoes visuais
