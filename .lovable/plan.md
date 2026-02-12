@@ -1,71 +1,41 @@
 
 
-# Correcao DEFINITIVA: largura das colunas do Kanban no mobile
+# Correcao FINAL do Kanban mobile - abordagem CSS pura com margem negativa
 
-## Causa raiz real
+## Por que as tentativas anteriores falharam
 
-Todas as tentativas anteriores usaram `calc(100vw - Xrem)`. O problema e que `100vw` mede a largura do viewport (iframe), mas o espaco real disponivel para o Kanban e menor por causa de multiplas camadas de padding e containers:
+Todas as abordagens anteriores dependiam de calcular a largura disponivel de forma indireta (`100vw - Xrem` ou ResizeObserver + `isMobile`). O problema real e que o Kanban esta dentro de um `main` com `p-4` (16px cada lado) e `overflow-x-hidden`, que **corta** qualquer conteudo que ultrapasse seus limites. Nenhum calculo de largura resolve se o conteudo e cortado pelo pai.
 
-```text
-Viewport (100vw)
-  SidebarProvider wrapper (w-full, overflow-x-hidden)
-    div.flex-1 (largura variavel)
-      main (p-4, overflow-x-hidden)  <-- 32px removidos
-        Leads div (px-0 no kanban mobile)
-          Kanban
-            scrollContainer (w-full, overflow-x-auto)  <-- ESPACO REAL
-              flex container
-                coluna (min-w-[calc(100vw-X)])  <-- NUNCA BATE COM O ESPACO REAL
-```
+## Solucao: margem negativa para escapar do padding do pai
 
-Nenhum calculo com `vw` vai funcionar de forma confiavel porque a largura real do scroll container depende de fatores dinamicos (largura do iframe, sidebar, padding do Layout).
+A tecnica e simples e usada amplamente em CSS: aplicar `-mx-4` no scroll container para **cancelar** o padding do `main`, fazendo o container de scroll ocupar toda a largura disponivel. Depois, adicionar um pequeno padding interno (`px-2`) para dar respiro visual.
 
-## Solucao definitiva
+## Alteracoes
 
-Medir a largura REAL do scroll container com JavaScript e usar esse valor como largura das colunas no mobile. Isso funciona independentemente de qualquer container pai.
+### 1. `src/pages/Kanban.tsx`
 
-## Detalhes Tecnicos
+**Scroll container** (linha 287-291):
+- Adicionar `-mx-4 md:mx-0 px-2 md:px-0` ao className
+- Isso faz o scroll container "escapar" do padding do main no mobile
 
-### Arquivo: `src/pages/Kanban.tsx`
+**Colunas** (linha 297-300):
+- Remover o ResizeObserver, o estado `columnWidth` e a importacao `useIsMobile`
+- Trocar o style inline por classe CSS simples: `min-w-[calc(100vw-1rem)] md:min-w-[320px]`
+- Com a margem negativa, `100vw` agora corresponde ao espaco real, e `1rem` (16px) e o padding interno do scroll container (8px cada lado)
 
-1. Adicionar estado `columnWidth` para guardar a largura medida do container
-2. Usar `useEffect` com `ResizeObserver` no `scrollContainerRef` para medir a largura real disponivel
-3. Importar `useIsMobile` de `@/hooks/use-mobile`
-4. No mobile, aplicar a largura medida via `style={{ minWidth: columnWidth }}` em cada coluna
-5. No desktop, manter o comportamento atual com `md:min-w-[320px]`
-6. Remover a classe `min-w-[calc(100vw-2.5rem)]` que nunca funcionou
+**Remover codigo desnecessario**:
+- Estado `columnWidth` e `isMobile`
+- useEffect do ResizeObserver (linhas 135-147)
+- Import de `useIsMobile`
 
-Trecho principal da mudanca:
+### 2. Nenhuma alteracao em `src/pages/Leads.tsx`
+O `px-0 md:px-4` ja aplicado continua correto.
 
-```typescript
-const isMobile = useIsMobile();
-const [columnWidth, setColumnWidth] = useState(0);
+## Por que esta solucao funciona
 
-useEffect(() => {
-  const container = scrollContainerRef.current;
-  if (!container) return;
-  
-  const observer = new ResizeObserver((entries) => {
-    const width = entries[0]?.contentRect.width;
-    if (width) setColumnWidth(width - 16); // 16px de margem
-  });
-  
-  observer.observe(container);
-  return () => observer.disconnect();
-}, []);
-```
-
-Na coluna, trocar a classe CSS por estilo inline no mobile:
-
-```tsx
-<div
-  key={etapa}
-  className="md:min-w-[320px] flex-shrink-0 snap-start"
-  style={isMobile && columnWidth > 0 ? { minWidth: columnWidth } : undefined}
->
-```
-
-### Nenhuma alteracao em outros arquivos
-
-A mudanca em `Leads.tsx` (px-0 no mobile para kanban) ja feita esta correta e sera mantida.
+- Margem negativa e uma tecnica CSS padrao e confiavel, sem depender de JavaScript
+- O `-mx-4` cancela exatamente o `p-4` do `main`, dando ao scroll container a largura total
+- O `overflow-x-auto` do scroll container funciona normalmente porque ele agora tem a largura correta
+- `calc(100vw - 1rem)` e preciso porque so precisa compensar o `px-2` (padding proprio do scroll container)
+- Funciona em qualquer viewport, iframe, ou contexto de navegador
 
