@@ -1,23 +1,22 @@
 
 
-# Cards do Kanban mais estreitos e centralizados no mobile
+# Centralizar cards do Kanban como os do Dashboard no mobile
 
-## O que sera feito
+## Problema atual
 
-Aumentar o padding interno do scroll container e reduzir a largura das colunas para que os cards aparecam por completo e centralizados na tela do celular.
+No Dashboard, os cards possuem 32px de margem em cada lado (16px do `main p-4` + 16px do wrapper `px-4`). No Kanban, o `-mx-4` cancela o padding do `main` e o `px-4` adiciona apenas 16px de cada lado, resultando em cards quase colados nas bordas.
 
-## Alteracao unica
+## Solucao
 
 ### Arquivo: `src/pages/Kanban.tsx`
 
 **Scroll container** (linha 274):
-- Trocar `px-2` por `px-4` para dar mais espaco nas laterais
+- Trocar `px-4` por `px-8` para ter 32px de padding em cada lado, igualando o Dashboard
 
 **Colunas** (linha 284):
-- Trocar `min-w-[calc(100vw-1rem)]` por `min-w-[calc(100vw-2.5rem)]`
-- O calculo: `-mx-4` expande o container, `px-4` (16px cada lado = 32px) mais 8px de respiro = 40px = 2.5rem
-- Isso garante que o card inteiro fique visivel com margem confortavel dos dois lados
+- Trocar `min-w-[calc(100vw-2.5rem)]` por `min-w-[calc(100vw-4rem)]`
+- Calculo: `px-8` = 32px cada lado = 64px total = 4rem
 
-## Resultado esperado
+## Por que funciona
 
-Os cards ficarao visivelmente mais estreitos, com margem igual nas duas laterais, aparecendo por completo sem nenhum corte.
+O Dashboard tem 32px de margem horizontal em cada lado no mobile (main `p-4` + wrapper `px-4`). Com esta alteracao, o Kanban tera exatamente a mesma margem, fazendo os cards ficarem centralizados e com o mesmo respiro visual do Dashboard.
