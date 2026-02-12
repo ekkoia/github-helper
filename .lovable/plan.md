@@ -1,47 +1,23 @@
 
 
-# Correção REAL do Kanban mobile - remover w-full do scroll container
+# Cards do Kanban mais estreitos e centralizados no mobile
 
-## Causa raiz (encontrada agora)
+## O que sera feito
 
-Todas as tentativas anteriores aplicaram `-mx-4` no scroll container para cancelar o padding do `main`. Porém, o scroll container também tinha `w-full` (`width: 100%`). Em CSS, margens negativas so expandem a largura de um elemento quando a largura e `auto` (padrao de blocos). Com `width: 100%` explicitamente definido, as margens negativas apenas deslocam o elemento sem expandi-lo, causando o corte no lado direito.
+Aumentar o padding interno do scroll container e reduzir a largura das colunas para que os cards aparecam por completo e centralizados na tela do celular.
 
-## Solucao
+## Alteracao unica
 
-Remover `w-full` do scroll container no Kanban. Elementos de bloco ja possuem `width: auto` por padrao, que e exatamente o comportamento necessario para que `-mx-4` funcione.
+### Arquivo: `src/pages/Kanban.tsx`
 
-## Alteracao
+**Scroll container** (linha 274):
+- Trocar `px-2` por `px-4` para dar mais espaco nas laterais
 
-### Arquivo: `src/pages/Kanban.tsx` (1 linha)
+**Colunas** (linha 284):
+- Trocar `min-w-[calc(100vw-1rem)]` por `min-w-[calc(100vw-2.5rem)]`
+- O calculo: `-mx-4` expande o container, `px-4` (16px cada lado = 32px) mais 8px de respiro = 40px = 2.5rem
+- Isso garante que o card inteiro fique visivel com margem confortavel dos dois lados
 
-Scroll container (linha ~274):
+## Resultado esperado
 
-**De:**
-```
-className="w-full overflow-x-auto -mx-4 md:mx-0 px-2 md:px-0"
-```
-
-**Para:**
-```
-className="overflow-x-auto -mx-4 md:mx-0 px-2 md:px-0"
-```
-
-Apenas remover `w-full`. Nada mais muda.
-
-## Por que funciona
-
-Com `width: auto` + `-mx-4`, o CSS calcula automaticamente:
-
-```
-margin-left(-16px) + padding(8px) + WIDTH + padding(8px) + margin-right(-16px) = parent content width
-WIDTH = parent content width + 16px
-```
-
-O scroll container fica 16px mais largo que a area de conteudo do pai, cancelando efetivamente o padding do `main`. As colunas com `min-w-[calc(100vw-1rem)]` agora cabem perfeitamente porque o espaco real corresponde ao calculo.
-
-## Nenhuma outra alteracao necessaria
-
-- `Layout.tsx`: sem mudancas
-- `Leads.tsx`: o `px-0 md:px-4` condicional continua correto
-- Colunas: `min-w-[calc(100vw-1rem)]` continua correto
-
+Os cards ficarao visivelmente mais estreitos, com margem igual nas duas laterais, aparecendo por completo sem nenhum corte.
