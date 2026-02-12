@@ -1,45 +1,50 @@
 
-# Cards do Kanban mais estreitos e centralizados no mobile
 
-## O que esta errado
+# Corrigir largura dos cards do Kanban no mobile - causa raiz encontrada
 
-O problema nunca foi a posicao da coluna. O problema sao os **cards individuais** dentro da coluna - eles esticam de ponta a ponta, ocupando 100% da largura da coluna. Isso faz os cards parecerem enormes e amadores no mobile.
+## Problema real identificado
 
-## O que precisa mudar
+O CSS usa `min-w-[78vw]` que define uma largura **minima**, nao uma largura **exata**. Isso significa que se qualquer conteudo interno (nome longo, texto sem quebra) for mais largo que 78vw, a coluna inteira se expande para acomodar, ficando maior que a tela. Por isso os cards aparecem cortados - a coluna esta se expandindo alem do viewport.
 
-Aumentar o padding interno da area dos cards dentro de cada coluna, para que os cards fiquem mais estreitos e com respiro visual, exatamente como os cards do Dashboard.
+## Solucao
 
-## Alteracoes
+Duas mudancas no arquivo `src/pages/Kanban.tsx`:
 
-### Arquivo: `src/pages/Kanban.tsx`
+### 1. Largura FIXA no mobile (linha 284)
 
-**1. Padding interno da area de cards (linha 307)**
-
-Aumentar o padding horizontal da div que contem os cards de `p-3` (12px) para `px-5 py-3` (20px horizontal, 12px vertical). Isso faz cada card ficar 40px mais estreito (20px de cada lado), criando o respiro visual que falta.
+Trocar `min-w-[78vw]` por `w-[78vw]` para forcar uma largura exata, nao um minimo:
 
 ```
 // De:
-<div className="space-y-3 p-3 min-h-[100px]">
-
-// Para:
-<div className="space-y-3 px-5 py-3 min-h-[100px]">
-```
-
-**2. Largura da coluna mobile (linha 284)**
-
-Reduzir de `82vw` para `78vw` para que a coluna caiba melhor na tela com margens visiveis em ambos os lados:
-
-```
-// De:
-className="min-w-[82vw] md:min-w-[320px] flex-shrink-0 snap-start"
-
-// Para:
 className="min-w-[78vw] md:min-w-[320px] flex-shrink-0 snap-start"
+
+// Para:
+className="w-[78vw] md:w-auto md:min-w-[320px] flex-shrink-0 snap-start"
 ```
+
+- `w-[78vw]`: largura exata de 78% do viewport no mobile
+- `md:w-auto md:min-w-[320px]`: no desktop volta ao comportamento anterior
+
+### 2. Overflow hidden no Card da coluna (linha 288)
+
+Impedir que conteudo interno (nomes longos) expanda o Card alem da largura da coluna:
+
+```
+// De:
+<Card className="flex flex-col h-[calc(100vh-280px)]">
+
+// Para:
+<Card className="flex flex-col h-[calc(100vh-280px)] overflow-hidden">
+```
+
+## Por que vai funcionar desta vez
+
+As tentativas anteriores usavam `min-w` (largura minima), que permite o elemento crescer. `w-` (largura exata) + `overflow-hidden` garante que a coluna NUNCA ultrapasse 78vw no mobile, independente do conteudo interno. E uma restricao absoluta, nao uma sugestao.
 
 ## Resultado esperado
 
-- Coluna ocupa 78% da tela no mobile (~304px em tela de 390px)
-- Cards tem 20px de margem interna de cada lado dentro da coluna
-- Cards ficam com ~264px de largura, visivelmente mais estreitos e centralizados
-- Visual limpo e profissional, compativel com o padrao do Dashboard
+- Coluna com exatamente 78% da largura da tela (~304px em celular de 390px)
+- Margens visiveis de ~43px de cada lado
+- Cards estreitos com padding interno de 20px (px-5 ja aplicado)
+- Texto longo quebra automaticamente em vez de expandir a coluna
+- Visual limpo e profissional no mobile
