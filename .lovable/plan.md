@@ -1,62 +1,36 @@
 
 
-# Centralizar cards do Kanban no mobile - solucao definitiva
+# Cards do Kanban - solucao definitiva para mobile
 
-## Causa raiz real
+## Problema real
 
-O `overflow-x-hidden` presente no Layout (tanto no `main` quanto no container pai) impede que margens negativas (`-mx-4`) expandam o elemento. O lado direito e cortado silenciosamente. Por isso, todas as tentativas anteriores com `-mx-4` falharam.
+Usar `100vw` em calculos de largura e problematico porque:
+- `100vw` inclui a largura da scrollbar do navegador
+- Com multiplos containers com `overflow-x-hidden` (Layout tem 2), o calculo fica inconsistente
+- O resultado e que os cards ficam mais largos que o espaco disponivel e sao cortados
 
-## Estrategia: eliminar margens negativas
+## Solucao
 
-Em vez de lutar contra o overflow, vamos usar a mesma abordagem simples do Dashboard: deixar o padding do wrapper e do main trabalharem juntos naturalmente.
+Abandonar completamente o uso de `100vw` no mobile e usar um valor fixo em porcentagem do viewport que garante margens visiveis.
 
-## Alteracoes
+### Arquivo: `src/pages/Kanban.tsx` (linha 284)
 
-### 1. `src/pages/Leads.tsx` (linha 23)
-
-Remover o condicional `px-0` para kanban. Usar `px-4` sempre, igual ao Dashboard:
-
+Trocar:
 ```
-// De:
-className={cn("w-full max-w-[1400px] mx-auto", activeTab === "kanban" ? "px-0 md:px-4" : "px-4")}
-
-// Para:
-className="w-full max-w-[1400px] mx-auto px-4"
+min-w-[calc(100vw-4rem)] md:min-w-[320px]
 ```
 
-### 2. `src/pages/Kanban.tsx` (scroll container, linha 274)
-
-Remover margens negativas e padding compensatorio. O scroll so precisa de overflow-x:
-
+Por:
 ```
-// De:
-className="overflow-x-auto -mx-4 md:mx-0 px-8 md:px-0"
-
-// Para:
-className="overflow-x-auto"
+min-w-[82vw] md:min-w-[320px]
 ```
 
-### 3. `src/pages/Kanban.tsx` (colunas, linha 284)
+**Por que 82vw?**
+- Em um celular de 390px: 82% = ~320px, sobrando ~35px de margem de cada lado
+- Em um celular de 360px: 82% = ~295px, sobrando ~32px de cada lado
+- Ambos resultam em cards visivelmente centralizados com respiro, identico ao Dashboard
+- `vw` sem `calc` e mais previsivel e nao sofre com os problemas de overflow
 
-Ajustar a largura das colunas para o novo espaco disponivel. Com `main p-4` (16px) + wrapper `px-4` (16px) = 32px de cada lado = 64px total = 4rem:
+### Por que funciona desta vez
 
-```
-// De:
-className="min-w-[calc(100vw-4rem)] md:min-w-[320px] flex-shrink-0 snap-start"
-
-// Para:
-className="min-w-[calc(100vw-4rem)] md:min-w-[320px] flex-shrink-0 snap-start"
-```
-
-A largura da coluna ja esta correta em `calc(100vw-4rem)`, pois 4rem = 64px = os 32px de margem de cada lado.
-
-## Resumo das mudancas
-
-Apenas 2 linhas mudam de fato:
-
-1. **Leads.tsx**: remover condicional de padding, usar `px-4` sempre
-2. **Kanban.tsx**: remover `-mx-4 md:mx-0 px-8 md:px-0` do scroll container, deixar apenas `overflow-x-auto`
-
-## Por que funciona
-
-Mesma logica do Dashboard: `main p-4` + wrapper `px-4` = 32px de margem de cada lado. Sem margens negativas, sem conflito com `overflow-x-hidden`. Simples e identico ao Dashboard.
+As tentativas anteriores falharam porque `calc(100vw - Xrem)` nao desconta corretamente o espaco consumido pelos containers pai com `overflow-x-hidden`. Usar `82vw` diretamente e independente da hierarquia de containers - ele simplesmente ocupa 82% da tela, garantindo 9% de margem em cada lado.
