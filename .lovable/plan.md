@@ -1,36 +1,45 @@
 
+# Cards do Kanban mais estreitos e centralizados no mobile
 
-# Cards do Kanban - solucao definitiva para mobile
+## O que esta errado
 
-## Problema real
+O problema nunca foi a posicao da coluna. O problema sao os **cards individuais** dentro da coluna - eles esticam de ponta a ponta, ocupando 100% da largura da coluna. Isso faz os cards parecerem enormes e amadores no mobile.
 
-Usar `100vw` em calculos de largura e problematico porque:
-- `100vw` inclui a largura da scrollbar do navegador
-- Com multiplos containers com `overflow-x-hidden` (Layout tem 2), o calculo fica inconsistente
-- O resultado e que os cards ficam mais largos que o espaco disponivel e sao cortados
+## O que precisa mudar
 
-## Solucao
+Aumentar o padding interno da area dos cards dentro de cada coluna, para que os cards fiquem mais estreitos e com respiro visual, exatamente como os cards do Dashboard.
 
-Abandonar completamente o uso de `100vw` no mobile e usar um valor fixo em porcentagem do viewport que garante margens visiveis.
+## Alteracoes
 
-### Arquivo: `src/pages/Kanban.tsx` (linha 284)
+### Arquivo: `src/pages/Kanban.tsx`
 
-Trocar:
+**1. Padding interno da area de cards (linha 307)**
+
+Aumentar o padding horizontal da div que contem os cards de `p-3` (12px) para `px-5 py-3` (20px horizontal, 12px vertical). Isso faz cada card ficar 40px mais estreito (20px de cada lado), criando o respiro visual que falta.
+
 ```
-min-w-[calc(100vw-4rem)] md:min-w-[320px]
+// De:
+<div className="space-y-3 p-3 min-h-[100px]">
+
+// Para:
+<div className="space-y-3 px-5 py-3 min-h-[100px]">
 ```
 
-Por:
+**2. Largura da coluna mobile (linha 284)**
+
+Reduzir de `82vw` para `78vw` para que a coluna caiba melhor na tela com margens visiveis em ambos os lados:
+
 ```
-min-w-[82vw] md:min-w-[320px]
+// De:
+className="min-w-[82vw] md:min-w-[320px] flex-shrink-0 snap-start"
+
+// Para:
+className="min-w-[78vw] md:min-w-[320px] flex-shrink-0 snap-start"
 ```
 
-**Por que 82vw?**
-- Em um celular de 390px: 82% = ~320px, sobrando ~35px de margem de cada lado
-- Em um celular de 360px: 82% = ~295px, sobrando ~32px de cada lado
-- Ambos resultam em cards visivelmente centralizados com respiro, identico ao Dashboard
-- `vw` sem `calc` e mais previsivel e nao sofre com os problemas de overflow
+## Resultado esperado
 
-### Por que funciona desta vez
-
-As tentativas anteriores falharam porque `calc(100vw - Xrem)` nao desconta corretamente o espaco consumido pelos containers pai com `overflow-x-hidden`. Usar `82vw` diretamente e independente da hierarquia de containers - ele simplesmente ocupa 82% da tela, garantindo 9% de margem em cada lado.
+- Coluna ocupa 78% da tela no mobile (~304px em tela de 390px)
+- Cards tem 20px de margem interna de cada lado dentro da coluna
+- Cards ficam com ~264px de largura, visivelmente mais estreitos e centralizados
+- Visual limpo e profissional, compativel com o padrao do Dashboard
