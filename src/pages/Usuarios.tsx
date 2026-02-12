@@ -260,13 +260,13 @@ const Usuarios = () => {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Usuários da Empresa</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Usuários da Empresa</h1>
           <p className="text-muted-foreground">Gerencie os usuários da sua empresa</p>
         </div>
 
         {/* Card de Usuários */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4">
             <div>
               <CardTitle className="text-lg font-semibold">Usuários Cadastrados</CardTitle>
               <CardDescription>Lista de todos os usuários da empresa</CardDescription>
@@ -298,11 +298,11 @@ const Usuarios = () => {
                 {users.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors"
+                    className="flex flex-col md:flex-row md:items-center md:justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors gap-3"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-foreground">{user.nome_completo}</span>
+                        <span className="font-medium text-foreground truncate max-w-[200px]">{user.nome_completo}</span>
                         <Badge 
                           variant="outline" 
                           className={user.status === 'active' 
@@ -319,14 +319,14 @@ const Usuarios = () => {
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full md:w-auto flex-shrink-0">
                       {/* Select de Role - apenas para global admin */}
                       {isGlobalAdmin && (
                         <Select
                           value={user.role}
                           onValueChange={(value) => handleRoleChange(user.id, user.role_id, value as any)}
                         >
-                          <SelectTrigger className="w-[140px] h-9">
+                          <SelectTrigger className="w-[120px] md:w-[140px] h-9">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
