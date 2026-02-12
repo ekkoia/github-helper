@@ -1,22 +1,62 @@
 
 
-# Centralizar cards do Kanban como os do Dashboard no mobile
+# Centralizar cards do Kanban no mobile - solucao definitiva
 
-## Problema atual
+## Causa raiz real
 
-No Dashboard, os cards possuem 32px de margem em cada lado (16px do `main p-4` + 16px do wrapper `px-4`). No Kanban, o `-mx-4` cancela o padding do `main` e o `px-4` adiciona apenas 16px de cada lado, resultando em cards quase colados nas bordas.
+O `overflow-x-hidden` presente no Layout (tanto no `main` quanto no container pai) impede que margens negativas (`-mx-4`) expandam o elemento. O lado direito e cortado silenciosamente. Por isso, todas as tentativas anteriores com `-mx-4` falharam.
 
-## Solucao
+## Estrategia: eliminar margens negativas
 
-### Arquivo: `src/pages/Kanban.tsx`
+Em vez de lutar contra o overflow, vamos usar a mesma abordagem simples do Dashboard: deixar o padding do wrapper e do main trabalharem juntos naturalmente.
 
-**Scroll container** (linha 274):
-- Trocar `px-4` por `px-8` para ter 32px de padding em cada lado, igualando o Dashboard
+## Alteracoes
 
-**Colunas** (linha 284):
-- Trocar `min-w-[calc(100vw-2.5rem)]` por `min-w-[calc(100vw-4rem)]`
-- Calculo: `px-8` = 32px cada lado = 64px total = 4rem
+### 1. `src/pages/Leads.tsx` (linha 23)
+
+Remover o condicional `px-0` para kanban. Usar `px-4` sempre, igual ao Dashboard:
+
+```
+// De:
+className={cn("w-full max-w-[1400px] mx-auto", activeTab === "kanban" ? "px-0 md:px-4" : "px-4")}
+
+// Para:
+className="w-full max-w-[1400px] mx-auto px-4"
+```
+
+### 2. `src/pages/Kanban.tsx` (scroll container, linha 274)
+
+Remover margens negativas e padding compensatorio. O scroll so precisa de overflow-x:
+
+```
+// De:
+className="overflow-x-auto -mx-4 md:mx-0 px-8 md:px-0"
+
+// Para:
+className="overflow-x-auto"
+```
+
+### 3. `src/pages/Kanban.tsx` (colunas, linha 284)
+
+Ajustar a largura das colunas para o novo espaco disponivel. Com `main p-4` (16px) + wrapper `px-4` (16px) = 32px de cada lado = 64px total = 4rem:
+
+```
+// De:
+className="min-w-[calc(100vw-4rem)] md:min-w-[320px] flex-shrink-0 snap-start"
+
+// Para:
+className="min-w-[calc(100vw-4rem)] md:min-w-[320px] flex-shrink-0 snap-start"
+```
+
+A largura da coluna ja esta correta em `calc(100vw-4rem)`, pois 4rem = 64px = os 32px de margem de cada lado.
+
+## Resumo das mudancas
+
+Apenas 2 linhas mudam de fato:
+
+1. **Leads.tsx**: remover condicional de padding, usar `px-4` sempre
+2. **Kanban.tsx**: remover `-mx-4 md:mx-0 px-8 md:px-0` do scroll container, deixar apenas `overflow-x-auto`
 
 ## Por que funciona
 
-O Dashboard tem 32px de margem horizontal em cada lado no mobile (main `p-4` + wrapper `px-4`). Com esta alteracao, o Kanban tera exatamente a mesma margem, fazendo os cards ficarem centralizados e com o mesmo respiro visual do Dashboard.
+Mesma logica do Dashboard: `main p-4` + wrapper `px-4` = 32px de margem de cada lado. Sem margens negativas, sem conflito com `overflow-x-hidden`. Simples e identico ao Dashboard.
