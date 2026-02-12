@@ -281,11 +281,11 @@ const Kanban = () => {
             return (
               <div
                 key={etapa}
-                className="min-w-[78vw] md:min-w-[320px] flex-shrink-0 snap-start"
+                className="w-[78vw] md:w-auto md:min-w-[320px] flex-shrink-0 snap-start"
                 role="region"
                 aria-label={`Coluna ${etapa}`}
               >
-                <Card className="flex flex-col h-[calc(100vh-280px)]">
+                <Card className="flex flex-col h-[calc(100vh-280px)] overflow-hidden">
                   <CardHeader 
                     className="text-white rounded-t-xl"
                     style={{ backgroundColor: coresMap[etapa] || "#6b7280" }}
