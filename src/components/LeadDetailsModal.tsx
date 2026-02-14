@@ -38,6 +38,7 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   const [responsavelNome, setResponsavelNome] = useState<string | null>(null);
   const [currentLead, setCurrentLead] = useState(lead);
   const [concordaEmprestimo, setConcordaEmprestimo] = useState<string | null>(null);
+  const [showOrigens, setShowOrigens] = useState(false);
 
   // Verificar se é formulário 02
   const isFormulario02 = currentLead?.observacoes?.includes('02 - Formulário FeeAgro');
@@ -252,26 +253,34 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                     const origens: string[] = Array.isArray(currentLead.origens) ? currentLead.origens : [];
                     const hasMultiple = origens.length > 1;
 
-                    return (
-                      <div className="space-y-2">
-                        {hasMultiple && (
-                          <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 px-3 py-1.5 rounded-md w-fit">
+                    if (hasMultiple) {
+                      return (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowOrigens(!showOrigens)}
+                            className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-md cursor-pointer transition-colors bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900/70"
+                          >
                             <Layers className="h-3.5 w-3.5" />
-                            Este lead interagiu por {origens.length} canais diferentes
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-1.5">
-                          {origens.length > 0 ? origens.map((o: string, i: number) => (
-                            <Badge key={i} variant="outline">
-                              {ORIGEM_LABELS[o] || o}
-                            </Badge>
-                          )) : (
-                            <Badge variant="outline">
-                              {ORIGEM_LABELS[currentLead.origem] || currentLead.origem || "-"}
-                            </Badge>
+                            {origens.length} canais diferentes
+                          </button>
+                          {showOrigens && (
+                            <div className="flex flex-wrap gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                              {origens.map((o: string, i: number) => (
+                                <Badge key={i} variant="outline">
+                                  {ORIGEM_LABELS[o] || o}
+                                </Badge>
+                              ))}
+                            </div>
                           )}
                         </div>
-                      </div>
+                      );
+                    }
+
+                    return (
+                      <Badge variant="outline">
+                        {ORIGEM_LABELS[origens[0] || currentLead.origem] || currentLead.origem || "-"}
+                      </Badge>
                     );
                   })()}
                 </div>
