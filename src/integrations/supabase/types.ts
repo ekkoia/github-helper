@@ -170,6 +170,24 @@ export type Database = {
         }
         Relationships: []
       }
+      dedupe_events: {
+        Row: {
+          created_at: string
+          dedupe_key: string | null
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key?: string | null
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string | null
+          id?: number
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           content: string | null
