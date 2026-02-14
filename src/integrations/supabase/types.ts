@@ -291,6 +291,7 @@ export type Database = {
           nome_completo: string
           observacoes: string | null
           origem: string | null
+          origens: Json | null
           percentual_royalties: number | null
           perfil: string | null
           protocolo_atendimento: string | null
@@ -322,6 +323,7 @@ export type Database = {
           nome_completo: string
           observacoes?: string | null
           origem?: string | null
+          origens?: Json | null
           percentual_royalties?: number | null
           perfil?: string | null
           protocolo_atendimento?: string | null
@@ -353,6 +355,7 @@ export type Database = {
           nome_completo?: string
           observacoes?: string | null
           origem?: string | null
+          origens?: Json | null
           percentual_royalties?: number | null
           perfil?: string | null
           protocolo_atendimento?: string | null
