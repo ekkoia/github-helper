@@ -1,54 +1,41 @@
 
 
-# Corrigir Rastreamento de Origens para Leads Desduplicados
+# Ajustar Indicador de Multi-Origem no Modal de Detalhes
 
 ## Problema
 
-Leads como o Ivan Luiz (`il9374138@icloud.com`) interagiram por dois canais (Meta Form + WhatsApp), mas o array `origens` mostra apenas `["meta_form"]`. A migracaoo anterior populou `origens` apenas com o valor do campo `origem`, sem considerar que leads desduplicados tinham dados de outras fontes nas observacoes.
-
-Existem pelo menos 13 leads nessa situacao -- com "INFORMACOES COMPLEMENTARES" nas observacoes (dados vindos do WhatsApp) mas sem `"whatsapp"` no array `origens`.
+1. O banner "Este lead interagiu por 2 canais diferentes" esta com cor invisivel no dark mode (texto e fundo sem contraste)
+2. As origens (meta_form, WhatsApp) aparecem sempre como badges fixos -- o usuario quer que aparecam apenas ao clicar
+3. O texto do banner precisa ser simplificado para "2 canais diferentes"
 
 ## Solucao
 
-### 1. Migration para corrigir dados existentes
+Substituir o layout atual por um badge clicavel que funciona como toggle:
 
-Rodar um UPDATE que identifica leads com dados do WhatsApp nas observacoes e adiciona `"whatsapp"` ao array `origens`:
+- **Estado fechado**: Badge visivel com texto "2 canais diferentes" (com icone Layers)
+- **Estado aberto**: Ao clicar, expande mostrando os badges individuais de cada origem abaixo
+- Para leads com uma unica origem, manter o badge simples como esta
 
-- Leads com `origem = 'meta_form'` e observacoes contendo "INFORMACOES COMPLEMENTARES" (dados do chatbot WhatsApp) recebem `origens = '["meta_form", "whatsapp"]'`
-- Leads com `origem = 'whatsapp'` e observacoes contendo dados de "Formulario" (dados do Meta Form) recebem `origens = '["whatsapp", "meta_form"]'`
+### Cores do badge
 
-### 2. Nenhuma alteracao no frontend
-
-O codigo da tabela e do modal ja esta pronto para exibir multiplas origens (badges + indicador "+N"). So precisa que o dado esteja correto no banco.
+- Light mode: fundo `bg-blue-100 text-blue-700 border-blue-200`
+- Dark mode: `dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-800`
+- Garantir contraste em ambos os modos
 
 ## Detalhes tecnicos
 
-### SQL da migration
-
-```sql
--- Leads que vieram do meta_form mas tambem interagiram via WhatsApp
-UPDATE leads
-SET origens = '["meta_form", "whatsapp"]'::jsonb
-WHERE origem = 'meta_form'
-  AND observacoes LIKE '%INFORMAÇÕES COMPLEMENTARES%'
-  AND NOT (origens @> '"whatsapp"'::jsonb);
-
--- Leads que vieram do whatsapp mas tambem preencheram formulario Meta
-UPDATE leads
-SET origens = '["whatsapp", "meta_form"]'::jsonb
-WHERE origem = 'whatsapp'
-  AND observacoes LIKE '%Formulário%'
-  AND NOT (origens @> '"meta_form"'::jsonb);
-```
-
-### Resultado esperado
-
-- Ivan Luiz passara de `["meta_form"]` para `["meta_form", "whatsapp"]`
-- Na tabela de leads, aparecera o badge "Formulario Nativo Meta" com o indicador "+1" ao lado
-- No modal de detalhes, aparecera o banner "Este lead interagiu por 2 canais diferentes" com dois badges
-- Aproximadamente 13 leads serao corrigidos
-
 ### Arquivo modificado
 
-1. **Nova migration SQL** -- apenas o UPDATE dos dados existentes
+**`src/components/LeadDetailsModal.tsx`** (linhas 249-276)
 
+Adicionar um estado `showOrigens` (useState boolean) e alterar o bloco de origens:
+
+- Quando `hasMultiple`:
+  - Renderizar um badge/botao clicavel com texto `"{origens.length} canais diferentes"` e icone Layers
+  - Ao clicar, toggle do estado `showOrigens`
+  - Quando `showOrigens = true`, mostrar os badges individuais abaixo com animacao suave
+- Quando origem unica: manter badge simples como esta
+
+### Estilo do badge clicavel
+
+Usar classes explicitas com suporte a dark mode em vez de `bg-primary/10` (que fica invisivel no tema escuro). Aplicar `cursor-pointer` e `hover:` para indicar interatividade.
