@@ -1,124 +1,98 @@
 
-# Desduplicacao de Leads por Email/Telefone
 
-## Problema identificado
+# Indicador Visual de Multiplas Origens
 
-O sistema cria registros duplicados quando o mesmo contato chega por origens diferentes (meta_form, whatsapp, webhook). Cada registro passa pelo round-robin independentemente, resultando em assessores diferentes para a mesma pessoa.
+## O que sera feito
 
-**Dados concretos**: 567 leads no total, mas apenas 543 emails unicos = **24 leads duplicados**.
+Adicionar rastreamento de todas as origens por onde um lead interagiu e mostrar isso visualmente tanto na tabela quanto no modal de detalhes. Assim o time sabera que o Ivan Luiz, por exemplo, veio pelo Meta Form **e** pelo WhatsApp.
 
-Exemplos encontrados:
-- `il9374138@icloud.com` (Ivan Luiz): meta_form -> Ana Carolina, whatsapp -> Jose Vitor
-- `mauromontilla33@gmail.com` (Mauro): 3 registros, 2 assessores diferentes
-- `nonatocardoso478@gmail.com` (Nonato): 3 registros, assessores diferentes
+## Como funciona hoje
 
-## Solucao em duas camadas
+- O campo `origem` na tabela `leads` armazena apenas **um valor** (ex: `meta_form`)
+- Quando a desduplicacao faz merge, a origem e sobrescrita pela mais recente
+- Nao ha como saber que o lead interagiu com multiplas campanhas/fontes
 
-### Camada 1: Trigger de banco de dados (auto_assign_lead)
+## Solucao
 
-Alterar a funcao `auto_assign_lead` para, antes de atribuir pelo round-robin, verificar se ja existe um lead com o mesmo email ou telefone. Se existir e tiver responsavel, copiar o `responsavel_id` do lead existente em vez de girar o round-robin.
+### 1. Nova coluna no banco de dados
 
-**Logica**:
-1. Se `NEW.responsavel_id` ja esta preenchido, retorna (comportamento atual)
-2. Buscar lead existente com mesmo email ou telefone (normalizado) que tenha `responsavel_id` preenchido
-3. Se encontrou, usar o `responsavel_id` do lead existente
-4. Se nao encontrou, seguir com o round-robin normal
+Adicionar uma coluna `origens` (tipo `jsonb`, array de strings) na tabela `leads` para armazenar todas as origens pelas quais o lead entrou.
 
-### Camada 2: Edge Function webhook-lead
+Exemplo: `["meta_form", "whatsapp"]`
 
-Alterar o `webhook-lead` para verificar se ja existe um lead com o mesmo email antes de inserir. Se existir:
-- Atualizar o lead existente com os dados novos (merge), adicionando observacoes
-- Retornar os dados do lead existente (incluindo responsavel e dados Callix)
-- Nao criar registro duplicado
+### 2. Atualizar triggers e Edge Function
 
-### Camada 3: Limpeza dos duplicados existentes
+- **Trigger `auto_assign_lead`**: quando um novo lead e inserido, inicializar `origens` com `[origem]`
+- **Trigger `sync_meta_lead_to_crm`**: ao fazer merge, adicionar `"meta_form"` ao array se ainda nao existir
+- **Edge Function `webhook-lead`**: ao fazer merge, adicionar a nova origem ao array existente
 
-Criar uma migration que:
-1. Para cada email com mais de um lead, manter o mais antigo (primeiro registro)
-2. Copiar observacoes relevantes dos duplicados para o registro original
-3. Remover os duplicados
+### 3. Indicador visual na tabela (LeadsTable)
+
+Na coluna "Origem", quando o lead tiver mais de uma origem:
+- Mostrar a origem principal com um badge
+- Adicionar um indicador "+N" ao lado (ex: "Meta Form +1") com tooltip listando todas as origens
+- Cor diferenciada para leads multi-origem (destaque visual sutil)
+
+### 4. Secao no modal de detalhes (LeadDetailsModal)
+
+Dentro da secao "Negociacao", substituir o campo simples de "Origem" por uma lista de badges mostrando todas as origens. Se o lead tiver mais de uma, mostrar um destaque com icone indicando "Lead multi-origem".
+
+### 5. Migrar dados existentes
+
+Para leads que ja sofreram desduplicacao (observacoes contem "[Desduplicacao automatica]"), popular o campo `origens` analisando o conteudo das observacoes para extrair as origens mencionadas.
+
+---
 
 ## Detalhes tecnicos
 
-### Migration SQL - Alterar auto_assign_lead
+### Migration SQL
 
 ```sql
-CREATE OR REPLACE FUNCTION public.auto_assign_lead()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_faixa text;
-  v_last_order integer;
-  v_next_user_id uuid;
-  v_next_order integer;
-  v_config_count integer;
-  v_existing_responsavel uuid;
+-- Adicionar coluna origens
+ALTER TABLE leads ADD COLUMN origens jsonb DEFAULT '[]'::jsonb;
+
+-- Trigger para inicializar origens em novos leads
+CREATE OR REPLACE FUNCTION init_lead_origens()
+RETURNS TRIGGER AS $$
 BEGIN
-  -- Se ja tem responsavel, nao faz nada
-  IF NEW.responsavel_id IS NOT NULL THEN
-    RETURN NEW;
+  IF NEW.origens IS NULL OR NEW.origens = '[]'::jsonb THEN
+    IF NEW.origem IS NOT NULL AND NEW.origem != '' THEN
+      NEW.origens := jsonb_build_array(NEW.origem);
+    ELSE
+      NEW.origens := '[]'::jsonb;
+    END IF;
   END IF;
-
-  -- DESDUPLICACAO: buscar responsavel de lead existente com mesmo email ou telefone
-  SELECT responsavel_id INTO v_existing_responsavel
-  FROM leads
-  WHERE responsavel_id IS NOT NULL
-    AND (
-      (NEW.email IS NOT NULL AND NEW.email != '' AND lower(trim(email)) = lower(trim(NEW.email)))
-      OR
-      (NEW.telefone IS NOT NULL AND NEW.telefone != '' AND regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace(NEW.telefone, '[^0-9]', '', 'g'))
-    )
-  ORDER BY data_criacao ASC
-  LIMIT 1;
-
-  IF v_existing_responsavel IS NOT NULL THEN
-    NEW.responsavel_id := v_existing_responsavel;
-    RETURN NEW;  -- Pula o round-robin
-  END IF;
-
-  -- Round-robin normal (codigo existente)
-  ...
+  RETURN NEW;
 END;
-$$;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_init_origens
+BEFORE INSERT ON leads
+FOR EACH ROW EXECUTE FUNCTION init_lead_origens();
+
+-- Migrar dados existentes
+UPDATE leads SET origens = jsonb_build_array(origem)
+WHERE origem IS NOT NULL AND origem != ''
+  AND (origens IS NULL OR origens = '[]'::jsonb);
 ```
 
-### Alteracao no webhook-lead (Edge Function)
+### Arquivos modificados
 
-Antes do INSERT, fazer um SELECT para verificar se o lead ja existe:
+1. **Nova migration SQL** - coluna `origens`, trigger de inicializacao e migracao de dados existentes
+2. **`supabase/functions/webhook-lead/index.ts`** - ao fazer merge, adicionar origem ao array `origens`
+3. **`src/pages/LeadsTable.tsx`** - indicador visual multi-origem na coluna Origem
+4. **`src/components/LeadDetailsModal.tsx`** - secao expandida com todas as origens
+5. **`src/integrations/supabase/types.ts`** - adicionar campo `origens` ao tipo
+6. **Trigger `sync_meta_lead_to_crm`** (migration) - adicionar origem ao array no merge
 
-```typescript
-// Buscar lead existente pelo email ou telefone
-const { data: existingLead } = await supabase
-  .from('leads')
-  .select('id, responsavel_id, nome_completo, protocolo_atendimento, observacoes')
-  .or(`email.eq.${email},telefone.eq.${telefone}`)
-  .order('data_criacao', { ascending: true })
-  .limit(1)
-  .maybeSingle();
+### Indicador visual na tabela
 
-if (existingLead) {
-  // Atualizar lead existente com dados novos (merge)
-  // Adicionar origem nas observacoes
-  // Retornar dados do lead existente com responsavel e callix
-}
-```
+Para leads com uma unica origem: badge normal como hoje.
 
-### Migration de limpeza dos duplicados atuais
+Para leads com multiplas origens: badge da origem principal + chip "+N" em cor de destaque. Ao passar o mouse (tooltip), mostra a lista completa de origens.
 
-Sera necessario rodar manualmente uma query para consolidar os 24 leads duplicados existentes, mantendo o registro mais antigo e reatribuindo ao assessor correto.
+### Secao no modal de detalhes
 
-## Arquivos modificados
-
-1. **Nova migration SQL**: Alterar funcao `auto_assign_lead` com logica de desduplicacao
-2. **`supabase/functions/webhook-lead/index.ts`**: Adicionar verificacao de lead existente antes de inserir
-3. **Nova migration SQL**: Limpeza dos duplicados existentes
-
-## Resultado esperado
-
-- Leads que chegam por qualquer origem com mesmo email/telefone serao sempre atribuidos ao mesmo assessor
-- O webhook-lead atualiza o lead existente em vez de criar duplicata
-- O trigger `auto_assign_lead` funciona como rede de seguranca para qualquer ponto de insercao
-- Os 24 duplicados existentes serao consolidados
+Dentro de "Negociacao", o campo "Origem" mostrara:
+- Uma lista de badges com todas as origens
+- Um banner informativo sutil quando houver mais de uma origem: "Este lead interagiu por N canais diferentes"
