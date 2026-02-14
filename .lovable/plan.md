@@ -1,98 +1,54 @@
 
 
-# Indicador Visual de Multiplas Origens
+# Corrigir Rastreamento de Origens para Leads Desduplicados
 
-## O que sera feito
+## Problema
 
-Adicionar rastreamento de todas as origens por onde um lead interagiu e mostrar isso visualmente tanto na tabela quanto no modal de detalhes. Assim o time sabera que o Ivan Luiz, por exemplo, veio pelo Meta Form **e** pelo WhatsApp.
+Leads como o Ivan Luiz (`il9374138@icloud.com`) interagiram por dois canais (Meta Form + WhatsApp), mas o array `origens` mostra apenas `["meta_form"]`. A migracaoo anterior populou `origens` apenas com o valor do campo `origem`, sem considerar que leads desduplicados tinham dados de outras fontes nas observacoes.
 
-## Como funciona hoje
-
-- O campo `origem` na tabela `leads` armazena apenas **um valor** (ex: `meta_form`)
-- Quando a desduplicacao faz merge, a origem e sobrescrita pela mais recente
-- Nao ha como saber que o lead interagiu com multiplas campanhas/fontes
+Existem pelo menos 13 leads nessa situacao -- com "INFORMACOES COMPLEMENTARES" nas observacoes (dados vindos do WhatsApp) mas sem `"whatsapp"` no array `origens`.
 
 ## Solucao
 
-### 1. Nova coluna no banco de dados
+### 1. Migration para corrigir dados existentes
 
-Adicionar uma coluna `origens` (tipo `jsonb`, array de strings) na tabela `leads` para armazenar todas as origens pelas quais o lead entrou.
+Rodar um UPDATE que identifica leads com dados do WhatsApp nas observacoes e adiciona `"whatsapp"` ao array `origens`:
 
-Exemplo: `["meta_form", "whatsapp"]`
+- Leads com `origem = 'meta_form'` e observacoes contendo "INFORMACOES COMPLEMENTARES" (dados do chatbot WhatsApp) recebem `origens = '["meta_form", "whatsapp"]'`
+- Leads com `origem = 'whatsapp'` e observacoes contendo dados de "Formulario" (dados do Meta Form) recebem `origens = '["whatsapp", "meta_form"]'`
 
-### 2. Atualizar triggers e Edge Function
+### 2. Nenhuma alteracao no frontend
 
-- **Trigger `auto_assign_lead`**: quando um novo lead e inserido, inicializar `origens` com `[origem]`
-- **Trigger `sync_meta_lead_to_crm`**: ao fazer merge, adicionar `"meta_form"` ao array se ainda nao existir
-- **Edge Function `webhook-lead`**: ao fazer merge, adicionar a nova origem ao array existente
-
-### 3. Indicador visual na tabela (LeadsTable)
-
-Na coluna "Origem", quando o lead tiver mais de uma origem:
-- Mostrar a origem principal com um badge
-- Adicionar um indicador "+N" ao lado (ex: "Meta Form +1") com tooltip listando todas as origens
-- Cor diferenciada para leads multi-origem (destaque visual sutil)
-
-### 4. Secao no modal de detalhes (LeadDetailsModal)
-
-Dentro da secao "Negociacao", substituir o campo simples de "Origem" por uma lista de badges mostrando todas as origens. Se o lead tiver mais de uma, mostrar um destaque com icone indicando "Lead multi-origem".
-
-### 5. Migrar dados existentes
-
-Para leads que ja sofreram desduplicacao (observacoes contem "[Desduplicacao automatica]"), popular o campo `origens` analisando o conteudo das observacoes para extrair as origens mencionadas.
-
----
+O codigo da tabela e do modal ja esta pronto para exibir multiplas origens (badges + indicador "+N"). So precisa que o dado esteja correto no banco.
 
 ## Detalhes tecnicos
 
-### Migration SQL
+### SQL da migration
 
 ```sql
--- Adicionar coluna origens
-ALTER TABLE leads ADD COLUMN origens jsonb DEFAULT '[]'::jsonb;
+-- Leads que vieram do meta_form mas tambem interagiram via WhatsApp
+UPDATE leads
+SET origens = '["meta_form", "whatsapp"]'::jsonb
+WHERE origem = 'meta_form'
+  AND observacoes LIKE '%INFORMAÇÕES COMPLEMENTARES%'
+  AND NOT (origens @> '"whatsapp"'::jsonb);
 
--- Trigger para inicializar origens em novos leads
-CREATE OR REPLACE FUNCTION init_lead_origens()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.origens IS NULL OR NEW.origens = '[]'::jsonb THEN
-    IF NEW.origem IS NOT NULL AND NEW.origem != '' THEN
-      NEW.origens := jsonb_build_array(NEW.origem);
-    ELSE
-      NEW.origens := '[]'::jsonb;
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_init_origens
-BEFORE INSERT ON leads
-FOR EACH ROW EXECUTE FUNCTION init_lead_origens();
-
--- Migrar dados existentes
-UPDATE leads SET origens = jsonb_build_array(origem)
-WHERE origem IS NOT NULL AND origem != ''
-  AND (origens IS NULL OR origens = '[]'::jsonb);
+-- Leads que vieram do whatsapp mas tambem preencheram formulario Meta
+UPDATE leads
+SET origens = '["whatsapp", "meta_form"]'::jsonb
+WHERE origem = 'whatsapp'
+  AND observacoes LIKE '%Formulário%'
+  AND NOT (origens @> '"meta_form"'::jsonb);
 ```
 
-### Arquivos modificados
+### Resultado esperado
 
-1. **Nova migration SQL** - coluna `origens`, trigger de inicializacao e migracao de dados existentes
-2. **`supabase/functions/webhook-lead/index.ts`** - ao fazer merge, adicionar origem ao array `origens`
-3. **`src/pages/LeadsTable.tsx`** - indicador visual multi-origem na coluna Origem
-4. **`src/components/LeadDetailsModal.tsx`** - secao expandida com todas as origens
-5. **`src/integrations/supabase/types.ts`** - adicionar campo `origens` ao tipo
-6. **Trigger `sync_meta_lead_to_crm`** (migration) - adicionar origem ao array no merge
+- Ivan Luiz passara de `["meta_form"]` para `["meta_form", "whatsapp"]`
+- Na tabela de leads, aparecera o badge "Formulario Nativo Meta" com o indicador "+1" ao lado
+- No modal de detalhes, aparecera o banner "Este lead interagiu por 2 canais diferentes" com dois badges
+- Aproximadamente 13 leads serao corrigidos
 
-### Indicador visual na tabela
+### Arquivo modificado
 
-Para leads com uma unica origem: badge normal como hoje.
+1. **Nova migration SQL** -- apenas o UPDATE dos dados existentes
 
-Para leads com multiplas origens: badge da origem principal + chip "+N" em cor de destaque. Ao passar o mouse (tooltip), mostra a lista completa de origens.
-
-### Secao no modal de detalhes
-
-Dentro de "Negociacao", o campo "Origem" mostrara:
-- Uma lista de badges com todas as origens
-- Um banner informativo sutil quando houver mais de uma origem: "Este lead interagiu por N canais diferentes"
