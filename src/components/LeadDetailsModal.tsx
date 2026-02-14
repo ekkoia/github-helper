@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, User, TrendingUp, Edit, UserPlus, Check, AlertTriangle } from "lucide-react";
+import { Mail, Phone, User, TrendingUp, Edit, UserPlus, Check, AlertTriangle, Layers } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AssignLeadDialog } from "./AssignLeadDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -246,11 +246,34 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                     {currentLead.investimento_real ? formatCurrency(currentLead.investimento_real) : "-"}
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Origem</p>
-                  <Badge variant="outline">
-                    {ORIGEM_LABELS[currentLead.origem] || currentLead.origem || "-"}
-                  </Badge>
+                <div className="md:col-span-2">
+                  <p className="text-sm text-muted-foreground mb-2">Origem</p>
+                  {(() => {
+                    const origens: string[] = Array.isArray(currentLead.origens) ? currentLead.origens : [];
+                    const hasMultiple = origens.length > 1;
+
+                    return (
+                      <div className="space-y-2">
+                        {hasMultiple && (
+                          <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 px-3 py-1.5 rounded-md w-fit">
+                            <Layers className="h-3.5 w-3.5" />
+                            Este lead interagiu por {origens.length} canais diferentes
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-1.5">
+                          {origens.length > 0 ? origens.map((o: string, i: number) => (
+                            <Badge key={i} variant="outline">
+                              {ORIGEM_LABELS[o] || o}
+                            </Badge>
+                          )) : (
+                            <Badge variant="outline">
+                              {ORIGEM_LABELS[currentLead.origem] || currentLead.origem || "-"}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Etapa do Funil</p>

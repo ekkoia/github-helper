@@ -33,11 +33,17 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, AlertCircle, User } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, AlertCircle, User, Layers } from "lucide-react";
 import { subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV } from "@/lib/exportUtils";
 import { useActivityLog } from "@/hooks/useActivityLog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -510,9 +516,39 @@ const LeadsTable = () => {
                             }
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="text-xs whitespace-nowrap">
-                              {ORIGEM_LABELS[lead.origem] || lead.origem || "-"}
-                            </Badge>
+                            {(() => {
+                              const origens: string[] = Array.isArray(lead.origens) ? lead.origens : [];
+                              const origemPrincipal = lead.origem;
+                              const extraCount = origens.length > 1 ? origens.length - 1 : 0;
+
+                              return (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline" className="text-xs whitespace-nowrap">
+                                    {ORIGEM_LABELS[origemPrincipal] || origemPrincipal || "-"}
+                                  </Badge>
+                                  {extraCount > 0 && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge className="text-xs px-1.5 py-0.5 bg-primary/20 text-primary border-primary/30 hover:bg-primary/30 cursor-default">
+                                            <Layers className="h-3 w-3 mr-0.5" />
+                                            +{extraCount}
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="font-medium mb-1">Origens do lead:</p>
+                                          <ul className="text-xs space-y-0.5">
+                                            {origens.map((o: string, i: number) => (
+                                              <li key={i}>• {ORIGEM_LABELS[o] || o}</li>
+                                            ))}
+                                          </ul>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                           {isAdmin && (
                             <TableCell>

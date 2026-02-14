@@ -172,10 +172,22 @@ serve(async (req) => {
       const mergeNote = `\n[${new Date().toISOString()}] Dados atualizados via webhook (origem: ${leadData.origem || 'webhook'})`;
       const updatedObservacoes = (existingLead.observacoes || '') + mergeNote;
 
+      // Fetch current origens to append
+      const { data: currentLeadData } = await supabase
+        .from('leads')
+        .select('origens')
+        .eq('id', existingLead.id)
+        .single();
+
+      const currentOrigens: string[] = Array.isArray(currentLeadData?.origens) ? currentLeadData.origens : [];
+      const newOrigem = leadData.origem || 'webhook';
+      const updatedOrigens = currentOrigens.includes(newOrigem) ? currentOrigens : [...currentOrigens, newOrigem];
+
       // Merge: update existing lead with new data (only fill empty fields)
       const mergeData: Record<string, any> = {
         observacoes: updatedObservacoes,
         data_atualizacao: new Date().toISOString(),
+        origens: updatedOrigens,
       };
 
       // Only update fields that are currently null/empty on the existing lead
