@@ -152,12 +152,97 @@ serve(async (req) => {
       );
     }
 
+    // Normalize email and phone for deduplication
+    const normalizedEmail = leadData.email.trim().toLowerCase();
+    const normalizedPhone = leadData.telefone.trim().replace(/[^0-9]/g, '');
+
+    // DEDUPLICATION: Check if a lead with same email or phone already exists
+    const { data: existingLead } = await supabase
+      .from('leads')
+      .select('id, responsavel_id, nome_completo, protocolo_atendimento, observacoes, etapa_funil')
+      .or(`email.eq.${normalizedEmail},telefone.eq.${leadData.telefone.trim()}`)
+      .order('data_criacao', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingLead) {
+      console.log('Existing lead found, merging data:', existingLead.id);
+
+      // Build merge observation
+      const mergeNote = `\n[${new Date().toISOString()}] Dados atualizados via webhook (origem: ${leadData.origem || 'webhook'})`;
+      const updatedObservacoes = (existingLead.observacoes || '') + mergeNote;
+
+      // Merge: update existing lead with new data (only fill empty fields)
+      const mergeData: Record<string, any> = {
+        observacoes: updatedObservacoes,
+        data_atualizacao: new Date().toISOString(),
+      };
+
+      // Only update fields that are currently null/empty on the existing lead
+      if (leadData.perfil) mergeData.perfil = leadData.perfil;
+      if (leadData.intencao) mergeData.intencao = leadData.intencao;
+      if (leadData.tipo_grao) mergeData.tipo_grao = leadData.tipo_grao;
+      if (leadData.volume) mergeData.volume = String(leadData.volume);
+      if (leadData.cidade) mergeData.cidade = leadData.cidade;
+      if (leadData.uf) mergeData.uf = leadData.uf;
+      if (leadData.origem) mergeData.origem = leadData.origem;
+
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update(mergeData)
+        .eq('id', existingLead.id);
+
+      if (updateError) {
+        console.error('Error updating existing lead:', updateError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Erro ao atualizar lead existente', details: updateError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch responsavel and callix data
+      let responsavelNome: string | null = null;
+      let callixData: { assessores_id: string; list_id: string; name_assessores: string } | null = null;
+
+      if (existingLead.responsavel_id) {
+        const [profileResult, callixResult] = await Promise.all([
+          supabase.from('profiles').select('nome_completo').eq('user_id', existingLead.responsavel_id).maybeSingle(),
+          supabase.from('user_callix_mapping').select('callix_assessor_id, callix_list_id, callix_name').eq('user_id', existingLead.responsavel_id).maybeSingle(),
+        ]);
+        responsavelNome = profileResult.data?.nome_completo || null;
+        if (callixResult.data) {
+          callixData = {
+            assessores_id: callixResult.data.callix_assessor_id,
+            list_id: callixResult.data.callix_list_id,
+            name_assessores: callixResult.data.callix_name || '',
+          };
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Lead existente atualizado (desduplicação)',
+          deduplicated: true,
+          data: {
+            id: existingLead.id,
+            protocolo: existingLead.protocolo_atendimento,
+            nome: existingLead.nome_completo,
+            responsavel_id: existingLead.responsavel_id || null,
+            responsavel_nome: responsavelNome,
+            callix: callixData,
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // No existing lead found — proceed with new insertion
     // Generate protocol number
     const now = new Date();
     const year = now.getFullYear();
     const random = Math.floor(Math.random() * 9000) + 1000;
     const protocolo = `PROT-${year}-${random}`;
-
     // Helper function to parse numeric values
     const parseNumericValue = (value: any): number | null => {
       if (value === null || value === undefined || value === '' || value === 'nao_informado' || value === 'N/A') {
