@@ -1,81 +1,124 @@
 
+# Desduplicacao de Leads por Email/Telefone
 
-# Pagina de Usuarios responsiva no mobile
+## Problema identificado
 
-## Problemas identificados (pela screenshot)
+O sistema cria registros duplicados quando o mesmo contato chega por origens diferentes (meta_form, whatsapp, webhook). Cada registro passa pelo round-robin independentemente, resultando em assessores diferentes para a mesma pessoa.
 
-1. **CardHeader**: O titulo "Usuarios Cadastrados" e o botao "+ Adicionar Usuario" estao lado a lado (`flex-row`), causando sobreposicao no mobile
-2. **Card de cada usuario**: O layout horizontal (`flex items-center justify-between`) coloca nome/badges e os controles (Select + botoes) na mesma linha, ficando apertado e desalinhado
-3. **Select de role**: O `w-[140px]` ocupa espaco demais ao lado dos botoes no mobile
-4. **Nomes longos**: Nomes como "Ana Clara Silva Inacio" quebram o layout porque nao ha truncamento
+**Dados concretos**: 567 leads no total, mas apenas 543 emails unicos = **24 leads duplicados**.
 
-## Solucao
+Exemplos encontrados:
+- `il9374138@icloud.com` (Ivan Luiz): meta_form -> Ana Carolina, whatsapp -> Jose Vitor
+- `mauromontilla33@gmail.com` (Mauro): 3 registros, 2 assessores diferentes
+- `nonatocardoso478@gmail.com` (Nonato): 3 registros, assessores diferentes
 
-### Arquivo: `src/pages/Usuarios.tsx`
+## Solucao em duas camadas
 
-**1. CardHeader empilhado no mobile (linha 269)**
+### Camada 1: Trigger de banco de dados (auto_assign_lead)
 
-Mudar de `flex-row` para empilhar no mobile:
+Alterar a funcao `auto_assign_lead` para, antes de atribuir pelo round-robin, verificar se ja existe um lead com o mesmo email ou telefone. Se existir e tiver responsavel, copiar o `responsavel_id` do lead existente em vez de girar o round-robin.
 
-```tsx
-// De:
-<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+**Logica**:
+1. Se `NEW.responsavel_id` ja esta preenchido, retorna (comportamento atual)
+2. Buscar lead existente com mesmo email ou telefone (normalizado) que tenha `responsavel_id` preenchido
+3. Se encontrou, usar o `responsavel_id` do lead existente
+4. Se nao encontrou, seguir com o round-robin normal
 
-// Para:
-<CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4">
+### Camada 2: Edge Function webhook-lead
+
+Alterar o `webhook-lead` para verificar se ja existe um lead com o mesmo email antes de inserir. Se existir:
+- Atualizar o lead existente com os dados novos (merge), adicionando observacoes
+- Retornar os dados do lead existente (incluindo responsavel e dados Callix)
+- Nao criar registro duplicado
+
+### Camada 3: Limpeza dos duplicados existentes
+
+Criar uma migration que:
+1. Para cada email com mais de um lead, manter o mais antigo (primeiro registro)
+2. Copiar observacoes relevantes dos duplicados para o registro original
+3. Remover os duplicados
+
+## Detalhes tecnicos
+
+### Migration SQL - Alterar auto_assign_lead
+
+```sql
+CREATE OR REPLACE FUNCTION public.auto_assign_lead()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_faixa text;
+  v_last_order integer;
+  v_next_user_id uuid;
+  v_next_order integer;
+  v_config_count integer;
+  v_existing_responsavel uuid;
+BEGIN
+  -- Se ja tem responsavel, nao faz nada
+  IF NEW.responsavel_id IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- DESDUPLICACAO: buscar responsavel de lead existente com mesmo email ou telefone
+  SELECT responsavel_id INTO v_existing_responsavel
+  FROM leads
+  WHERE responsavel_id IS NOT NULL
+    AND (
+      (NEW.email IS NOT NULL AND NEW.email != '' AND lower(trim(email)) = lower(trim(NEW.email)))
+      OR
+      (NEW.telefone IS NOT NULL AND NEW.telefone != '' AND regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace(NEW.telefone, '[^0-9]', '', 'g'))
+    )
+  ORDER BY data_criacao ASC
+  LIMIT 1;
+
+  IF v_existing_responsavel IS NOT NULL THEN
+    NEW.responsavel_id := v_existing_responsavel;
+    RETURN NEW;  -- Pula o round-robin
+  END IF;
+
+  -- Round-robin normal (codigo existente)
+  ...
+END;
+$$;
 ```
 
-**2. Card de cada usuario empilhado no mobile (linhas 299-366)**
+### Alteracao no webhook-lead (Edge Function)
 
-Mudar o container de cada usuario para empilhar verticalmente no mobile:
+Antes do INSERT, fazer um SELECT para verificar se o lead ja existe:
 
-```tsx
-// De:
-<div className="flex items-center justify-between p-4 border rounded-lg ...">
+```typescript
+// Buscar lead existente pelo email ou telefone
+const { data: existingLead } = await supabase
+  .from('leads')
+  .select('id, responsavel_id, nome_completo, protocolo_atendimento, observacoes')
+  .or(`email.eq.${email},telefone.eq.${telefone}`)
+  .order('data_criacao', { ascending: true })
+  .limit(1)
+  .maybeSingle();
 
-// Para:
-<div className="flex flex-col md:flex-row md:items-center md:justify-between p-4 border rounded-lg gap-3 ...">
+if (existingLead) {
+  // Atualizar lead existente com dados novos (merge)
+  // Adicionar origem nas observacoes
+  // Retornar dados do lead existente com responsavel e callix
+}
 ```
 
-**3. Controles (Select + botoes) em linha separada no mobile (linha 322)**
+### Migration de limpeza dos duplicados atuais
 
-Os controles ficam abaixo do nome/email no mobile, alinhados a esquerda:
+Sera necessario rodar manualmente uma query para consolidar os 24 leads duplicados existentes, mantendo o registro mais antigo e reatribuindo ao assessor correto.
 
-```tsx
-// De:
-<div className="flex items-center gap-2">
+## Arquivos modificados
 
-// Para:
-<div className="flex items-center gap-2 w-full md:w-auto flex-shrink-0">
-```
-
-**4. Select de role responsivo (linha 329)**
-
-Reduzir largura no mobile:
-
-```tsx
-// De:
-<SelectTrigger className="w-[140px] h-9">
-
-// Para:
-<SelectTrigger className="w-[120px] md:w-[140px] h-9">
-```
-
-**5. Truncamento de nomes longos (linha 305)**
-
-Adicionar `truncate` e `max-w` ao nome para evitar quebra:
-
-```tsx
-<span className="font-medium text-foreground truncate max-w-[200px]">
-```
-
-**6. Texto do titulo da pagina responsivo (linha 263)**
-
-```tsx
-<h1 className="text-2xl md:text-3xl font-bold text-foreground">
-```
+1. **Nova migration SQL**: Alterar funcao `auto_assign_lead` com logica de desduplicacao
+2. **`supabase/functions/webhook-lead/index.ts`**: Adicionar verificacao de lead existente antes de inserir
+3. **Nova migration SQL**: Limpeza dos duplicados existentes
 
 ## Resultado esperado
 
-- No mobile: header empilhado, cada card de usuario com nome/badges em cima e controles embaixo, tudo visivel sem cortes
-- No desktop: layout atual mantido sem alteracoes visuais
+- Leads que chegam por qualquer origem com mesmo email/telefone serao sempre atribuidos ao mesmo assessor
+- O webhook-lead atualiza o lead existente em vez de criar duplicata
+- O trigger `auto_assign_lead` funciona como rede de seguranca para qualquer ponto de insercao
+- Os 24 duplicados existentes serao consolidados
