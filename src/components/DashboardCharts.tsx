@@ -54,7 +54,7 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
     // Prioriza created_time_brasil (horário Brasil real)
     if (lead.created_time_brasil) {
       // Extrai apenas a parte da data para evitar problemas de timezone
-      const dateStr = lead.created_time_brasil.split('T')[0];
+      const dateStr = lead.created_time_brasil.substring(0, 10);
       return new Date(dateStr + 'T12:00:00');
     }
     // Fallback: converte data_criacao considerando que está em UTC
