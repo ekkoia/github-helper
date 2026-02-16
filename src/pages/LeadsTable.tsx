@@ -125,7 +125,7 @@ const LeadsTable = () => {
   // Função para obter a data do lead no horário Brasil (mesma lógica do Dashboard)
   const getLeadDate = useCallback((lead: any): Date => {
     if (lead.created_time_brasil) {
-      const dateStr = lead.created_time_brasil.split('T')[0];
+      const dateStr = lead.created_time_brasil.substring(0, 10);
       return new Date(dateStr + 'T12:00:00');
     }
     const date = new Date(lead.data_criacao);
