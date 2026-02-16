@@ -1,41 +1,54 @@
 
-
-# Ajustar Indicador de Multi-Origem no Modal de Detalhes
+# Corrigir parsing de created_time_brasil no trigger
 
 ## Problema
 
-1. O banner "Este lead interagiu por 2 canais diferentes" esta com cor invisivel no dark mode (texto e fundo sem contraste)
-2. As origens (meta_form, WhatsApp) aparecem sempre como badges fixos -- o usuario quer que aparecam apenas ao clicar
-3. O texto do banner precisa ser simplificado para "2 canais diferentes"
+O trigger `sync_meta_lead_to_crm` tem um bug na conversao de data. O campo `created_time` vem do Meta no formato `14/02/2026 - 22:26`, mas o trigger atual tenta converter com `NEW.created_time::timestamptz`, que nao reconhece esse formato. A conversao falha silenciosamente (capturada pelo EXCEPTION) e `created_time_brasil` fica NULL.
+
+Resultado: todos os leads recentes (598-610+) estao com `created_time_brasil = NULL`, e o dashboard usa `data_criacao` (hora de insercao no banco, dia 16) em vez da data real do formulario (dia 14).
+
+## Causa raiz
+
+Uma migration anterior substituiu a conversao correta:
+```text
+TO_TIMESTAMP(NEW.created_time, 'DD/MM/YYYY - HH24:MI')
+```
+
+Pela conversao incorreta:
+```text
+NEW.created_time::timestamptz
+```
+
+O formato `14/02/2026 - 22:26` nao e reconhecido pelo cast implicito do PostgreSQL.
 
 ## Solucao
 
-Substituir o layout atual por um badge clicavel que funciona como toggle:
+### 1. Migration SQL (unico arquivo)
 
-- **Estado fechado**: Badge visivel com texto "2 canais diferentes" (com icone Layers)
-- **Estado aberto**: Ao clicar, expande mostrando os badges individuais de cada origem abaixo
-- Para leads com uma unica origem, manter o badge simples como esta
+**Parte A** - Corrigir o trigger para usar `TO_TIMESTAMP` novamente:
 
-### Cores do badge
+```text
+created_brasil := TO_TIMESTAMP(NEW.created_time, 'DD/MM/YYYY - HH24:MI');
+```
 
-- Light mode: fundo `bg-blue-100 text-blue-700 border-blue-200`
-- Dark mode: `dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-800`
-- Garantir contraste em ambos os modos
+**Parte B** - Preencher `created_time_brasil` para os leads existentes que estao NULL:
 
-## Detalhes tecnicos
+```sql
+UPDATE leads l
+SET created_time_brasil = TO_TIMESTAMP(lf.created_time, 'DD/MM/YYYY - HH24:MI')
+FROM "leadsNativo_feeagro" lf
+WHERE l.meta_lead_id = lf.id
+  AND l.created_time_brasil IS NULL
+  AND lf.created_time IS NOT NULL
+  AND lf.created_time != '';
+```
 
-### Arquivo modificado
+### 2. Nenhuma alteracao no frontend
 
-**`src/components/LeadDetailsModal.tsx`** (linhas 249-276)
+O codigo do dashboard (`getLeadDate`) ja prioriza `created_time_brasil` corretamente. Uma vez populado o campo, as datas aparecerao certas automaticamente.
 
-Adicionar um estado `showOrigens` (useState boolean) e alterar o bloco de origens:
+### Resultado esperado
 
-- Quando `hasMultiple`:
-  - Renderizar um badge/botao clicavel com texto `"{origens.length} canais diferentes"` e icone Layers
-  - Ao clicar, toggle do estado `showOrigens`
-  - Quando `showOrigens = true`, mostrar os badges individuais abaixo com animacao suave
-- Quando origem unica: manter badge simples como esta
-
-### Estilo do badge clicavel
-
-Usar classes explicitas com suporte a dark mode em vez de `bg-primary/10` (que fica invisivel no tema escuro). Aplicar `cursor-pointer` e `hover:` para indicar interatividade.
+- Leads como Rbs Santos (meta_lead_id 607) passarao de `created_time_brasil = NULL` para `2026-02-14 20:55:00`
+- No dashboard, esses leads aparecerao no dia 14/02 em vez do dia 16/02
+- Novos leads vindos do Meta terao `created_time_brasil` corretamente populado pelo trigger
