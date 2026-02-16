@@ -93,6 +93,7 @@ export type Database = {
         Row: {
           active: boolean | null
           bot_message: string | null
+          conversation_id: string | null
           created_at: string | null
           etapa_atendimento: string | null
           id: number
@@ -104,6 +105,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           bot_message?: string | null
+          conversation_id?: string | null
           created_at?: string | null
           etapa_atendimento?: string | null
           id?: number
@@ -115,6 +117,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           bot_message?: string | null
+          conversation_id?: string | null
           created_at?: string | null
           etapa_atendimento?: string | null
           id?: number
@@ -127,21 +130,45 @@ export type Database = {
       }
       chats: {
         Row: {
+          conversation_id: string | null
           created_at: string | null
+          day_counter: string | null
+          etapa_atendimento: string | null
           id: number
           phone: string | null
+          step_hour_1: string | null
+          step_hour_2: string | null
+          step_hour_3: string | null
+          step_hour_4: string | null
+          step_hour_5: string | null
           updated_at: string | null
         }
         Insert: {
+          conversation_id?: string | null
           created_at?: string | null
+          day_counter?: string | null
+          etapa_atendimento?: string | null
           id?: number
           phone?: string | null
+          step_hour_1?: string | null
+          step_hour_2?: string | null
+          step_hour_3?: string | null
+          step_hour_4?: string | null
+          step_hour_5?: string | null
           updated_at?: string | null
         }
         Update: {
+          conversation_id?: string | null
           created_at?: string | null
+          day_counter?: string | null
+          etapa_atendimento?: string | null
           id?: number
           phone?: string | null
+          step_hour_1?: string | null
+          step_hour_2?: string | null
+          step_hour_3?: string | null
+          step_hour_4?: string | null
+          step_hour_5?: string | null
           updated_at?: string | null
         }
         Relationships: []
