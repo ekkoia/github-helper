@@ -1,54 +1,39 @@
 
-# Corrigir parsing de created_time_brasil no trigger
+
+# Corrigir parsing de created_time_brasil no Dashboard
 
 ## Problema
 
-O trigger `sync_meta_lead_to_crm` tem um bug na conversao de data. O campo `created_time` vem do Meta no formato `14/02/2026 - 22:26`, mas o trigger atual tenta converter com `NEW.created_time::timestamptz`, que nao reconhece esse formato. A conversao falha silenciosamente (capturada pelo EXCEPTION) e `created_time_brasil` fica NULL.
+A migracao corrigiu os dados no banco com sucesso -- os valores de `created_time_brasil` estao corretos (ex: `2026-02-14 22:26:00+00`). Porem o formato mudou: o `TO_TIMESTAMP(...)::text` gera datas com espaco em vez de `T` como separador.
 
-Resultado: todos os leads recentes (598-610+) estao com `created_time_brasil = NULL`, e o dashboard usa `data_criacao` (hora de insercao no banco, dia 16) em vez da data real do formulario (dia 14).
-
-## Causa raiz
-
-Uma migration anterior substituiu a conversao correta:
-```text
-TO_TIMESTAMP(NEW.created_time, 'DD/MM/YYYY - HH24:MI')
-```
-
-Pela conversao incorreta:
-```text
-NEW.created_time::timestamptz
-```
-
-O formato `14/02/2026 - 22:26` nao e reconhecido pelo cast implicito do PostgreSQL.
+O codigo JavaScript faz `split('T')[0]`, que nao encontra o `T`, retorna a string inteira (`2026-02-14 22:26:00+00`), e gera uma data invalida com `new Date(...)`. Isso faz os leads sumirem dos graficos.
 
 ## Solucao
 
-### 1. Migration SQL (unico arquivo)
+Atualizar a funcao `getLeadDate` em **dois arquivos** para aceitar ambos os formatos (com `T` e com espaco):
 
-**Parte A** - Corrigir o trigger para usar `TO_TIMESTAMP` novamente:
+### Arquivos a modificar
 
-```text
-created_brasil := TO_TIMESTAMP(NEW.created_time, 'DD/MM/YYYY - HH24:MI');
+1. **`src/components/DashboardCharts.tsx`** (linha 57)
+2. **`src/pages/Dashboard.tsx`** (se tiver logica similar)
+
+### Mudanca
+
+Trocar:
+```
+const dateStr = lead.created_time_brasil.split('T')[0];
 ```
 
-**Parte B** - Preencher `created_time_brasil` para os leads existentes que estao NULL:
-
-```sql
-UPDATE leads l
-SET created_time_brasil = TO_TIMESTAMP(lf.created_time, 'DD/MM/YYYY - HH24:MI')
-FROM "leadsNativo_feeagro" lf
-WHERE l.meta_lead_id = lf.id
-  AND l.created_time_brasil IS NULL
-  AND lf.created_time IS NOT NULL
-  AND lf.created_time != '';
+Por:
+```
+const dateStr = lead.created_time_brasil.substring(0, 10);
 ```
 
-### 2. Nenhuma alteracao no frontend
+Isso extrai sempre os primeiros 10 caracteres (`2026-02-14`), independente do separador ser `T` ou espaco. Funciona para ambos os formatos:
+- `2026-02-14T22:26:00` (formato ISO antigo)
+- `2026-02-14 22:26:00+00` (formato novo do TO_TIMESTAMP::text)
 
-O codigo do dashboard (`getLeadDate`) ja prioriza `created_time_brasil` corretamente. Uma vez populado o campo, as datas aparecerao certas automaticamente.
+### Nenhuma outra mudanca necessaria
 
-### Resultado esperado
+Os dados no banco estao corretos. Apenas o parsing no frontend precisa ser ajustado.
 
-- Leads como Rbs Santos (meta_lead_id 607) passarao de `created_time_brasil = NULL` para `2026-02-14 20:55:00`
-- No dashboard, esses leads aparecerao no dia 14/02 em vez do dia 16/02
-- Novos leads vindos do Meta terao `created_time_brasil` corretamente populado pelo trigger
