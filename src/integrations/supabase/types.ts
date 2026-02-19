@@ -136,6 +136,7 @@ export type Database = {
           etapa_atendimento: string | null
           id: number
           phone: string | null
+          step_hour: string | null
           step_hour_1: string | null
           step_hour_2: string | null
           step_hour_3: string | null
@@ -150,6 +151,7 @@ export type Database = {
           etapa_atendimento?: string | null
           id?: number
           phone?: string | null
+          step_hour?: string | null
           step_hour_1?: string | null
           step_hour_2?: string | null
           step_hour_3?: string | null
@@ -164,6 +166,7 @@ export type Database = {
           etapa_atendimento?: string | null
           id?: number
           phone?: string | null
+          step_hour?: string | null
           step_hour_1?: string | null
           step_hour_2?: string | null
           step_hour_3?: string | null
