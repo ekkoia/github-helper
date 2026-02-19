@@ -1,92 +1,43 @@
 
 
-# Corrigir redirecionamento ao trocar de aba (fix definitivo)
+# Corrigir oscilacao entre abas Tabela/Kanban ao trocar de guia do navegador
 
-## Problema persistente
+## Problema
 
-A correção anterior ignora sessões nulas apenas quando o evento NÃO é `SIGNED_OUT`. Porém, o Supabase pode disparar um evento `SIGNED_OUT` real durante a renovação do token (o token antigo é revogado antes do novo ser emitido). Isso faz o user ficar null, ProtectedRoute redireciona para `/auth`, e Auth redireciona para `/dashboard` quando o novo token chega.
+Quando o usuario esta na aba "Kanban" e troca de guia do navegador, ao voltar a aba e redefinida para "Tabela". Isso acontece porque:
 
-## Solução
+1. Ao voltar para a guia, o Supabase renova o token, causando uma re-renderizacao
+2. O hook `useUserPreferences` busca as preferencias novamente
+3. O `useEffect` na pagina Leads sobrescreve a aba ativa com `preferences.default_view` toda vez que `preferences` muda
+4. Como `default_view` e provavelmente "tabela", a aba sempre volta para "tabela"
 
-### 1. AuthContext: adicionar estado `refreshing` e debounce no SIGNED_OUT
+## Solucao
 
-Em vez de reagir imediatamente ao `SIGNED_OUT`, aguardar um breve intervalo (300ms) e verificar se uma nova sessão não chegou nesse meio tempo. Se uma nova sessão chegar antes do timeout, cancelar a limpeza do estado.
+Modificar o `useEffect` no arquivo `src/pages/Leads.tsx` para aplicar a preferencia apenas na **primeira carga**, usando uma ref para controlar se ja foi aplicada.
 
-**Arquivo: `src/contexts/AuthContext.tsx`**
+**Arquivo: `src/pages/Leads.tsx`**
 
-Alterações:
-- Adicionar uma ref `signOutTimer` para controlar o debounce
-- Quando `SIGNED_OUT` chegar, agendar a limpeza do estado com `setTimeout(300ms)`
-- Quando uma sessão válida chegar, cancelar qualquer timer pendente e atualizar normalmente
-- No `signOut()` explícito, limpar estado imediatamente (sem debounce) pois é uma ação intencional do usuário
+- Adicionar um `useRef` chamado `hasAppliedPreference` (inicializado como `false`)
+- No `useEffect`, verificar se a preferencia ja foi aplicada antes de sobrescrever a aba ativa
+- Apos aplicar a primeira vez, marcar como `true` para nao sobrescrever mais
 
-Lógica do onAuthStateChange:
+## Detalhes tecnicos
+
 ```text
-if session valida:
-  - cancelar timer pendente
-  - setUser/setSession normalmente
-else if evento SIGNED_OUT:
-  - agendar limpeza com delay de 300ms
-  - se nova sessão chegar antes, timer é cancelado
-```
+// Logica revisada
+const hasAppliedPreference = useRef(false);
 
-### 2. ProtectedRoute: sem alterações
-
-O ProtectedRoute já está correto - só redireciona quando `!loading && !user`. Com o debounce no AuthContext, o user nunca ficará null transitoriamente durante refresh.
-
-### 3. Auth.tsx: sem alterações
-
-Já está usando `authLoading` corretamente.
-
-## Detalhes técnicos
-
-```typescript
-// AuthContext.tsx - onAuthStateChange revisado
-const signOutTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-onAuthStateChange(async (event, session) => {
-  if (session) {
-    // Sessão válida: cancelar qualquer sign-out pendente
-    if (signOutTimerRef.current) {
-      clearTimeout(signOutTimerRef.current);
-      signOutTimerRef.current = null;
-    }
-    setSession(session);
-    setUser(session.user);
-  } else if (event === 'SIGNED_OUT') {
-    // Debounce: aguardar 300ms antes de limpar
-    signOutTimerRef.current = setTimeout(() => {
-      setSession(null);
-      setUser(null);
-      signOutTimerRef.current = null;
-    }, 300);
+useEffect(() => {
+  if (!hasAppliedPreference.current && preferences?.default_view) {
+    setActiveTab(preferences.default_view);
+    hasAppliedPreference.current = true;
   }
-  setLoading(false);
-});
+}, [preferences]);
 ```
 
-No método `signOut()` explícito, cancelar o timer e limpar imediatamente:
-```typescript
-const signOut = async () => {
-  if (signOutTimerRef.current) {
-    clearTimeout(signOutTimerRef.current);
-    signOutTimerRef.current = null;
-  }
-  // ... resto do código existente
-};
-```
-
-Cleanup no useEffect return:
-```typescript
-return () => {
-  subscription.unsubscribe();
-  if (signOutTimerRef.current) {
-    clearTimeout(signOutTimerRef.current);
-  }
-};
-```
+Isso garante que a preferencia salva e aplicada apenas quando o componente carrega pela primeira vez. Depois disso, a aba selecionada pelo usuario e preservada mesmo durante re-renderizacoes causadas por refresh de token.
 
 ## Arquivos a modificar
 
-1. `src/contexts/AuthContext.tsx` - adicionar debounce no handler de SIGNED_OUT com useRef
+1. `src/pages/Leads.tsx` - adicionar ref para aplicar preferencia apenas uma vez
 
