@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layout } from "@/components/Layout";
 import { LayoutGrid, Table } from "lucide-react";
@@ -10,11 +10,13 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 const Leads = () => {
   const { preferences } = useUserPreferences();
   const [activeTab, setActiveTab] = useState("tabela");
+  const hasAppliedPreference = useRef(false);
 
-  // Aplicar visualização padrão quando as preferências carregarem
+  // Aplicar visualização padrão apenas na primeira carga
   useEffect(() => {
-    if (preferences?.default_view) {
+    if (!hasAppliedPreference.current && preferences?.default_view) {
       setActiveTab(preferences.default_view);
+      hasAppliedPreference.current = true;
     }
   }, [preferences]);
 
