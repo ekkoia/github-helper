@@ -1,91 +1,80 @@
 
-
-# Corrigir duplicatas e prevenir novas
+# Corrigir redirecionamento indevido ao trocar de aba do navegador
 
 ## Problema
 
-Existem 10 pares de leads duplicados no banco. A desduplicacao no trigger falha quando multiplos registros Meta chegam na mesma transacao (race condition). Alem disso, nao ha nenhuma protecao no frontend contra exibicao de duplicatas.
+Quando o usuario esta na pagina `/leads` e troca para outra aba do navegador, ao voltar ele e redirecionado para `/dashboard`. Isso acontece com qualquer pagina protegida, mas e mais perceptivel na pagina Leads.
 
-## Solucao em 3 frentes
+### Causa raiz
 
-### 1. Constraint unica no banco (prevencao definitiva)
+O Supabase SDK, ao detectar que a aba voltou ao foco, tenta renovar o token de autenticacao. Durante esse processo, o `onAuthStateChange` pode disparar brevemente com `session = null`, fazendo o estado `user` ficar `null` por um instante.
 
-Criar um indice unico parcial na coluna `email` (normalizado) para impedir fisicamente a insercao de duplicatas:
+O `ProtectedRoute` reage imediatamente a `user === null` e redireciona para `/auth`. A pagina Auth, por sua vez, detecta que o usuario ja esta logado (apos o token ser renovado) e redireciona para `/dashboard`.
 
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS leads_email_unique_idx 
-ON leads (lower(trim(email))) 
-WHERE email IS NOT NULL AND email != '';
+Fluxo:
+```text
+/leads -> user=null (token refresh) -> /auth -> user volta -> /dashboard
 ```
 
-Atualizar o INSERT do trigger para usar `ON CONFLICT` com esse indice, fazendo merge automatico.
+## Solucao
 
-### 2. Limpeza dos duplicados atuais
+### 1. Expor `loading` no AuthContext e adicionar estado intermediario durante refresh
 
-Executar nova limpeza dos 10 pares duplicados existentes:
-- Manter o registro mais antigo (menor data_criacao)
-- Mesclar observacoes e origens do duplicado no registro mantido
-- Deletar o registro duplicado
+Adicionar o estado `loading` ao valor do contexto para que outros componentes possam saber quando a autenticacao esta sendo processada.
 
-### 3. Corrigir bug do `split('T')` no LeadsTable
+**Arquivo: `src/contexts/AuthContext.tsx`**
 
-O arquivo `src/pages/LeadsTable.tsx` (linha 128) tem o mesmo bug ja corrigido no DashboardCharts:
+- Adicionar `loading` ao `AuthContextType` e ao `AuthContext.Provider value`
+- No callback do `onAuthStateChange`, nao setar `user` como null em eventos de refresh transitorio (ignorar `SIGNED_OUT` se seguido rapidamente de outro evento)
 
+### 2. Corrigir `ProtectedRoute` para nao redirecionar durante loading/refresh
+
+**Arquivo: `src/components/ProtectedRoute.tsx`**
+
+- Importar `loading` do `useAuth()`
+- Se `loading` for `true`, renderizar nada (ou skeleton) em vez de redirecionar
+- So redirecionar para `/auth` quando `loading === false` E `user === null`
+
+Codigo proposto:
+```typescript
+export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  if (loading || !user) {
+    return null;
+  }
+
+  return <>{children}</>;
+};
 ```
-// De:
-const dateStr = lead.created_time_brasil.split('T')[0];
 
-// Para:
-const dateStr = lead.created_time_brasil.substring(0, 10);
-```
+### 3. Corrigir pagina Auth para nao redirecionar durante loading
+
+**Arquivo: `src/pages/Auth.tsx`**
+
+- Importar `loading` do `useAuth()`
+- So redirecionar para `/dashboard` quando `loading === false` E `user !== null`
 
 ## Detalhes tecnicos
 
-### Migration SQL
+A mudanca principal e no `AuthContext.tsx`:
 
-**Parte A** - Limpar duplicatas atuais (mesma logica da migration anterior):
+- Expor `loading` no contexto
+- Garantir que durante o `TOKEN_REFRESHED` o user nao fique momentaneamente null
 
-```sql
-WITH ranked AS (
-  SELECT id, email, observacoes, origens,
-    ROW_NUMBER() OVER (PARTITION BY lower(trim(email)) ORDER BY data_criacao ASC) as rn
-  FROM leads
-  WHERE email IS NOT NULL AND email != ''
-    AND lower(trim(email)) IN (
-      SELECT lower(trim(email)) FROM leads
-      WHERE email IS NOT NULL AND email != ''
-      GROUP BY lower(trim(email)) HAVING COUNT(*) > 1
-    )
-)
--- merge obs dos duplicados no mais antigo, depois deletar rn > 1
-```
+O `onAuthStateChange` do Supabase pode disparar eventos em sequencia rapida (`SIGNED_OUT` seguido de `TOKEN_REFRESHED`). A solucao e:
+- Sempre que `onAuthStateChange` disparar com uma session valida, atualizar user normalmente
+- Quando disparar com session null, verificar se existe sessao persistida antes de limpar o estado
 
-**Parte B** - Criar indice unico parcial no email:
+## Arquivos a modificar
 
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS leads_email_unique_idx 
-ON leads (lower(trim(email))) 
-WHERE email IS NOT NULL AND email != '';
-```
-
-**Parte C** - Atualizar trigger `sync_meta_lead_to_crm` para usar `ON CONFLICT`:
-
-O INSERT passa a incluir:
-```sql
-ON CONFLICT ((lower(trim(email)))) WHERE email IS NOT NULL AND email != ''
-DO UPDATE SET
-  observacoes = COALESCE(leads.observacoes, '') || E'\n[Meta Form merge] ' || EXCLUDED.observacoes,
-  valor_produto = COALESCE(leads.valor_produto, EXCLUDED.valor_produto),
-  ...
-```
-
-### Arquivo frontend
-
-- `src/pages/LeadsTable.tsx` linha 128: trocar `split('T')[0]` por `substring(0, 10)`
-
-## Resultado esperado
-
-- Os 10 pares duplicados serao unificados
-- Novos leads com mesmo email serao automaticamente mesclados pelo banco (constraint unica)
-- O filtro de datas no LeadsTable funcionara corretamente com o novo formato de `created_time_brasil`
-
+1. `src/contexts/AuthContext.tsx` - expor `loading`, proteger contra refresh transitorio
+2. `src/components/ProtectedRoute.tsx` - usar `loading` antes de redirecionar
+3. `src/pages/Auth.tsx` - usar `loading` antes de redirecionar para dashboard
