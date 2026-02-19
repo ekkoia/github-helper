@@ -1,7 +1,6 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
@@ -20,19 +19,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const signOutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session) {
+          // Valid session: cancel any pending sign-out
+          if (signOutTimerRef.current) {
+            clearTimeout(signOutTimerRef.current);
+            signOutTimerRef.current = null;
+          }
           setSession(session);
           setUser(session.user);
         } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
+          // Debounce: wait 300ms before clearing state
+          signOutTimerRef.current = setTimeout(() => {
+            setSession(null);
+            setUser(null);
+            signOutTimerRef.current = null;
+          }, 300);
         }
-        // Ignore transient null sessions during TOKEN_REFRESHED
         
         // Criar perfil automaticamente para login OAuth
         if (event === 'SIGNED_IN' && session?.user) {
@@ -58,14 +65,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (signOutTimerRef.current) {
+        clearTimeout(signOutTimerRef.current);
+      }
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -132,8 +143,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Cancel any pending debounced sign-out
+    if (signOutTimerRef.current) {
+      clearTimeout(signOutTimerRef.current);
+      signOutTimerRef.current = null;
+    }
     try {
-      // Registrar atividade de logout antes de sair
       if (user) {
         await supabase.from("user_activities").insert({
           user_id: user.id,
