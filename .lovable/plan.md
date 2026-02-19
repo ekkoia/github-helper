@@ -1,80 +1,92 @@
 
-# Corrigir redirecionamento indevido ao trocar de aba do navegador
 
-## Problema
+# Corrigir redirecionamento ao trocar de aba (fix definitivo)
 
-Quando o usuario esta na pagina `/leads` e troca para outra aba do navegador, ao voltar ele e redirecionado para `/dashboard`. Isso acontece com qualquer pagina protegida, mas e mais perceptivel na pagina Leads.
+## Problema persistente
 
-### Causa raiz
+A correção anterior ignora sessões nulas apenas quando o evento NÃO é `SIGNED_OUT`. Porém, o Supabase pode disparar um evento `SIGNED_OUT` real durante a renovação do token (o token antigo é revogado antes do novo ser emitido). Isso faz o user ficar null, ProtectedRoute redireciona para `/auth`, e Auth redireciona para `/dashboard` quando o novo token chega.
 
-O Supabase SDK, ao detectar que a aba voltou ao foco, tenta renovar o token de autenticacao. Durante esse processo, o `onAuthStateChange` pode disparar brevemente com `session = null`, fazendo o estado `user` ficar `null` por um instante.
+## Solução
 
-O `ProtectedRoute` reage imediatamente a `user === null` e redireciona para `/auth`. A pagina Auth, por sua vez, detecta que o usuario ja esta logado (apos o token ser renovado) e redireciona para `/dashboard`.
+### 1. AuthContext: adicionar estado `refreshing` e debounce no SIGNED_OUT
 
-Fluxo:
-```text
-/leads -> user=null (token refresh) -> /auth -> user volta -> /dashboard
-```
-
-## Solucao
-
-### 1. Expor `loading` no AuthContext e adicionar estado intermediario durante refresh
-
-Adicionar o estado `loading` ao valor do contexto para que outros componentes possam saber quando a autenticacao esta sendo processada.
+Em vez de reagir imediatamente ao `SIGNED_OUT`, aguardar um breve intervalo (300ms) e verificar se uma nova sessão não chegou nesse meio tempo. Se uma nova sessão chegar antes do timeout, cancelar a limpeza do estado.
 
 **Arquivo: `src/contexts/AuthContext.tsx`**
 
-- Adicionar `loading` ao `AuthContextType` e ao `AuthContext.Provider value`
-- No callback do `onAuthStateChange`, nao setar `user` como null em eventos de refresh transitorio (ignorar `SIGNED_OUT` se seguido rapidamente de outro evento)
+Alterações:
+- Adicionar uma ref `signOutTimer` para controlar o debounce
+- Quando `SIGNED_OUT` chegar, agendar a limpeza do estado com `setTimeout(300ms)`
+- Quando uma sessão válida chegar, cancelar qualquer timer pendente e atualizar normalmente
+- No `signOut()` explícito, limpar estado imediatamente (sem debounce) pois é uma ação intencional do usuário
 
-### 2. Corrigir `ProtectedRoute` para nao redirecionar durante loading/refresh
+Lógica do onAuthStateChange:
+```text
+if session valida:
+  - cancelar timer pendente
+  - setUser/setSession normalmente
+else if evento SIGNED_OUT:
+  - agendar limpeza com delay de 300ms
+  - se nova sessão chegar antes, timer é cancelado
+```
 
-**Arquivo: `src/components/ProtectedRoute.tsx`**
+### 2. ProtectedRoute: sem alterações
 
-- Importar `loading` do `useAuth()`
-- Se `loading` for `true`, renderizar nada (ou skeleton) em vez de redirecionar
-- So redirecionar para `/auth` quando `loading === false` E `user === null`
+O ProtectedRoute já está correto - só redireciona quando `!loading && !user`. Com o debounce no AuthContext, o user nunca ficará null transitoriamente durante refresh.
 
-Codigo proposto:
+### 3. Auth.tsx: sem alterações
+
+Já está usando `authLoading` corretamente.
+
+## Detalhes técnicos
+
 ```typescript
-export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
+// AuthContext.tsx - onAuthStateChange revisado
+const signOutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
+onAuthStateChange(async (event, session) => {
+  if (session) {
+    // Sessão válida: cancelar qualquer sign-out pendente
+    if (signOutTimerRef.current) {
+      clearTimeout(signOutTimerRef.current);
+      signOutTimerRef.current = null;
     }
-  }, [user, loading, navigate]);
-
-  if (loading || !user) {
-    return null;
+    setSession(session);
+    setUser(session.user);
+  } else if (event === 'SIGNED_OUT') {
+    // Debounce: aguardar 300ms antes de limpar
+    signOutTimerRef.current = setTimeout(() => {
+      setSession(null);
+      setUser(null);
+      signOutTimerRef.current = null;
+    }, 300);
   }
+  setLoading(false);
+});
+```
 
-  return <>{children}</>;
+No método `signOut()` explícito, cancelar o timer e limpar imediatamente:
+```typescript
+const signOut = async () => {
+  if (signOutTimerRef.current) {
+    clearTimeout(signOutTimerRef.current);
+    signOutTimerRef.current = null;
+  }
+  // ... resto do código existente
 };
 ```
 
-### 3. Corrigir pagina Auth para nao redirecionar durante loading
-
-**Arquivo: `src/pages/Auth.tsx`**
-
-- Importar `loading` do `useAuth()`
-- So redirecionar para `/dashboard` quando `loading === false` E `user !== null`
-
-## Detalhes tecnicos
-
-A mudanca principal e no `AuthContext.tsx`:
-
-- Expor `loading` no contexto
-- Garantir que durante o `TOKEN_REFRESHED` o user nao fique momentaneamente null
-
-O `onAuthStateChange` do Supabase pode disparar eventos em sequencia rapida (`SIGNED_OUT` seguido de `TOKEN_REFRESHED`). A solucao e:
-- Sempre que `onAuthStateChange` disparar com uma session valida, atualizar user normalmente
-- Quando disparar com session null, verificar se existe sessao persistida antes de limpar o estado
+Cleanup no useEffect return:
+```typescript
+return () => {
+  subscription.unsubscribe();
+  if (signOutTimerRef.current) {
+    clearTimeout(signOutTimerRef.current);
+  }
+};
+```
 
 ## Arquivos a modificar
 
-1. `src/contexts/AuthContext.tsx` - expor `loading`, proteger contra refresh transitorio
-2. `src/components/ProtectedRoute.tsx` - usar `loading` antes de redirecionar
-3. `src/pages/Auth.tsx` - usar `loading` antes de redirecionar para dashboard
+1. `src/contexts/AuthContext.tsx` - adicionar debounce no handler de SIGNED_OUT com useRef
+
