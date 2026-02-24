@@ -1,1 +1,4 @@
 project_id = "omilhfohvstqsonhyuxp"
+
+[functions.next-assessor]
+verify_jwt = false
