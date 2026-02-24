@@ -142,6 +142,10 @@ export type Database = {
           step_hour_3: string | null
           step_hour_4: string | null
           step_hour_5: string | null
+          step_hour2: string | null
+          step_hour3: string | null
+          step_hour4: string | null
+          step_hour5: string | null
           updated_at: string | null
         }
         Insert: {
@@ -157,6 +161,10 @@ export type Database = {
           step_hour_3?: string | null
           step_hour_4?: string | null
           step_hour_5?: string | null
+          step_hour2?: string | null
+          step_hour3?: string | null
+          step_hour4?: string | null
+          step_hour5?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -172,6 +180,10 @@ export type Database = {
           step_hour_3?: string | null
           step_hour_4?: string | null
           step_hour_5?: string | null
+          step_hour2?: string | null
+          step_hour3?: string | null
+          step_hour4?: string | null
+          step_hour5?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -694,6 +706,7 @@ export type Database = {
       }
       user_callix_mapping: {
         Row: {
+          cal_event_type_id: string | null
           callix_assessor_id: string
           callix_list_id: string
           callix_name: string | null
@@ -703,6 +716,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cal_event_type_id?: string | null
           callix_assessor_id: string
           callix_list_id: string
           callix_name?: string | null
@@ -712,6 +726,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cal_event_type_id?: string | null
           callix_assessor_id?: string
           callix_list_id?: string
           callix_name?: string | null
