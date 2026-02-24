@@ -1,43 +1,74 @@
 
 
-# Corrigir oscilacao entre abas Tabela/Kanban ao trocar de guia do navegador
+# Endpoint GET para consultar proximo assessor do round-robin
 
-## Problema
+## Objetivo
 
-Quando o usuario esta na aba "Kanban" e troca de guia do navegador, ao voltar a aba e redefinida para "Tabela". Isso acontece porque:
+Criar uma Edge Function que simula a logica do round-robin (sem avançar o ponteiro) e retorna os dados do assessor que seria atribuido ao proximo lead, incluindo os dados do mapeamento Callix.
 
-1. Ao voltar para a guia, o Supabase renova o token, causando uma re-renderizacao
-2. O hook `useUserPreferences` busca as preferencias novamente
-3. O `useEffect` na pagina Leads sobrescreve a aba ativa com `preferences.default_view` toda vez que `preferences` muda
-4. Como `default_view` e provavelmente "tabela", a aba sempre volta para "tabela"
+## Como funciona
 
-## Solucao
+O endpoint recebe um parametro `faixa` via query string (`ate_10k` ou `acima_10k`) e:
 
-Modificar o `useEffect` no arquivo `src/pages/Leads.tsx` para aplicar a preferencia apenas na **primeira carga**, usando uma ref para controlar se ja foi aplicada.
+1. Consulta a tabela `auto_assign_state` para obter o `last_assigned_order` da faixa
+2. Consulta a tabela `auto_assign_config` para encontrar o proximo usuario ativo na fila (ordem > last_assigned_order, ou volta ao inicio)
+3. Com o `user_id` encontrado, busca os dados na tabela `user_callix_mapping`
+4. Retorna os dados combinados
 
-**Arquivo: `src/pages/Leads.tsx`**
+## Resposta do endpoint
 
-- Adicionar um `useRef` chamado `hasAppliedPreference` (inicializado como `false`)
-- No `useEffect`, verificar se a preferencia ja foi aplicada antes de sobrescrever a aba ativa
-- Apos aplicar a primeira vez, marcar como `true` para nao sobrescrever mais
+```text
+GET /next-assessor?faixa=ate_10k
+
+{
+  "success": true,
+  "data": {
+    "user_id": "uuid-do-usuario",
+    "faixa": "ate_10k",
+    "callix_assessor_id": "123",
+    "callix_name": "Nome do Assessor",
+    "cal_event_type_id": "456",
+    "callix_list_id": "789"
+  }
+}
+```
+
+Se nao houver assessores configurados para a faixa, retorna erro 404.
 
 ## Detalhes tecnicos
 
-```text
-// Logica revisada
-const hasAppliedPreference = useRef(false);
+### 1. Criar Edge Function `next-assessor`
 
-useEffect(() => {
-  if (!hasAppliedPreference.current && preferences?.default_view) {
-    setActiveTab(preferences.default_view);
-    hasAppliedPreference.current = true;
-  }
-}, [preferences]);
+**Arquivo: `supabase/functions/next-assessor/index.ts`**
+
+- Metodo: GET
+- Query param obrigatorio: `faixa` (valores: `ate_10k` ou `acima_10k`)
+- Autenticacao: via API key no header `x-api-key` (mesmo padrao do webhook-lead) para uso externo
+- Usa `SUPABASE_SERVICE_ROLE_KEY` para acessar as tabelas sem restricao de RLS
+
+Logica:
+```text
+1. Validar faixa
+2. SELECT last_assigned_order FROM auto_assign_state WHERE faixa = ?
+3. SELECT user_id, ordem FROM auto_assign_config 
+   WHERE faixa = ? AND ativo = true AND ordem > last_assigned_order
+   ORDER BY ordem ASC LIMIT 1
+4. Se nao encontrou, buscar o primeiro (ordem ASC LIMIT 1)
+5. SELECT callix_assessor_id, callix_name, cal_event_type_id, callix_list_id 
+   FROM user_callix_mapping WHERE user_id = ?
+6. Retornar dados combinados
 ```
 
-Isso garante que a preferencia salva e aplicada apenas quando o componente carrega pela primeira vez. Depois disso, a aba selecionada pelo usuario e preservada mesmo durante re-renderizacoes causadas por refresh de token.
+### 2. Atualizar `supabase/config.toml`
 
-## Arquivos a modificar
+Adicionar configuracao para desabilitar JWT verification:
+```text
+[functions.next-assessor]
+verify_jwt = false
+```
 
-1. `src/pages/Leads.tsx` - adicionar ref para aplicar preferencia apenas uma vez
+## Arquivos a criar/modificar
+
+1. **Criar** `supabase/functions/next-assessor/index.ts` - Edge Function principal
+2. **Modificar** `supabase/config.toml` - adicionar config da funcao
 
