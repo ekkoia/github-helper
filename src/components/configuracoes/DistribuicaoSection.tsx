@@ -149,22 +149,63 @@ const FaixaQueue = ({
 };
 
 export const DistribuicaoSection = () => {
-  const { getByFaixa, addUser, removeUser, toggleUser, reorderUsers, loading } = useAutoAssign();
+  const { config, getByFaixa, addUser, removeUser, toggleUser, reorderUsers, loading } = useAutoAssign();
   const { users, usersMap, loading: usersLoading } = useUsers();
+  const { logActivity } = useActivityLog();
 
   const ate10k = getByFaixa('ate_10k');
   const acima10k = getByFaixa('acima_10k');
+
+  const faixaLabel = (f: Faixa) => f === 'ate_10k' ? 'Até R$10 mil' : 'Acima de R$10 mil';
+  const userName = (userId: string) => usersMap[userId]?.nome_completo || usersMap[userId]?.email || userId.slice(0, 8);
 
   const getAvailableUsers = (faixa: Faixa) => {
     const assignedUserIds = (faixa === 'ate_10k' ? ate10k : acima10k).map(e => e.user_id);
     return users.filter(u => !assignedUserIds.includes(u.user_id));
   };
 
+  const handleAdd = useCallback(async (userId: string, faixa: Faixa) => {
+    const ok = await addUser(userId, faixa);
+    if (ok) {
+      logActivity('config_updated', `Adicionou ${userName(userId)} na fila ${faixaLabel(faixa)}`, {
+        action: 'add', target_user_id: userId, faixa
+      });
+    }
+    return ok;
+  }, [addUser, logActivity, usersMap]);
+
+  const handleRemove = useCallback(async (id: string) => {
+    const entry = config.find(c => c.id === id);
+    const ok = await removeUser(id);
+    if (ok && entry) {
+      logActivity('config_updated', `Removeu ${userName(entry.user_id)} da fila ${faixaLabel(entry.faixa as Faixa)}`, {
+        action: 'remove', target_user_id: entry.user_id, faixa: entry.faixa
+      });
+    }
+    return ok;
+  }, [removeUser, logActivity, config, usersMap]);
+
+  const handleToggle = useCallback(async (id: string, ativo: boolean) => {
+    const entry = config.find(c => c.id === id);
+    const ok = await toggleUser(id, ativo);
+    if (ok && entry) {
+      logActivity('config_updated', `${ativo ? 'Ativou' : 'Pausou'} ${userName(entry.user_id)} na fila ${faixaLabel(entry.faixa as Faixa)}`, {
+        action: 'toggle', target_user_id: entry.user_id, faixa: entry.faixa, ativo
+      });
+    }
+    return ok;
+  }, [toggleUser, logActivity, config, usersMap]);
+
   const handleMove = async (faixa: Faixa, fromIndex: number, toIndex: number) => {
     const entries = faixa === 'ate_10k' ? [...ate10k] : [...acima10k];
     const [moved] = entries.splice(fromIndex, 1);
     entries.splice(toIndex, 0, moved);
-    await reorderUsers(faixa, entries.map(e => e.id));
+    const ok = await reorderUsers(faixa, entries.map(e => e.id));
+    if (ok) {
+      logActivity('config_updated', `Reordenou fila ${faixaLabel(faixa)}`, {
+        action: 'reorder', faixa
+      });
+    }
   };
 
   if (loading || usersLoading) {
