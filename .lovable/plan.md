@@ -1,51 +1,74 @@
 
 
-# Adicionar logging de auditoria na Distribuicao
+# Endpoint GET para consultar proximo assessor do round-robin
 
-## Problema
+## Objetivo
 
-Nao ha registro de quem ativou, pausou, adicionou ou removeu usuarios da fila de auto-assign. Quando a Ana foi pausada, nao foi possivel identificar quem fez isso nem quando.
+Criar uma Edge Function que simula a logica do round-robin (sem avançar o ponteiro) e retorna os dados do assessor que seria atribuido ao proximo lead, incluindo os dados do mapeamento Callix.
 
-## Solucao
+## Como funciona
 
-Integrar o hook `useActivityLog` nas acoes do `DistribuicaoSection`, registrando cada operacao com metadados relevantes (usuario afetado, faixa, acao).
+O endpoint recebe um parametro `faixa` via query string (`ate_10k` ou `acima_10k`) e:
 
-## Arquivos a modificar
+1. Consulta a tabela `auto_assign_state` para obter o `last_assigned_order` da faixa
+2. Consulta a tabela `auto_assign_config` para encontrar o proximo usuario ativo na fila (ordem > last_assigned_order, ou volta ao inicio)
+3. Com o `user_id` encontrado, busca os dados na tabela `user_callix_mapping`
+4. Retorna os dados combinados
 
-### 1. `src/components/configuracoes/DistribuicaoSection.tsx`
+## Resposta do endpoint
 
-- Importar `useActivityLog`
-- Criar wrapper functions para `addUser`, `removeUser`, `toggleUser` e `reorderUsers` que chamam `logActivity` apos o sucesso da operacao
-- Usar o `usersMap` para incluir o nome do usuario afetado nos logs
+```text
+GET /next-assessor?faixa=ate_10k
 
-Acoes a registrar:
-- **Adicionar usuario**: `config_updated` com descricao "Adicionou [nome] na fila [faixa]"
-- **Remover usuario**: `config_updated` com descricao "Removeu [nome] da fila [faixa]"
-- **Ativar/Pausar**: `config_updated` com descricao "Ativou/Pausou [nome] na fila [faixa]"
-- **Reordenar**: `config_updated` com descricao "Reordenou fila [faixa]"
+{
+  "success": true,
+  "data": {
+    "user_id": "uuid-do-usuario",
+    "faixa": "ate_10k",
+    "callix_assessor_id": "123",
+    "callix_name": "Nome do Assessor",
+    "cal_event_type_id": "456",
+    "callix_list_id": "789"
+  }
+}
+```
 
-Metadata incluira: `{ action: 'add'|'remove'|'toggle'|'reorder', target_user_id, faixa }`
-
-### 2. `src/hooks/useActivityLog.ts`
-
-- Adicionar `'auto_assign_updated'` como novo `ActivityType` (opcional, pode usar `config_updated` existente)
+Se nao houver assessores configurados para a faixa, retorna erro 404.
 
 ## Detalhes tecnicos
 
-Os wrappers serao criados no `DistribuicaoSection` para manter o hook `useAutoAssign` desacoplado do logging. Exemplo:
+### 1. Criar Edge Function `next-assessor`
 
+**Arquivo: `supabase/functions/next-assessor/index.ts`**
+
+- Metodo: GET
+- Query param obrigatorio: `faixa` (valores: `ate_10k` ou `acima_10k`)
+- Autenticacao: via API key no header `x-api-key` (mesmo padrao do webhook-lead) para uso externo
+- Usa `SUPABASE_SERVICE_ROLE_KEY` para acessar as tabelas sem restricao de RLS
+
+Logica:
 ```text
-const handleAdd = async (userId, faixa) => {
-  const ok = await addUser(userId, faixa);
-  if (ok) {
-    const userName = usersMap[userId]?.nome_completo || usersMap[userId]?.email;
-    logActivity('config_updated', `Adicionou ${userName} na fila ${faixa}`, {
-      action: 'add', target_user_id: userId, faixa
-    });
-  }
-  return ok;
-};
+1. Validar faixa
+2. SELECT last_assigned_order FROM auto_assign_state WHERE faixa = ?
+3. SELECT user_id, ordem FROM auto_assign_config 
+   WHERE faixa = ? AND ativo = true AND ordem > last_assigned_order
+   ORDER BY ordem ASC LIMIT 1
+4. Se nao encontrou, buscar o primeiro (ordem ASC LIMIT 1)
+5. SELECT callix_assessor_id, callix_name, cal_event_type_id, callix_list_id 
+   FROM user_callix_mapping WHERE user_id = ?
+6. Retornar dados combinados
 ```
 
-O mesmo padrao se aplica a `handleRemove`, `handleToggle` e `handleReorder`.
+### 2. Atualizar `supabase/config.toml`
+
+Adicionar configuracao para desabilitar JWT verification:
+```text
+[functions.next-assessor]
+verify_jwt = false
+```
+
+## Arquivos a criar/modificar
+
+1. **Criar** `supabase/functions/next-assessor/index.ts` - Edge Function principal
+2. **Modificar** `supabase/config.toml` - adicionar config da funcao
 
