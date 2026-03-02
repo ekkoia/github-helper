@@ -248,9 +248,9 @@ export const DistribuicaoSection = () => {
           entries={acima10k}
           usersMap={usersMap}
           availableUsers={getAvailableUsers('acima_10k')}
-          onAdd={addUser}
-          onRemove={removeUser}
-          onToggle={toggleUser}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onToggle={handleToggle}
           onMoveUp={(faixa, i) => handleMove(faixa, i, i - 1)}
           onMoveDown={(faixa, i) => handleMove(faixa, i, i + 1)}
         />
