@@ -56,6 +56,7 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
         investimento_real: data.investimento_real || null,
         origem: data.origem || null,
         observacoes: data.observacoes || null,
+        nota_assessor: (data as any).nota_assessor || null,
         etapa_funil: initialData?.etapa_funil || "Novo Lead",
         perfil: initialData?.perfil || null,
       };
