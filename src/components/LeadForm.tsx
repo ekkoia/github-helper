@@ -41,6 +41,7 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
       investimento_real: initialData.investimento_real || undefined,
       origem: initialData.origem || "",
       observacoes: initialData.observacoes || "",
+      nota_assessor: initialData.nota_assessor || "",
     } : {}
   });
 
@@ -55,6 +56,7 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
         investimento_real: data.investimento_real || null,
         origem: data.origem || null,
         observacoes: data.observacoes || null,
+        nota_assessor: (data as any).nota_assessor || null,
         etapa_funil: initialData?.etapa_funil || "Novo Lead",
         perfil: initialData?.perfil || null,
       };
@@ -206,10 +208,16 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
       {/* Observações */}
       <div>
         <Label htmlFor="observacoes">Observações</Label>
-        <Textarea id="observacoes" {...register("observacoes")} rows={4} placeholder="Informações adicionais sobre o lead..." />
+        <Textarea id="observacoes" {...register("observacoes")} rows={3} placeholder="Informações adicionais sobre o lead..." />
         {errors.observacoes && (
           <p className="text-xs text-destructive mt-1">{errors.observacoes.message}</p>
         )}
+      </div>
+
+      {/* Nota do Assessor */}
+      <div>
+        <Label htmlFor="nota_assessor">Nota do Assessor(a)</Label>
+        <Textarea id="nota_assessor" {...register("nota_assessor" as any)} rows={3} placeholder="Feedback ou nota sobre o lead..." />
       </div>
 
       {/* Botões */}

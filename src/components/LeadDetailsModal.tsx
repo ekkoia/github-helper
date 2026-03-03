@@ -8,10 +8,13 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, User, TrendingUp, Edit, UserPlus, Check, AlertTriangle, Layers } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Mail, Phone, User, TrendingUp, Edit, UserPlus, Check, AlertTriangle, Layers, MessageSquare, Save, Loader2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AssignLeadDialog } from "./AssignLeadDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useActivityLog } from "@/hooks/useActivityLog";
+import { toast } from "sonner";
 
 const ORIGEM_LABELS: Record<string, string> = {
   instagram_ads: "Instagram Ads",
@@ -34,11 +37,15 @@ interface LeadDetailsModalProps {
 
 export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated }: LeadDetailsModalProps) => {
   const { isAdmin } = useUserRole();
+  const { logActivity } = useActivityLog();
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [responsavelNome, setResponsavelNome] = useState<string | null>(null);
   const [currentLead, setCurrentLead] = useState(lead);
   const [concordaEmprestimo, setConcordaEmprestimo] = useState<string | null>(null);
   const [showOrigens, setShowOrigens] = useState(false);
+  const [notaAssessor, setNotaAssessor] = useState("");
+  const [isSavingNota, setIsSavingNota] = useState(false);
+  const [notaDirty, setNotaDirty] = useState(false);
 
   // Verificar se é formulário 02
   const isFormulario02 = currentLead?.observacoes?.includes('02 - Formulário FeeAgro');
@@ -46,7 +53,9 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   // Atualizar currentLead quando lead mudar
   useEffect(() => {
     setCurrentLead(lead);
-    setConcordaEmprestimo(null); // Reset ao mudar de lead
+    setConcordaEmprestimo(null);
+    setNotaAssessor((lead as any)?.nota_assessor || "");
+    setNotaDirty(false);
   }, [lead]);
 
   // Buscar resposta de concordância para formulário 02
@@ -128,7 +137,6 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   };
 
   const handleAssignSuccess = async () => {
-    // Recarregar os dados do lead
     const { data } = await supabase
       .from("leads")
       .select("*")
@@ -140,6 +148,35 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
     }
     
     onLeadUpdated?.();
+  };
+
+  const handleSaveNota = async () => {
+    if (!currentLead?.id) return;
+    setIsSavingNota(true);
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ nota_assessor: notaAssessor || null } as any)
+        .eq("id", currentLead.id);
+
+      if (error) throw error;
+
+      await logActivity(
+        'lead_notes_added',
+        `Adicionou nota do assessor ao lead "${currentLead.nome_completo}"`,
+        { lead_id: currentLead.id, lead_nome: currentLead.nome_completo, tipo: 'nota_assessor' }
+      );
+
+      setCurrentLead({ ...currentLead, nota_assessor: notaAssessor });
+      setNotaDirty(false);
+      toast.success("Nota salva com sucesso!");
+      onLeadUpdated?.();
+    } catch (error) {
+      console.error("Erro ao salvar nota:", error);
+      toast.error("Erro ao salvar nota. Tente novamente.");
+    } finally {
+      setIsSavingNota(false);
+    }
   };
 
   return (
@@ -310,13 +347,47 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
               </div>
             </div>
 
+            <Separator />
+
+            {/* Nota do Assessor */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                Nota do Assessor(a)
+              </h3>
+              <Textarea
+                value={notaAssessor}
+                onChange={(e) => {
+                  setNotaAssessor(e.target.value);
+                  setNotaDirty(true);
+                }}
+                rows={3}
+                placeholder="Adicione sua nota ou feedback sobre este lead..."
+                className="mb-2"
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={handleSaveNota}
+                  disabled={isSavingNota || !notaDirty}
+                  className="gap-2"
+                >
+                  {isSavingNota ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Salvar Nota
+                </Button>
+              </div>
+            </div>
+
             {(currentLead.observacoes || isFormulario02) && (
               <>
                 <Separator />
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Observações</h3>
                   
-                  {/* Destaque para concordância de empréstimo - Formulário 02 */}
                   {isFormulario02 && concordaEmprestimo !== null && (
                     <div className={`mb-4 p-4 rounded-lg border-2 ${
                       concordaEmprestimo?.toLowerCase() === 'sim' 

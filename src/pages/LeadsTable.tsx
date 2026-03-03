@@ -478,6 +478,7 @@ const LeadsTable = () => {
                       </TableHead>
                       <TableHead>Origem</TableHead>
                       {isAdmin && <TableHead>Responsável</TableHead>}
+                      <TableHead>Nota</TableHead>
                       <TableHead>Etapa</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -485,7 +486,7 @@ const LeadsTable = () => {
                   <TableBody>
                     {paginatedLeads.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={isAdmin ? 8 : 7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8 text-muted-foreground">
                           Nenhum lead encontrado
                         </TableCell>
                       </TableRow>
@@ -564,9 +565,29 @@ const LeadsTable = () => {
                                   <AlertCircle className="h-3.5 w-3.5" />
                                   <span>Não atribuído</span>
                                 </div>
-                              )}
-                            </TableCell>
                           )}
+                          </TableCell>
+                          )}
+                          <TableCell>
+                            {(lead as any).nota_assessor ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-xs text-muted-foreground truncate max-w-[100px] block cursor-default">
+                                      {(lead as any).nota_assessor.length > 30 
+                                        ? (lead as any).nota_assessor.substring(0, 30) + "..." 
+                                        : (lead as any).nota_assessor}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="text-sm whitespace-pre-wrap">{(lead as any).nota_assessor}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <Badge className={`${coresMap[lead.etapa_funil] || "bg-gray-500"} text-white text-xs whitespace-nowrap px-2 py-0.5`}>
                               {lead.etapa_funil || "-"}
