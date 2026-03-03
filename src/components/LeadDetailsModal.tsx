@@ -347,9 +347,42 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
               </div>
             </div>
 
+            <Separator />
+
+            {/* Nota do Assessor */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                Nota do Assessor(a)
+              </h3>
+              <Textarea
+                value={notaAssessor}
+                onChange={(e) => {
+                  setNotaAssessor(e.target.value);
+                  setNotaDirty(true);
+                }}
+                rows={3}
+                placeholder="Adicione sua nota ou feedback sobre este lead..."
+                className="mb-2"
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={handleSaveNota}
+                  disabled={isSavingNota || !notaDirty}
+                  className="gap-2"
+                >
+                  {isSavingNota ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Salvar Nota
+                </Button>
+              </div>
+            </div>
+
             {(currentLead.observacoes || isFormulario02) && (
-              <>
-                <Separator />
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Observações</h3>
                   
