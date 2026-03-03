@@ -137,7 +137,6 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   };
 
   const handleAssignSuccess = async () => {
-    // Recarregar os dados do lead
     const { data } = await supabase
       .from("leads")
       .select("*")
@@ -149,6 +148,35 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
     }
     
     onLeadUpdated?.();
+  };
+
+  const handleSaveNota = async () => {
+    if (!currentLead?.id) return;
+    setIsSavingNota(true);
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ nota_assessor: notaAssessor || null } as any)
+        .eq("id", currentLead.id);
+
+      if (error) throw error;
+
+      await logActivity(
+        'lead_notes_added',
+        `Adicionou nota do assessor ao lead "${currentLead.nome_completo}"`,
+        { lead_id: currentLead.id, lead_nome: currentLead.nome_completo, tipo: 'nota_assessor' }
+      );
+
+      setCurrentLead({ ...currentLead, nota_assessor: notaAssessor });
+      setNotaDirty(false);
+      toast.success("Nota salva com sucesso!");
+      onLeadUpdated?.();
+    } catch (error) {
+      console.error("Erro ao salvar nota:", error);
+      toast.error("Erro ao salvar nota. Tente novamente.");
+    } finally {
+      setIsSavingNota(false);
+    }
   };
 
   return (
