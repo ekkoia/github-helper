@@ -10,7 +10,7 @@ import { useUsers } from "@/hooks/useUsers";
 import { ArrowUp, ArrowDown, Trash2, UserPlus, Users } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
 
-type Faixa = 'ate_10k' | 'acima_10k';
+type Faixa = 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k';
 
 const FaixaQueue = ({
   faixa,
@@ -154,13 +154,22 @@ export const DistribuicaoSection = () => {
   const { logActivity } = useActivityLog();
 
   const ate10k = getByFaixa('ate_10k');
-  const acima10k = getByFaixa('acima_10k');
+  const f10k50k = getByFaixa('10k_50k');
+  const f50k150k = getByFaixa('50k_150k');
+  const acima150k = getByFaixa('acima_150k');
 
-  const faixaLabel = (f: Faixa) => f === 'ate_10k' ? 'Até R$10 mil' : 'Acima de R$10 mil';
+  const faixaLabel = (f: Faixa) => {
+    switch (f) {
+      case 'ate_10k': return 'Até R$10 mil';
+      case '10k_50k': return 'R$10 a R$50 mil';
+      case '50k_150k': return 'R$50 a R$150 mil';
+      case 'acima_150k': return 'Acima de R$150 mil';
+    }
+  };
   const userName = (userId: string) => usersMap[userId]?.nome_completo || usersMap[userId]?.email || userId.slice(0, 8);
 
   const getAvailableUsers = (faixa: Faixa) => {
-    const assignedUserIds = (faixa === 'ate_10k' ? ate10k : acima10k).map(e => e.user_id);
+    const assignedUserIds = getByFaixa(faixa).map(e => e.user_id);
     return users.filter(u => !assignedUserIds.includes(u.user_id));
   };
 
@@ -197,7 +206,7 @@ export const DistribuicaoSection = () => {
   }, [toggleUser, logActivity, config, usersMap]);
 
   const handleMove = async (faixa: Faixa, fromIndex: number, toIndex: number) => {
-    const entries = faixa === 'ate_10k' ? [...ate10k] : [...acima10k];
+    const entries = [...getByFaixa(faixa)];
     const [moved] = entries.splice(fromIndex, 1);
     entries.splice(toIndex, 0, moved);
     const ok = await reorderUsers(faixa, entries.map(e => e.id));
@@ -242,12 +251,38 @@ export const DistribuicaoSection = () => {
           onMoveDown={(faixa, i) => handleMove(faixa, i, i + 1)}
         />
         <FaixaQueue
-          faixa="acima_10k"
-          title="Acima de R$10 mil"
-          description="Leads com investimento acima de R$10.000"
-          entries={acima10k}
+          faixa="10k_50k"
+          title="R$10 a R$50 mil"
+          description="Leads com investimento de R$10.001 a R$50.000"
+          entries={f10k50k}
           usersMap={usersMap}
-          availableUsers={getAvailableUsers('acima_10k')}
+          availableUsers={getAvailableUsers('10k_50k')}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onToggle={handleToggle}
+          onMoveUp={(faixa, i) => handleMove(faixa, i, i - 1)}
+          onMoveDown={(faixa, i) => handleMove(faixa, i, i + 1)}
+        />
+        <FaixaQueue
+          faixa="50k_150k"
+          title="R$50 a R$150 mil"
+          description="Leads com investimento de R$50.001 a R$150.000"
+          entries={f50k150k}
+          usersMap={usersMap}
+          availableUsers={getAvailableUsers('50k_150k')}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onToggle={handleToggle}
+          onMoveUp={(faixa, i) => handleMove(faixa, i, i - 1)}
+          onMoveDown={(faixa, i) => handleMove(faixa, i, i + 1)}
+        />
+        <FaixaQueue
+          faixa="acima_150k"
+          title="Acima de R$150 mil"
+          description="Leads com investimento acima de R$150.000"
+          entries={acima150k}
+          usersMap={usersMap}
+          availableUsers={getAvailableUsers('acima_150k')}
           onAdd={handleAdd}
           onRemove={handleRemove}
           onToggle={handleToggle}

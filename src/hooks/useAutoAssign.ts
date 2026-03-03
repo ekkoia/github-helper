@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 interface AutoAssignEntry {
   id: string;
   user_id: string;
-  faixa: 'ate_10k' | 'acima_10k';
+  faixa: 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k';
   ordem: number;
   ativo: boolean;
 }
@@ -34,7 +34,7 @@ export const useAutoAssign = () => {
     fetchConfig();
   }, [fetchConfig]);
 
-  const addUser = async (userId: string, faixa: 'ate_10k' | 'acima_10k') => {
+  const addUser = async (userId: string, faixa: 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k') => {
     // Get max order for this faixa
     const currentMax = config
       .filter(c => c.faixa === faixa)
@@ -89,7 +89,7 @@ export const useAutoAssign = () => {
     return true;
   };
 
-  const reorderUsers = async (faixa: 'ate_10k' | 'acima_10k', orderedIds: string[]) => {
+  const reorderUsers = async (faixa: 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k', orderedIds: string[]) => {
     const updates = orderedIds.map((id, index) =>
       supabase
         .from('auto_assign_config')
@@ -108,7 +108,7 @@ export const useAutoAssign = () => {
     return true;
   };
 
-  const getByFaixa = (faixa: 'ate_10k' | 'acima_10k') =>
+  const getByFaixa = (faixa: 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k') =>
     config.filter(c => c.faixa === faixa).sort((a, b) => a.ordem - b.ordem);
 
   return {
