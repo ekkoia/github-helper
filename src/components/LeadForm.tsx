@@ -41,6 +41,7 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
       investimento_real: initialData.investimento_real || undefined,
       origem: initialData.origem || "",
       observacoes: initialData.observacoes || "",
+      nota_assessor: initialData.nota_assessor || "",
     } : {}
   });
 
