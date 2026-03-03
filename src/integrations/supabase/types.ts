@@ -331,6 +331,7 @@ export type Database = {
           localizacao_embarque: string | null
           meta_lead_id: number | null
           nome_completo: string
+          nota_assessor: string | null
           observacoes: string | null
           origem: string | null
           origens: Json | null
@@ -363,6 +364,7 @@ export type Database = {
           localizacao_embarque?: string | null
           meta_lead_id?: number | null
           nome_completo: string
+          nota_assessor?: string | null
           observacoes?: string | null
           origem?: string | null
           origens?: Json | null
@@ -395,6 +397,7 @@ export type Database = {
           localizacao_embarque?: string | null
           meta_lead_id?: number | null
           nome_completo?: string
+          nota_assessor?: string | null
           observacoes?: string | null
           origem?: string | null
           origens?: Json | null
