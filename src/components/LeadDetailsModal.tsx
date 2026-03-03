@@ -400,7 +400,7 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                       </p>
                       <Badge 
                         className={`text-sm px-3 py-1 ${
-                          concordaEmprestimo?.toLowerCase() === 'sim'
+                          concordaEmprestimo?.toLowerCase().startsWith('sim')
                             ? 'bg-green-500 hover:bg-green-600 text-white'
                             : 'bg-amber-500 hover:bg-amber-600 text-white'
                         }`}
