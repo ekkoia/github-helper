@@ -1,74 +1,50 @@
 
 
-# Endpoint GET para consultar proximo assessor do round-robin
+# Nota do Assessor no modal do Lead
 
-## Objetivo
+## Problema
+Os assessores nao tem um campo dedicado para registrar feedback/notas sobre os leads. Atualmente so existe o campo "observacoes" generico.
 
-Criar uma Edge Function que simula a logica do round-robin (sem avançar o ponteiro) e retorna os dados do assessor que seria atribuido ao proximo lead, incluindo os dados do mapeamento Callix.
+## Solucao
 
-## Como funciona
+Adicionar uma coluna `nota_assessor` na tabela `leads` e criar uma secao interativa no `LeadDetailsModal` onde o assessor pode escrever e salvar sua nota diretamente, sem precisar abrir o formulario de edicao. Cada salvamento sera registrado como atividade.
 
-O endpoint recebe um parametro `faixa` via query string (`ate_10k` ou `acima_10k`) e:
+## Onde a nota aparece
 
-1. Consulta a tabela `auto_assign_state` para obter o `last_assigned_order` da faixa
-2. Consulta a tabela `auto_assign_config` para encontrar o proximo usuario ativo na fila (ordem > last_assigned_order, ou volta ao inicio)
-3. Com o `user_id` encontrado, busca os dados na tabela `user_callix_mapping`
-4. Retorna os dados combinados
+1. **LeadDetailsModal** (usado tanto na tabela quanto no Kanban) - secao dedicada "Nota do Assessor" com textarea editavel inline e botao salvar
+2. **Pagina de Atividades** - registrado como `lead_notes_added` com metadata indicando que foi nota do assessor
+3. **Sugestao extra**: Adicionar a nota como coluna opcional na tabela de leads para visibilidade rapida (tooltip com preview)
 
-## Resposta do endpoint
+## Arquivos a modificar
+
+### 1. Banco de dados
+- Adicionar coluna `nota_assessor TEXT` na tabela `leads` via migration SQL
+
+### 2. `src/integrations/supabase/types.ts`
+- Adicionar `nota_assessor: string | null` nos tipos Row, Insert e Update da tabela leads
+
+### 3. `src/components/LeadDetailsModal.tsx`
+- Adicionar secao "Nota do Assessor" apos Status e antes de Observacoes
+- Textarea com o valor atual da nota
+- Botao "Salvar" que faz UPDATE na tabela leads e chama `logActivity` com tipo `lead_notes_added`
+- Importar `useActivityLog`, `useAuth`, `Textarea`
+- Estado local para controlar edicao e loading
+
+### 4. `src/hooks/useActivityLog.ts`
+- Nenhuma mudanca necessaria - ja existe o tipo `lead_notes_added`
+
+### 5. `src/pages/LeadsTable.tsx`
+- Adicionar coluna "Nota" na tabela com texto truncado e tooltip para preview
+
+### 6. `src/components/LeadForm.tsx`
+- Adicionar campo `nota_assessor` no formulario de edicao para manter consistencia
+
+## Fluxo
 
 ```text
-GET /next-assessor?faixa=ate_10k
-
-{
-  "success": true,
-  "data": {
-    "user_id": "uuid-do-usuario",
-    "faixa": "ate_10k",
-    "callix_assessor_id": "123",
-    "callix_name": "Nome do Assessor",
-    "cal_event_type_id": "456",
-    "callix_list_id": "789"
-  }
-}
+Assessor abre lead → Ve secao "Nota do Assessor" → Digita feedback → Clica Salvar
+  → UPDATE leads SET nota_assessor = ? WHERE id = ?
+  → INSERT user_activities (lead_notes_added, metadata: { tipo: 'nota_assessor' })
+  → Toast de confirmacao
 ```
-
-Se nao houver assessores configurados para a faixa, retorna erro 404.
-
-## Detalhes tecnicos
-
-### 1. Criar Edge Function `next-assessor`
-
-**Arquivo: `supabase/functions/next-assessor/index.ts`**
-
-- Metodo: GET
-- Query param obrigatorio: `faixa` (valores: `ate_10k` ou `acima_10k`)
-- Autenticacao: via API key no header `x-api-key` (mesmo padrao do webhook-lead) para uso externo
-- Usa `SUPABASE_SERVICE_ROLE_KEY` para acessar as tabelas sem restricao de RLS
-
-Logica:
-```text
-1. Validar faixa
-2. SELECT last_assigned_order FROM auto_assign_state WHERE faixa = ?
-3. SELECT user_id, ordem FROM auto_assign_config 
-   WHERE faixa = ? AND ativo = true AND ordem > last_assigned_order
-   ORDER BY ordem ASC LIMIT 1
-4. Se nao encontrou, buscar o primeiro (ordem ASC LIMIT 1)
-5. SELECT callix_assessor_id, callix_name, cal_event_type_id, callix_list_id 
-   FROM user_callix_mapping WHERE user_id = ?
-6. Retornar dados combinados
-```
-
-### 2. Atualizar `supabase/config.toml`
-
-Adicionar configuracao para desabilitar JWT verification:
-```text
-[functions.next-assessor]
-verify_jwt = false
-```
-
-## Arquivos a criar/modificar
-
-1. **Criar** `supabase/functions/next-assessor/index.ts` - Edge Function principal
-2. **Modificar** `supabase/config.toml` - adicionar config da funcao
 
