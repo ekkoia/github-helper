@@ -33,7 +33,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const faixa = url.searchParams.get('faixa');
 
-    if (!faixa || !['ate_10k', 'acima_10k'].includes(faixa)) {
+    if (!faixa || !['ate_10k', '10k_50k', '50k_150k', 'acima_150k'].includes(faixa)) {
       return new Response(
         JSON.stringify({ success: false, error: 'Parâmetro "faixa" obrigatório. Valores aceitos: ate_10k, acima_10k' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
