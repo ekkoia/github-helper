@@ -390,7 +390,7 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                   
                   {isFormulario02 && concordaEmprestimo !== null && (
                     <div className={`mb-4 p-4 rounded-lg border-2 ${
-                      concordaEmprestimo?.toLowerCase() === 'sim' 
+                      concordaEmprestimo?.toLowerCase().startsWith('sim') 
                         ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' 
                         : 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800'
                     }`}>
@@ -400,12 +400,12 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                       </p>
                       <Badge 
                         className={`text-sm px-3 py-1 ${
-                          concordaEmprestimo?.toLowerCase() === 'sim'
+                          concordaEmprestimo?.toLowerCase().startsWith('sim')
                             ? 'bg-green-500 hover:bg-green-600 text-white'
                             : 'bg-amber-500 hover:bg-amber-600 text-white'
                         }`}
                       >
-                        {concordaEmprestimo?.toLowerCase() === 'sim' ? (
+                        {concordaEmprestimo?.toLowerCase().startsWith('sim') ? (
                           <><Check className="h-4 w-4 mr-1" /> Sim</>
                         ) : (
                           <><AlertTriangle className="h-4 w-4 mr-1" /> Não</>
