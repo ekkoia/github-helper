@@ -8,10 +8,13 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, User, TrendingUp, Edit, UserPlus, Check, AlertTriangle, Layers } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Mail, Phone, User, TrendingUp, Edit, UserPlus, Check, AlertTriangle, Layers, MessageSquare, Save, Loader2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AssignLeadDialog } from "./AssignLeadDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useActivityLog } from "@/hooks/useActivityLog";
+import { toast } from "sonner";
 
 const ORIGEM_LABELS: Record<string, string> = {
   instagram_ads: "Instagram Ads",
