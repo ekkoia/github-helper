@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 interface AutoAssignEntry {
   id: string;
   user_id: string;
-  faixa: 'ate_10k' | 'acima_10k';
+  faixa: 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k';
   ordem: number;
   ativo: boolean;
 }
