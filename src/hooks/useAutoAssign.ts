@@ -34,7 +34,7 @@ export const useAutoAssign = () => {
     fetchConfig();
   }, [fetchConfig]);
 
-  const addUser = async (userId: string, faixa: 'ate_10k' | 'acima_10k') => {
+  const addUser = async (userId: string, faixa: 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k') => {
     // Get max order for this faixa
     const currentMax = config
       .filter(c => c.faixa === faixa)
