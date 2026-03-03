@@ -10,7 +10,7 @@ import { useUsers } from "@/hooks/useUsers";
 import { ArrowUp, ArrowDown, Trash2, UserPlus, Users } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
 
-type Faixa = 'ate_10k' | 'acima_10k';
+type Faixa = 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k';
 
 const FaixaQueue = ({
   faixa,
