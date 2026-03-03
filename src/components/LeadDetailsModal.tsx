@@ -37,11 +37,15 @@ interface LeadDetailsModalProps {
 
 export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated }: LeadDetailsModalProps) => {
   const { isAdmin } = useUserRole();
+  const { logActivity } = useActivityLog();
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [responsavelNome, setResponsavelNome] = useState<string | null>(null);
   const [currentLead, setCurrentLead] = useState(lead);
   const [concordaEmprestimo, setConcordaEmprestimo] = useState<string | null>(null);
   const [showOrigens, setShowOrigens] = useState(false);
+  const [notaAssessor, setNotaAssessor] = useState("");
+  const [isSavingNota, setIsSavingNota] = useState(false);
+  const [notaDirty, setNotaDirty] = useState(false);
 
   // Verificar se é formulário 02
   const isFormulario02 = currentLead?.observacoes?.includes('02 - Formulário FeeAgro');
