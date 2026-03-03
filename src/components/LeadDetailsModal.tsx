@@ -383,10 +383,11 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
             </div>
 
             {(currentLead.observacoes || isFormulario02) && (
+              <>
+                <Separator />
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Observações</h3>
                   
-                  {/* Destaque para concordância de empréstimo - Formulário 02 */}
                   {isFormulario02 && concordaEmprestimo !== null && (
                     <div className={`mb-4 p-4 rounded-lg border-2 ${
                       concordaEmprestimo?.toLowerCase() === 'sim' 
