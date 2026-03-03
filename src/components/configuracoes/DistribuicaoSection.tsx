@@ -251,12 +251,38 @@ export const DistribuicaoSection = () => {
           onMoveDown={(faixa, i) => handleMove(faixa, i, i + 1)}
         />
         <FaixaQueue
-          faixa="acima_10k"
-          title="Acima de R$10 mil"
-          description="Leads com investimento acima de R$10.000"
-          entries={acima10k}
+          faixa="10k_50k"
+          title="R$10 a R$50 mil"
+          description="Leads com investimento de R$10.001 a R$50.000"
+          entries={f10k50k}
           usersMap={usersMap}
-          availableUsers={getAvailableUsers('acima_10k')}
+          availableUsers={getAvailableUsers('10k_50k')}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onToggle={handleToggle}
+          onMoveUp={(faixa, i) => handleMove(faixa, i, i - 1)}
+          onMoveDown={(faixa, i) => handleMove(faixa, i, i + 1)}
+        />
+        <FaixaQueue
+          faixa="50k_150k"
+          title="R$50 a R$150 mil"
+          description="Leads com investimento de R$50.001 a R$150.000"
+          entries={f50k150k}
+          usersMap={usersMap}
+          availableUsers={getAvailableUsers('50k_150k')}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onToggle={handleToggle}
+          onMoveUp={(faixa, i) => handleMove(faixa, i, i - 1)}
+          onMoveDown={(faixa, i) => handleMove(faixa, i, i + 1)}
+        />
+        <FaixaQueue
+          faixa="acima_150k"
+          title="Acima de R$150 mil"
+          description="Leads com investimento acima de R$150.000"
+          entries={acima150k}
+          usersMap={usersMap}
+          availableUsers={getAvailableUsers('acima_150k')}
           onAdd={handleAdd}
           onRemove={handleRemove}
           onToggle={handleToggle}
