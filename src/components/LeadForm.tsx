@@ -208,10 +208,16 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
       {/* Observações */}
       <div>
         <Label htmlFor="observacoes">Observações</Label>
-        <Textarea id="observacoes" {...register("observacoes")} rows={4} placeholder="Informações adicionais sobre o lead..." />
+        <Textarea id="observacoes" {...register("observacoes")} rows={3} placeholder="Informações adicionais sobre o lead..." />
         {errors.observacoes && (
           <p className="text-xs text-destructive mt-1">{errors.observacoes.message}</p>
         )}
+      </div>
+
+      {/* Nota do Assessor */}
+      <div>
+        <Label htmlFor="nota_assessor">Nota do Assessor(a)</Label>
+        <Textarea id="nota_assessor" {...register("nota_assessor" as any)} rows={3} placeholder="Feedback ou nota sobre o lead..." />
       </div>
 
       {/* Botões */}

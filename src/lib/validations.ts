@@ -32,6 +32,8 @@ export const leadSchema = z.object({
   origem: z.string().max(100, "Origem deve ter no máximo 100 caracteres").optional(),
   
   observacoes: z.string().max(1000, "Observações devem ter no máximo 1000 caracteres").optional(),
+  
+  nota_assessor: z.string().max(2000, "Nota deve ter no máximo 2000 caracteres").optional(),
 });
 
 export type LeadFormData = z.infer<typeof leadSchema>;
