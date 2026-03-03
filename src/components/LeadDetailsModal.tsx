@@ -53,7 +53,9 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   // Atualizar currentLead quando lead mudar
   useEffect(() => {
     setCurrentLead(lead);
-    setConcordaEmprestimo(null); // Reset ao mudar de lead
+    setConcordaEmprestimo(null);
+    setNotaAssessor((lead as any)?.nota_assessor || "");
+    setNotaDirty(false);
   }, [lead]);
 
   // Buscar resposta de concordância para formulário 02
