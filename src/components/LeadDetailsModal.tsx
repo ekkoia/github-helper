@@ -405,7 +405,7 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                             : 'bg-amber-500 hover:bg-amber-600 text-white'
                         }`}
                       >
-                        {concordaEmprestimo?.toLowerCase() === 'sim' ? (
+                        {concordaEmprestimo?.toLowerCase().startsWith('sim') ? (
                           <><Check className="h-4 w-4 mr-1" /> Sim</>
                         ) : (
                           <><AlertTriangle className="h-4 w-4 mr-1" /> Não</>
