@@ -154,9 +154,18 @@ export const DistribuicaoSection = () => {
   const { logActivity } = useActivityLog();
 
   const ate10k = getByFaixa('ate_10k');
-  const acima10k = getByFaixa('acima_10k');
+  const f10k50k = getByFaixa('10k_50k');
+  const f50k150k = getByFaixa('50k_150k');
+  const acima150k = getByFaixa('acima_150k');
 
-  const faixaLabel = (f: Faixa) => f === 'ate_10k' ? 'Até R$10 mil' : 'Acima de R$10 mil';
+  const faixaLabel = (f: Faixa) => {
+    switch (f) {
+      case 'ate_10k': return 'Até R$10 mil';
+      case '10k_50k': return 'R$10 a R$50 mil';
+      case '50k_150k': return 'R$50 a R$150 mil';
+      case 'acima_150k': return 'Acima de R$150 mil';
+    }
+  };
   const userName = (userId: string) => usersMap[userId]?.nome_completo || usersMap[userId]?.email || userId.slice(0, 8);
 
   const getAvailableUsers = (faixa: Faixa) => {
