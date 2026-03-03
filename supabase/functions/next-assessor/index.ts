@@ -35,7 +35,7 @@ serve(async (req) => {
 
     if (!faixa || !['ate_10k', '10k_50k', '50k_150k', 'acima_150k'].includes(faixa)) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Parâmetro "faixa" obrigatório. Valores aceitos: ate_10k, acima_10k' }),
+        JSON.stringify({ success: false, error: 'Parâmetro "faixa" obrigatório. Valores aceitos: ate_10k, 10k_50k, 50k_150k, acima_150k' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

@@ -108,7 +108,7 @@ export const useAutoAssign = () => {
     return true;
   };
 
-  const getByFaixa = (faixa: 'ate_10k' | 'acima_10k') =>
+  const getByFaixa = (faixa: 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k') =>
     config.filter(c => c.faixa === faixa).sort((a, b) => a.ordem - b.ordem);
 
   return {
