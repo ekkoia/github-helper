@@ -89,7 +89,7 @@ export const useAutoAssign = () => {
     return true;
   };
 
-  const reorderUsers = async (faixa: 'ate_10k' | 'acima_10k', orderedIds: string[]) => {
+  const reorderUsers = async (faixa: 'ate_10k' | '10k_50k' | '50k_150k' | 'acima_150k', orderedIds: string[]) => {
     const updates = orderedIds.map((id, index) =>
       supabase
         .from('auto_assign_config')
