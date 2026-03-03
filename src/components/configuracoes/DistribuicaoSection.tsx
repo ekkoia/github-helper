@@ -206,7 +206,7 @@ export const DistribuicaoSection = () => {
   }, [toggleUser, logActivity, config, usersMap]);
 
   const handleMove = async (faixa: Faixa, fromIndex: number, toIndex: number) => {
-    const entries = faixa === 'ate_10k' ? [...ate10k] : [...acima10k];
+    const entries = [...getByFaixa(faixa)];
     const [moved] = entries.splice(fromIndex, 1);
     entries.splice(toIndex, 0, moved);
     const ok = await reorderUsers(faixa, entries.map(e => e.id));
