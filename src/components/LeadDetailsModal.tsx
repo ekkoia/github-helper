@@ -390,7 +390,7 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                   
                   {isFormulario02 && concordaEmprestimo !== null && (
                     <div className={`mb-4 p-4 rounded-lg border-2 ${
-                      concordaEmprestimo?.toLowerCase() === 'sim' 
+                      concordaEmprestimo?.toLowerCase().startsWith('sim') 
                         ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' 
                         : 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800'
                     }`}>
