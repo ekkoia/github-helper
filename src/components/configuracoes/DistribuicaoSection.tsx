@@ -169,7 +169,7 @@ export const DistribuicaoSection = () => {
   const userName = (userId: string) => usersMap[userId]?.nome_completo || usersMap[userId]?.email || userId.slice(0, 8);
 
   const getAvailableUsers = (faixa: Faixa) => {
-    const assignedUserIds = (faixa === 'ate_10k' ? ate10k : acima10k).map(e => e.user_id);
+    const assignedUserIds = getByFaixa(faixa).map(e => e.user_id);
     return users.filter(u => !assignedUserIds.includes(u.user_id));
   };
 
