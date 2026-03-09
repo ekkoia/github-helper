@@ -553,13 +553,26 @@ const LeadsTable = () => {
                     </div>
                   )}
 
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1.5 block">Formato</label>
+                    <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as "csv" | "xlsx")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="csv">CSV</SelectItem>
+                        <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <Button 
                     onClick={handleExport} 
                     className="w-full gap-2"
                     disabled={exportPeriod === "custom" && (!exportDateFrom || !exportDateTo)}
                   >
                     <Download className="h-4 w-4" />
-                    Exportar {exportPeriod !== "all" ? `(${exportPeriodLabel[exportPeriod]})` : "Todos"}
+                    Exportar {exportFormat === "xlsx" ? "Excel" : "CSV"} {exportPeriod !== "all" ? `(${exportPeriodLabel[exportPeriod]})` : ""}
                   </Button>
                 </div>
               </PopoverContent>
