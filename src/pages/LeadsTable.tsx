@@ -89,6 +89,7 @@ const LeadsTable = () => {
   const [exportDateFrom, setExportDateFrom] = useState<Date>();
   const [exportDateTo, setExportDateTo] = useState<Date>();
   const [isExportPopoverOpen, setIsExportPopoverOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"csv" | "xlsx">("csv");
   
   const [filters, setFilters] = useState<{
     etapa: string;
