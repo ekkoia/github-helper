@@ -262,9 +262,18 @@ const LeadsTable = () => {
     return filteredAndSortedLeads.slice(start, end);
   }, [filteredAndSortedLeads, currentPage]);
 
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filters]);
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [currentPage]);
 
   const handleDelete = async () => {
     if (!deleteLeadId) return;
