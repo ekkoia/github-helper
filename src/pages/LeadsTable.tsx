@@ -447,7 +447,7 @@ const LeadsTable = () => {
           />
 
           {/* Tabela */}
-          <div className="flex-1 space-y-4">
+          <div className="flex-1 space-y-4" ref={tableContainerRef}>
             <div className="rounded-lg border border-border bg-card shadow-card overflow-hidden">
               <div className="overflow-x-auto">
                 <Table>
