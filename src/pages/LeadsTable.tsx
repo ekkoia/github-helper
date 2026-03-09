@@ -383,17 +383,68 @@ const LeadsTable = () => {
     };
   }, [leads]);
 
-  const handleExport = async () => {
-    exportToCSV(filteredAndSortedLeads, usersMap, `leads_${new Date().toISOString().split('T')[0]}.csv`);
+  const getExportLeads = useCallback(() => {
+    let leadsToExport = [...filteredAndSortedLeads];
     
-    // Registrar exportação
+    if (exportPeriod !== "all") {
+      const now = new Date();
+      
+      if (exportPeriod === "custom" && exportDateFrom && exportDateTo) {
+        leadsToExport = leadsToExport.filter(lead => {
+          const leadDate = getLeadDate(lead);
+          return isWithinInterval(leadDate, {
+            start: startOfDay(exportDateFrom),
+            end: endOfDay(exportDateTo)
+          });
+        });
+      } else if (exportPeriod === "hoje") {
+        leadsToExport = leadsToExport.filter(lead => getLeadDate(lead).toDateString() === now.toDateString());
+      } else if (exportPeriod === "ontem") {
+        const yesterday = subDays(now, 1);
+        leadsToExport = leadsToExport.filter(lead => getLeadDate(lead).toDateString() === yesterday.toDateString());
+      } else {
+        const days = parseInt(exportPeriod);
+        if (!isNaN(days)) {
+          const startDate = subDays(now, days);
+          leadsToExport = leadsToExport.filter(lead => getLeadDate(lead) >= startDate);
+        }
+      }
+    }
+    
+    return leadsToExport;
+  }, [filteredAndSortedLeads, exportPeriod, exportDateFrom, exportDateTo, getLeadDate]);
+
+  const handleExport = async () => {
+    const leadsToExport = getExportLeads();
+    
+    if (leadsToExport.length === 0) {
+      toast.error("Nenhum lead encontrado no período selecionado.");
+      return;
+    }
+    
+    exportToCSV(leadsToExport, usersMap, `leads_${new Date().toISOString().split('T')[0]}.csv`);
+    
     await logActivity(
       'lead_exported',
-      `Exportou ${filteredAndSortedLeads.length} leads para CSV`,
-      { quantidade: filteredAndSortedLeads.length, filtros: filters }
+      `Exportou ${leadsToExport.length} leads para CSV`,
+      { quantidade: leadsToExport.length, filtros: filters, periodo_export: exportPeriod }
     );
     
-    toast.success("Arquivo CSV exportado com sucesso!");
+    toast.success(`${leadsToExport.length} leads exportados com sucesso!`);
+    setIsExportPopoverOpen(false);
+    setExportPeriod("all");
+    setExportDateFrom(undefined);
+    setExportDateTo(undefined);
+  };
+
+  const exportPeriodLabel: Record<string, string> = {
+    all: "Todos",
+    hoje: "Hoje",
+    ontem: "Ontem",
+    "7": "Últimos 7 dias",
+    "15": "Últimos 15 dias",
+    "30": "Últimos 30 dias",
+    custom: "Personalizado",
   };
 
   if (isLoading) {
@@ -428,16 +479,84 @@ const LeadsTable = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              onClick={handleExport}
-              variant="outline"
-              className="gap-2"
-              disabled={filteredAndSortedLeads.length === 0}
-              aria-label="Exportar leads para CSV"
-            >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Exportar CSV</span>
-            </Button>
+            <Popover open={isExportPopoverOpen} onOpenChange={setIsExportPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  disabled={filteredAndSortedLeads.length === 0}
+                  aria-label="Exportar leads para CSV"
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Exportar CSV</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-sm text-foreground mb-1">Exportar Leads</h4>
+                    <p className="text-xs text-muted-foreground">Selecione o período para exportação</p>
+                  </div>
+                  
+                  <Select value={exportPeriod} onValueChange={setExportPeriod}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o período" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="hoje">Hoje</SelectItem>
+                      <SelectItem value="ontem">Ontem</SelectItem>
+                      <SelectItem value="7">Últimos 7 dias</SelectItem>
+                      <SelectItem value="15">Últimos 15 dias</SelectItem>
+                      <SelectItem value="30">Últimos 30 dias</SelectItem>
+                      <SelectItem value="custom">Personalizado</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {exportPeriod === "custom" && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium text-foreground mb-1 block">Data início</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !exportDateFrom && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {exportDateFrom ? format(exportDateFrom, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={exportDateFrom} onSelect={setExportDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-foreground mb-1 block">Data fim</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !exportDateTo && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {exportDateTo ? format(exportDateTo, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={exportDateTo} onSelect={setExportDateTo} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  )}
+
+                  <Button 
+                    onClick={handleExport} 
+                    className="w-full gap-2"
+                    disabled={exportPeriod === "custom" && (!exportDateFrom || !exportDateTo)}
+                  >
+                    <Download className="h-4 w-4" />
+                    Exportar {exportPeriod !== "all" ? `(${exportPeriodLabel[exportPeriod]})` : "Todos"}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button
               onClick={() => {
                 setEditingLead(null);
