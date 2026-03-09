@@ -634,11 +634,11 @@ const LeadsTable = () => {
 
             {/* Paginação */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between">
+              <div className="sticky bottom-0 z-10 flex items-center justify-between rounded-lg border border-border bg-card p-3 shadow-elevation-1">
                 <p className="text-sm text-muted-foreground">
                   Página {currentPage} de {totalPages}
                 </p>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
                     size="sm"
@@ -647,6 +647,35 @@ const LeadsTable = () => {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
+                  {(() => {
+                    const pages: (number | string)[] = [];
+                    if (totalPages <= 7) {
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                      pages.push(1);
+                      if (currentPage > 3) pages.push("...");
+                      const start = Math.max(2, currentPage - 1);
+                      const end = Math.min(totalPages - 1, currentPage + 1);
+                      for (let i = start; i <= end; i++) pages.push(i);
+                      if (currentPage < totalPages - 2) pages.push("...");
+                      pages.push(totalPages);
+                    }
+                    return pages.map((page, idx) =>
+                      typeof page === "string" ? (
+                        <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground">…</span>
+                      ) : (
+                        <Button
+                          key={page}
+                          variant={page === currentPage ? "secondary" : "outline"}
+                          size="sm"
+                          className="min-w-[36px]"
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      )
+                    );
+                  })()}
                   <Button
                     variant="outline"
                     size="sm"
