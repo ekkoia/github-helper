@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, AlertCircle, User, Layers } from "lucide-react";
 import { subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
