@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, AlertCircle, User, Layers } from "lucide-react";
 import { subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
@@ -135,19 +136,15 @@ const LeadsTable = () => {
 
   const fetchLeads = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("leads")
-      .select("*")
-      .order("data_criacao", { ascending: false });
-
-    if (error) {
+    try {
+      const data = await fetchAllLeads();
+      setLeads(data);
+    } catch (error) {
       toast.error("Erro ao carregar leads");
       console.error(error);
       setIsLoading(false);
       return;
     }
-
-    setLeads(data || []);
     setIsLoading(false);
   };
 

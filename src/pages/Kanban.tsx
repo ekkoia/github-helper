@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { toast } from "sonner";
 import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit, AlertCircle } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
@@ -114,19 +115,15 @@ const Kanban = () => {
 
   const fetchLeads = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("leads")
-      .select("*")
-      .order("data_criacao", { ascending: false });
-
-    if (error) {
+    try {
+      const data = await fetchAllLeads();
+      setLeads(data);
+    } catch (error) {
       toast.error("Erro ao carregar leads");
       console.error(error);
       setIsLoading(false);
       return;
     }
-
-    setLeads(data || []);
     setIsLoading(false);
   };
 

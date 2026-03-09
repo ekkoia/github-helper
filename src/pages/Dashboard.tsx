@@ -4,9 +4,9 @@ import { Dashboard as DashboardHero } from "@/components/Dashboard";
 import { DashboardSkeleton } from "@/components/SkeletonLoader";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const DashboardPage = () => {
@@ -21,13 +21,8 @@ const DashboardPage = () => {
   const fetchLeads = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*")
-        .order("data_criacao", { ascending: false });
-
-      if (error) throw error;
-      setLeads(data || []);
+      const data = await fetchAllLeads();
+      setLeads(data);
     } catch (error: any) {
       console.error("Erro ao buscar leads:", error);
       toast.error("Erro ao carregar dados do dashboard");
