@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { Dashboard } from "@/components/Dashboard";
 import { DashboardSkeleton, TableSkeleton } from "@/components/SkeletonLoader";
@@ -262,9 +262,18 @@ const LeadsTable = () => {
     return filteredAndSortedLeads.slice(start, end);
   }, [filteredAndSortedLeads, currentPage]);
 
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filters]);
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [currentPage]);
 
   const handleDelete = async () => {
     if (!deleteLeadId) return;
@@ -447,7 +456,7 @@ const LeadsTable = () => {
           />
 
           {/* Tabela */}
-          <div className="flex-1 space-y-4">
+          <div className="flex-1 space-y-4" ref={tableContainerRef}>
             <div className="rounded-lg border border-border bg-card shadow-card overflow-hidden">
               <div className="overflow-x-auto">
                 <Table>
@@ -625,11 +634,11 @@ const LeadsTable = () => {
 
             {/* Paginação */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between">
+              <div className="sticky bottom-0 z-10 flex items-center justify-between rounded-lg border border-border bg-card p-3 shadow-elevation-1">
                 <p className="text-sm text-muted-foreground">
                   Página {currentPage} de {totalPages}
                 </p>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
                     size="sm"
@@ -638,6 +647,35 @@ const LeadsTable = () => {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
+                  {(() => {
+                    const pages: (number | string)[] = [];
+                    if (totalPages <= 7) {
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                      pages.push(1);
+                      if (currentPage > 3) pages.push("...");
+                      const start = Math.max(2, currentPage - 1);
+                      const end = Math.min(totalPages - 1, currentPage + 1);
+                      for (let i = start; i <= end; i++) pages.push(i);
+                      if (currentPage < totalPages - 2) pages.push("...");
+                      pages.push(totalPages);
+                    }
+                    return pages.map((page, idx) =>
+                      typeof page === "string" ? (
+                        <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground">…</span>
+                      ) : (
+                        <Button
+                          key={page}
+                          variant={page === currentPage ? "secondary" : "outline"}
+                          size="sm"
+                          className="min-w-[36px]"
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      )
+                    );
+                  })()}
                   <Button
                     variant="outline"
                     size="sm"
