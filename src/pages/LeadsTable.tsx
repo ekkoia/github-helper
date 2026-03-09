@@ -38,7 +38,7 @@ import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, A
 import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
-import { exportToCSV } from "@/lib/exportUtils";
+import { exportToCSV, exportToXLSX } from "@/lib/exportUtils";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import {
   Tooltip,
