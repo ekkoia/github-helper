@@ -38,7 +38,7 @@ import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, A
 import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
-import { exportToCSV } from "@/lib/exportUtils";
+import { exportToCSV, exportToXLSX } from "@/lib/exportUtils";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import {
   Tooltip,
@@ -89,6 +89,7 @@ const LeadsTable = () => {
   const [exportDateFrom, setExportDateFrom] = useState<Date>();
   const [exportDateTo, setExportDateTo] = useState<Date>();
   const [isExportPopoverOpen, setIsExportPopoverOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"csv" | "xlsx">("csv");
   
   const [filters, setFilters] = useState<{
     etapa: string;
@@ -422,15 +423,21 @@ const LeadsTable = () => {
       return;
     }
     
-    exportToCSV(leadsToExport, usersMap, `leads_${new Date().toISOString().split('T')[0]}.csv`);
+    const dateStr = new Date().toISOString().split('T')[0];
+    if (exportFormat === "xlsx") {
+      exportToXLSX(leadsToExport, usersMap, `leads_${dateStr}.xlsx`);
+    } else {
+      exportToCSV(leadsToExport, usersMap, `leads_${dateStr}.csv`);
+    }
     
+    const formatLabel = exportFormat === "xlsx" ? "Excel" : "CSV";
     await logActivity(
       'lead_exported',
-      `Exportou ${leadsToExport.length} leads para CSV`,
-      { quantidade: leadsToExport.length, filtros: filters, periodo_export: exportPeriod }
+      `Exportou ${leadsToExport.length} leads para ${formatLabel}`,
+      { quantidade: leadsToExport.length, filtros: filters, periodo_export: exportPeriod, formato: exportFormat }
     );
     
-    toast.success(`${leadsToExport.length} leads exportados com sucesso!`);
+    toast.success(`${leadsToExport.length} leads exportados em ${formatLabel}!`);
     setIsExportPopoverOpen(false);
     setExportPeriod("all");
     setExportDateFrom(undefined);
@@ -546,13 +553,26 @@ const LeadsTable = () => {
                     </div>
                   )}
 
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1.5 block">Formato</label>
+                    <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as "csv" | "xlsx")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="csv">CSV</SelectItem>
+                        <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <Button 
                     onClick={handleExport} 
                     className="w-full gap-2"
                     disabled={exportPeriod === "custom" && (!exportDateFrom || !exportDateTo)}
                   >
                     <Download className="h-4 w-4" />
-                    Exportar {exportPeriod !== "all" ? `(${exportPeriodLabel[exportPeriod]})` : "Todos"}
+                    Exportar {exportFormat === "xlsx" ? "Excel" : "CSV"} {exportPeriod !== "all" ? `(${exportPeriodLabel[exportPeriod]})` : ""}
                   </Button>
                 </div>
               </PopoverContent>
