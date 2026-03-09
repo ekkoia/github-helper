@@ -34,7 +34,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, AlertCircle, User, Layers } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Download, AlertCircle, User, Layers, CalendarIcon } from "lucide-react";
 import { subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV } from "@/lib/exportUtils";
