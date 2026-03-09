@@ -85,6 +85,10 @@ const LeadsTable = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>("data_criacao");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [exportPeriod, setExportPeriod] = useState("all");
+  const [exportDateFrom, setExportDateFrom] = useState<Date>();
+  const [exportDateTo, setExportDateTo] = useState<Date>();
+  const [isExportPopoverOpen, setIsExportPopoverOpen] = useState(false);
   
   const [filters, setFilters] = useState<{
     etapa: string;
