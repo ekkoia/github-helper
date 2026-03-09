@@ -21,13 +21,8 @@ const DashboardPage = () => {
   const fetchLeads = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*")
-        .order("data_criacao", { ascending: false });
-
-      if (error) throw error;
-      setLeads(data || []);
+      const data = await fetchAllLeads();
+      setLeads(data);
     } catch (error: any) {
       console.error("Erro ao buscar leads:", error);
       toast.error("Erro ao carregar dados do dashboard");
