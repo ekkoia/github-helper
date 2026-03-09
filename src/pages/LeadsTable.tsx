@@ -634,8 +634,8 @@ const LeadsTable = () => {
 
             {/* Paginação */}
             {totalPages > 1 && (
-              <div className="sticky bottom-0 z-10 flex flex-col gap-2 md:flex-row md:items-center md:justify-between rounded-lg border border-border bg-card p-3 shadow-elevation-1">
-                <p className="text-sm text-muted-foreground text-center md:text-left">
+               <div className="sticky bottom-0 z-10 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between rounded-lg border border-border bg-card p-3 shadow-elevation-1">
+                <p className="text-sm text-muted-foreground text-center lg:text-left">
                   Página {currentPage} de {totalPages}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-1">
