@@ -2,66 +2,64 @@ import { Tables } from "@/integrations/supabase/types";
 
 type Lead = Tables<"leads">;
 
-export const exportToCSV = (leads: Lead[], filename: string = "leads.csv") => {
+interface UserProfile {
+  user_id: string;
+  nome_completo: string | null;
+  email: string | null;
+  avatar_url: string | null;
+}
+
+export const exportToCSV = (
+  leads: Lead[],
+  usersMap: Record<string, UserProfile>,
+  filename: string = "leads.csv"
+) => {
   if (leads.length === 0) {
     return;
   }
 
-  // Define headers
   const headers = [
-    "Protocolo",
     "Nome Completo",
     "Telefone",
     "Email",
-    "Perfil",
-    "Etapa do Funil",
-    "Tipo de Grão",
-    "Intenção",
-    "Volume",
-    "Valor do Produto",
+    "Qtd Cotas",
+    "Valor Investido",
     "Investimento Real",
-    "Cidade",
-    "UF",
-    "Localização Embarque",
-    "Distância (km)",
-    "Estrada de Terra (km)",
-    "Armazenamento",
-    "Qualidade",
-    "Tem Royalties",
-    "Percentual Royalties",
-    "Sentido",
+    "Etapa do Funil",
+    "Origem",
+    "Responsável",
+    "Nota do Assessor",
     "Observações",
     "Data de Criação",
   ];
 
-  // Map leads to CSV rows
+  const getOrigemLabel = (origem: string | null): string => {
+    if (!origem) return "";
+    const labels: Record<string, string> = {
+      meta_form: "Meta Form",
+      manual: "Manual",
+      whatsapp: "WhatsApp",
+      site: "Site",
+      indicacao: "Indicação",
+    };
+    return labels[origem] || origem;
+  };
+
   const rows = leads.map((lead) => [
-    lead.protocolo_atendimento || "",
     lead.nome_completo || "",
     lead.telefone || "",
     lead.email || "",
-    lead.perfil || "",
-    lead.etapa_funil || "",
-    lead.tipo_grao || "",
-    lead.intencao || "",
     lead.volume || "",
     lead.valor_produto?.toString() || "",
-    (lead as any).investimento_real?.toString() || "",
-    lead.cidade || "",
-    lead.uf || "",
-    lead.localizacao_embarque || "",
-    lead.distancia_km?.toString() || "",
-    lead.estrada_terra_km?.toString() || "",
-    lead.armazenamento || "",
-    lead.qualidade || "",
-    lead.tem_royalties || "",
-    lead.percentual_royalties?.toString() || "",
-    lead.sentido || "",
+    lead.investimento_real?.toString() || "",
+    lead.etapa_funil || "",
+    getOrigemLabel(lead.origem),
+    lead.responsavel_id ? (usersMap[lead.responsavel_id]?.nome_completo || "") : "",
+    lead.nota_assessor || "",
     lead.observacoes || "",
     new Date(lead.data_criacao).toLocaleString("pt-BR"),
   ]);
 
-  // Create CSV content
   const csvContent = [
     headers.join(","),
     ...rows.map((row) =>
@@ -69,13 +67,12 @@ export const exportToCSV = (leads: Lead[], filename: string = "leads.csv") => {
     ),
   ].join("\n");
 
-  // Create and download file
   const blob = new Blob(["\ufeff" + csvContent], {
     type: "text/csv;charset=utf-8;",
   });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
-  
+
   link.setAttribute("href", url);
   link.setAttribute("download", filename);
   link.style.visibility = "hidden";

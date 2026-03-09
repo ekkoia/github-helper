@@ -375,7 +375,7 @@ const LeadsTable = () => {
   }, [leads]);
 
   const handleExport = async () => {
-    exportToCSV(filteredAndSortedLeads, `leads_${new Date().toISOString().split('T')[0]}.csv`);
+    exportToCSV(filteredAndSortedLeads, usersMap, `leads_${new Date().toISOString().split('T')[0]}.csv`);
     
     // Registrar exportação
     await logActivity(
