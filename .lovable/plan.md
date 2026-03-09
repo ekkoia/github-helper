@@ -1,74 +1,46 @@
 
 
-# Endpoint GET para consultar proximo assessor do round-robin
+# Exportação CSV com contexto FeeAgro e dados completos
 
-## Objetivo
+## Problema
+A exportação atual usa nomenclaturas genéricas (ex: "Volume", "Valor do Produto", "Tipo de Grão") que não fazem sentido no contexto da FeeAgro (investimentos/cotas). Além disso, faltam dois dados importantes: **nota do assessor** e **responsável atribuído**.
 
-Criar uma Edge Function que simula a logica do round-robin (sem avançar o ponteiro) e retorna os dados do assessor que seria atribuido ao proximo lead, incluindo os dados do mapeamento Callix.
+## Solução
 
-## Como funciona
+**Arquivo:** `src/lib/exportUtils.ts`
 
-O endpoint recebe um parametro `faixa` via query string (`ate_10k` ou `acima_10k`) e:
+### 1. Renomear headers para contexto FeeAgro
+Trocar nomenclaturas de agro/grãos para investimentos:
 
-1. Consulta a tabela `auto_assign_state` para obter o `last_assigned_order` da faixa
-2. Consulta a tabela `auto_assign_config` para encontrar o proximo usuario ativo na fila (ordem > last_assigned_order, ou volta ao inicio)
-3. Com o `user_id` encontrado, busca os dados na tabela `user_callix_mapping`
-4. Retorna os dados combinados
+| Atual | Novo |
+|---|---|
+| Volume | Qtd Cotas |
+| Valor do Produto | Valor Investido |
+| Investimento Real | Investimento Real |
+| Tipo de Grão | *(remover)* |
+| Intenção | *(remover)* |
+| Perfil | *(remover)* |
+| Armazenamento | *(remover)* |
+| Qualidade | *(remover)* |
+| Tem Royalties | *(remover)* |
+| Percentual Royalties | *(remover)* |
+| Sentido | *(remover)* |
+| Cidade, UF, Localização... | *(remover campos de logística)* |
 
-## Resposta do endpoint
+### 2. Adicionar colunas faltantes
+- **Nota do Assessor** (`nota_assessor`) -- feedback escrito pelo assessor
+- **Responsável** -- nome do assessor atribuído ao lead (requer lookup na tabela `profiles`)
+- **Origem** -- canal de captação com labels traduzidos
 
-```text
-GET /next-assessor?faixa=ate_10k
+### 3. Alterar assinatura da função
+A função passará a receber um mapa de usuários (`usersMap`) para resolver `responsavel_id` → nome do assessor, sem precisar fazer queries adicionais no momento da exportação. O `usersMap` já existe no `LeadsTable.tsx` via `useUsers()`.
 
-{
-  "success": true,
-  "data": {
-    "user_id": "uuid-do-usuario",
-    "faixa": "ate_10k",
-    "callix_assessor_id": "123",
-    "callix_name": "Nome do Assessor",
-    "cal_event_type_id": "456",
-    "callix_list_id": "789"
-  }
-}
+### Headers finais do CSV
+```
+Nome Completo, Telefone, Email, Qtd Cotas, Valor Investido, Investimento Real,
+Etapa do Funil, Origem, Responsável, Nota do Assessor, Observações, Data de Criação
 ```
 
-Se nao houver assessores configurados para a faixa, retorna erro 404.
-
-## Detalhes tecnicos
-
-### 1. Criar Edge Function `next-assessor`
-
-**Arquivo: `supabase/functions/next-assessor/index.ts`**
-
-- Metodo: GET
-- Query param obrigatorio: `faixa` (valores: `ate_10k` ou `acima_10k`)
-- Autenticacao: via API key no header `x-api-key` (mesmo padrao do webhook-lead) para uso externo
-- Usa `SUPABASE_SERVICE_ROLE_KEY` para acessar as tabelas sem restricao de RLS
-
-Logica:
-```text
-1. Validar faixa
-2. SELECT last_assigned_order FROM auto_assign_state WHERE faixa = ?
-3. SELECT user_id, ordem FROM auto_assign_config 
-   WHERE faixa = ? AND ativo = true AND ordem > last_assigned_order
-   ORDER BY ordem ASC LIMIT 1
-4. Se nao encontrou, buscar o primeiro (ordem ASC LIMIT 1)
-5. SELECT callix_assessor_id, callix_name, cal_event_type_id, callix_list_id 
-   FROM user_callix_mapping WHERE user_id = ?
-6. Retornar dados combinados
-```
-
-### 2. Atualizar `supabase/config.toml`
-
-Adicionar configuracao para desabilitar JWT verification:
-```text
-[functions.next-assessor]
-verify_jwt = false
-```
-
-## Arquivos a criar/modificar
-
-1. **Criar** `supabase/functions/next-assessor/index.ts` - Edge Function principal
-2. **Modificar** `supabase/config.toml` - adicionar config da funcao
+### Alterações em `src/pages/LeadsTable.tsx`
+Passar `usersMap` para a chamada `exportToCSV(filteredAndSortedLeads, usersMap, filename)`.
 
