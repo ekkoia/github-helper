@@ -634,11 +634,11 @@ const LeadsTable = () => {
 
             {/* Paginação */}
             {totalPages > 1 && (
-              <div className="sticky bottom-0 z-10 flex items-center justify-between rounded-lg border border-border bg-card p-3 shadow-elevation-1">
-                <p className="text-sm text-muted-foreground">
+              <div className="sticky bottom-0 z-10 flex flex-col gap-2 md:flex-row md:items-center md:justify-between rounded-lg border border-border bg-card p-3 shadow-elevation-1">
+                <p className="text-sm text-muted-foreground text-center md:text-left">
                   Página {currentPage} de {totalPages}
                 </p>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center justify-center gap-1">
                   <Button
                     variant="outline"
                     size="sm"
@@ -668,7 +668,7 @@ const LeadsTable = () => {
                           key={page}
                           variant={page === currentPage ? "secondary" : "outline"}
                           size="sm"
-                          className="min-w-[36px]"
+                          className="min-w-[32px]"
                           onClick={() => setCurrentPage(page)}
                         >
                           {page}
