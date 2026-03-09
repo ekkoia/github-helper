@@ -423,15 +423,21 @@ const LeadsTable = () => {
       return;
     }
     
-    exportToCSV(leadsToExport, usersMap, `leads_${new Date().toISOString().split('T')[0]}.csv`);
+    const dateStr = new Date().toISOString().split('T')[0];
+    if (exportFormat === "xlsx") {
+      exportToXLSX(leadsToExport, usersMap, `leads_${dateStr}.xlsx`);
+    } else {
+      exportToCSV(leadsToExport, usersMap, `leads_${dateStr}.csv`);
+    }
     
+    const formatLabel = exportFormat === "xlsx" ? "Excel" : "CSV";
     await logActivity(
       'lead_exported',
-      `Exportou ${leadsToExport.length} leads para CSV`,
-      { quantidade: leadsToExport.length, filtros: filters, periodo_export: exportPeriod }
+      `Exportou ${leadsToExport.length} leads para ${formatLabel}`,
+      { quantidade: leadsToExport.length, filtros: filters, periodo_export: exportPeriod, formato: exportFormat }
     );
     
-    toast.success(`${leadsToExport.length} leads exportados com sucesso!`);
+    toast.success(`${leadsToExport.length} leads exportados em ${formatLabel}!`);
     setIsExportPopoverOpen(false);
     setExportPeriod("all");
     setExportDateFrom(undefined);
