@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, GripVertical } from "lucide-react";
 import {
@@ -101,6 +102,7 @@ export const FunilSection = () => {
   const [deleteEtapaId, setDeleteEtapaId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ nome: "", cor: "#10b981" });
   const [isSaving, setIsSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -132,7 +134,7 @@ export const FunilSection = () => {
       fetchEtapas();
     } else {
       setEtapas(novaOrdem.map((e, i) => ({ ...e, ordem: i + 1 })));
-      window.dispatchEvent(new CustomEvent("funil-reordenado"));
+      queryClient.invalidateQueries({ queryKey: ["funil-etapas"] });
     }
   };
 
