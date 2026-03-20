@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
+import { User, Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthContextType {
   user: User | null;
@@ -19,51 +19,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const signOutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const signOutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session) {
-          // Valid session: cancel any pending sign-out
-          if (signOutTimerRef.current) {
-            clearTimeout(signOutTimerRef.current);
-            signOutTimerRef.current = null;
-          }
-          setSession(session);
-          setUser(session.user);
-        } else if (event === 'SIGNED_OUT') {
-          // Debounce: wait 300ms before clearing state
-          signOutTimerRef.current = setTimeout(() => {
-            setSession(null);
-            setUser(null);
-            signOutTimerRef.current = null;
-          }, 300);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        // Valid session: cancel any pending sign-out
+        if (signOutTimerRef.current) {
+          clearTimeout(signOutTimerRef.current);
+          signOutTimerRef.current = null;
         }
-        
-        // Criar perfil automaticamente para login OAuth
-        if (event === 'SIGNED_IN' && session?.user) {
-          setTimeout(async () => {
-            const { data: existingProfile } = await supabase
-              .from('profiles')
-              .select('user_id')
-              .eq('user_id', session.user.id)
-              .single();
-            
-            if (!existingProfile) {
-              await supabase.from('profiles').insert({
-                user_id: session.user.id,
-                nome_completo: session.user.user_metadata?.full_name || 
-                               session.user.user_metadata?.name ||
-                               session.user.email?.split('@')[0]
-              });
-            }
-          }, 0);
-        }
-        
-        setLoading(false);
+        setSession(session);
+        setUser(session.user);
+      } else if (event === "SIGNED_OUT") {
+        // Debounce: wait 300ms before clearing state
+        signOutTimerRef.current = setTimeout(() => {
+          setSession(null);
+          setUser(null);
+          signOutTimerRef.current = null;
+        }, 300);
       }
-    );
+
+      // Criar perfil automaticamente para login OAuth
+      if (event === "SIGNED_IN" && session?.user) {
+        setTimeout(async () => {
+          const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("user_id")
+            .eq("user_id", session.user.id)
+            .single();
+
+          if (!existingProfile) {
+            await supabase.from("profiles").insert({
+              user_id: session.user.id,
+              nome_completo:
+                session.user.user_metadata?.full_name ||
+                session.user.user_metadata?.name ||
+                session.user.email?.split("@")[0],
+            });
+          }
+        }, 0);
+      }
+
+      setLoading(false);
+    });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -85,19 +86,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         password,
       });
-      
+
       // Registrar atividade de login (usando setTimeout para evitar deadlock)
       if (!error && data.user) {
         setTimeout(async () => {
           await supabase.from("user_activities").insert({
             user_id: data.user.id,
-            activity_type: 'user_login',
-            description: 'Fez login no sistema',
-            metadata: {}
+            activity_type: "user_login",
+            description: "Fez login no sistema",
+            metadata: {},
           });
         }, 0);
       }
-      
+
       return { error };
     } catch (error) {
       return { error: error as Error };
@@ -107,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string, nome: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -115,24 +116,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           emailRedirectTo: redirectUrl,
           data: {
             full_name: nome,
-            nome_completo: nome
-          }
-        }
+            nome_completo: nome,
+          },
+        },
       });
 
       if (error) return { error };
 
       // Create profile after successful signup
       if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: data.user.id,
-            nome_completo: nome
-          });
+        const { error: profileError } = await supabase.from("profiles").insert({
+          user_id: data.user.id,
+          nome_completo: nome,
+        });
 
         if (profileError) {
-          console.error('Error creating profile:', profileError);
+          console.error("Error creating profile:", profileError);
         }
       }
 
@@ -152,18 +151,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (user) {
         await supabase.from("user_activities").insert({
           user_id: user.id,
-          activity_type: 'user_logout',
-          description: 'Fez logout do sistema',
-          metadata: {}
+          activity_type: "user_logout",
+          description: "Fez logout do sistema",
+          metadata: {},
         });
       }
-      
+
       await supabase.auth.signOut();
       // Limpar estado local imediatamente
       setSession(null);
       setUser(null);
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
       // Mesmo com erro, limpar estado local
       setSession(null);
       setUser(null);
@@ -173,28 +172,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async () => {
     const redirectUrl = `${window.location.origin}/dashboard`;
     await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: "google",
       options: {
-        redirectTo: redirectUrl
-      }
+        redirectTo: redirectUrl,
+      },
     });
   };
 
   const resetPassword = async (email: string) => {
     try {
-      const response = await fetch(
-        `https://omilhfohvstqsonhyuxp.supabase.co/functions/v1/reset-password`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }
-      );
+      const response = await fetch(`https://omilhfohvstqsonhyuxp.supabase.co/functions/v1/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        return { error: new Error(data.error || 'Erro ao enviar email de recuperação') };
+        return { error: new Error(data.error || "Erro ao enviar email de recuperação") };
       }
 
       return { error: null };
@@ -217,7 +213,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
