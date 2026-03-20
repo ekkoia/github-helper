@@ -132,6 +132,7 @@ export const FunilSection = () => {
       fetchEtapas();
     } else {
       setEtapas(novaOrdem.map((e, i) => ({ ...e, ordem: i + 1 })));
+      window.dispatchEvent(new CustomEvent("funil-reordenado"));
     }
   };
 
