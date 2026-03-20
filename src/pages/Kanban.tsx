@@ -5,12 +5,7 @@ import { LeadForm } from "@/components/LeadForm";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +24,6 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
-
 
 const Kanban = () => {
   const { logActivity } = useActivityLog();
@@ -101,7 +95,7 @@ const Kanban = () => {
       scrollDirRef.current = nextDir;
       ensureAutoScrollLoop();
     },
-    [ensureAutoScrollLoop, stopAutoScroll]
+    [ensureAutoScrollLoop, stopAutoScroll],
   );
 
   const handleDragEnd = useCallback(() => {
@@ -111,6 +105,12 @@ const Kanban = () => {
 
   useEffect(() => {
     fetchLeads();
+  }, []);
+
+  useEffect(() => {
+    const handler = () => fetchLeads();
+    window.addEventListener("funil-reordenado", handler);
+    return () => window.removeEventListener("funil-reordenado", handler);
   }, []);
 
   const fetchLeads = async () => {
@@ -127,7 +127,6 @@ const Kanban = () => {
     setIsLoading(false);
   };
 
-
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -143,18 +142,18 @@ const Kanban = () => {
       body.style.overflowX = prevBodyOverflowX;
     };
   }, []);
- 
-   // Filtrar leads por busca global
+
+  // Filtrar leads por busca global
   const filteredLeads = useMemo(() => {
     if (!searchTerm) return leads;
-    
+
     const term = searchTerm.toLowerCase();
     return leads.filter(
       (lead) =>
         lead.nome_completo?.toLowerCase().includes(term) ||
         lead.email?.toLowerCase().includes(term) ||
         lead.telefone?.includes(term) ||
-        lead.cidade?.toLowerCase().includes(term)
+        lead.cidade?.toLowerCase().includes(term),
     );
   }, [leads, searchTerm]);
 
@@ -174,10 +173,7 @@ const Kanban = () => {
 
     const etapaAnterior = draggedLead.etapa_funil;
 
-    const { error } = await supabase
-      .from("leads")
-      .update({ etapa_funil: etapa })
-      .eq("id", draggedLead.id);
+    const { error } = await supabase.from("leads").update({ etapa_funil: etapa }).eq("id", draggedLead.id);
 
     if (error) {
       toast.error("Erro ao mover lead");
@@ -186,29 +182,29 @@ const Kanban = () => {
 
     // Registrar atividade de mudança de etapa
     await logActivity(
-      'lead_stage_changed',
+      "lead_stage_changed",
       `Moveu "${draggedLead.nome_completo}" de "${etapaAnterior}" para "${etapa}"`,
-      { 
-        lead_id: draggedLead.id, 
+      {
+        lead_id: draggedLead.id,
         lead_nome: draggedLead.nome_completo,
         etapa_anterior: etapaAnterior,
-        etapa_nova: etapa
-      }
+        etapa_nova: etapa,
+      },
     );
 
     // Registrar se foi ganho ou perdido
-    if (etapa === 'Ganho') {
-      await logActivity(
-        'lead_won',
-        `Marcou o lead "${draggedLead.nome_completo}" como Ganho`,
-        { lead_id: draggedLead.id, lead_nome: draggedLead.nome_completo, etapa_anterior: etapaAnterior }
-      );
-    } else if (etapa === 'Perdido') {
-      await logActivity(
-        'lead_lost',
-        `Marcou o lead "${draggedLead.nome_completo}" como Perdido`,
-        { lead_id: draggedLead.id, lead_nome: draggedLead.nome_completo, etapa_anterior: etapaAnterior }
-      );
+    if (etapa === "Ganho") {
+      await logActivity("lead_won", `Marcou o lead "${draggedLead.nome_completo}" como Ganho`, {
+        lead_id: draggedLead.id,
+        lead_nome: draggedLead.nome_completo,
+        etapa_anterior: etapaAnterior,
+      });
+    } else if (etapa === "Perdido") {
+      await logActivity("lead_lost", `Marcou o lead "${draggedLead.nome_completo}" como Perdido`, {
+        lead_id: draggedLead.id,
+        lead_nome: draggedLead.nome_completo,
+        etapa_anterior: etapaAnterior,
+      });
     }
 
     toast.success(`Lead movido para ${etapa}`);
@@ -239,40 +235,44 @@ const Kanban = () => {
 
   return (
     <div className="space-y-4">
-        {/* Busca Global */}
-        <GlobalSearch value={searchTerm} onChange={setSearchTerm} placeholder="Buscar por nome, email, telefone ou cidade..." />
+      {/* Busca Global */}
+      <GlobalSearch
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder="Buscar por nome, email, telefone ou cidade..."
+      />
 
-        {/* Header com Botão */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Leads - Kanban</h1>
-            <p className="text-sm text-muted-foreground">
-              {filteredLeads.length} lead{filteredLeads.length !== 1 ? "s" : ""} 
-              {isAdmin ? " encontrado(s)" : " atribuído(s) a você"}
-            </p>
-          </div>
-
-          <Button
-            onClick={() => {
-              setEditingLead(null);
-              setIsFormOpen(true);
-            }}
-            className="shadow-elevation-2 gap-2 shrink-0"
-            aria-label="Criar novo lead"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            <span>Novo Lead</span>
-          </Button>
+      {/* Header com Botão */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Leads - Kanban</h1>
+          <p className="text-sm text-muted-foreground">
+            {filteredLeads.length} lead{filteredLeads.length !== 1 ? "s" : ""}
+            {isAdmin ? " encontrado(s)" : " atribuído(s) a você"}
+          </p>
         </div>
 
-        {/* Kanban Board */}
-        <div 
-          ref={scrollContainerRef}
-          className="overflow-x-auto"
-          onDragOver={handleDragOverWithScroll}
-          onDrop={stopAutoScroll}
+        <Button
+          onClick={() => {
+            setEditingLead(null);
+            setIsFormOpen(true);
+          }}
+          className="shadow-elevation-2 gap-2 shrink-0"
+          aria-label="Criar novo lead"
         >
-          <div className="flex gap-4 items-start">
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          <span>Novo Lead</span>
+        </Button>
+      </div>
+
+      {/* Kanban Board */}
+      <div
+        ref={scrollContainerRef}
+        className="overflow-x-auto"
+        onDragOver={handleDragOverWithScroll}
+        onDrop={stopAutoScroll}
+      >
+        <div className="flex gap-4 items-start">
           {etapasNomes.map((etapa) => {
             const leadsNaEtapa = getLeadsByEtapa(etapa);
             return (
@@ -283,7 +283,7 @@ const Kanban = () => {
                 aria-label={`Coluna ${etapa}`}
               >
                 <Card className="flex flex-col h-[calc(100vh-280px)] overflow-hidden">
-                  <CardHeader 
+                  <CardHeader
                     className="text-white rounded-t-xl"
                     style={{ backgroundColor: coresMap[etapa] || "#6b7280" }}
                     onDragOver={(e) => e.preventDefault()}
@@ -296,16 +296,14 @@ const Kanban = () => {
                       </Badge>
                     </CardTitle>
                   </CardHeader>
-                  <ScrollArea 
+                  <ScrollArea
                     className="flex-1"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => handleDrop(etapa)}
                   >
                     <div className="space-y-3 px-5 py-3 min-h-[100px]">
                       {leadsNaEtapa.length === 0 ? (
-                        <p className="text-center text-sm text-muted-foreground py-8">
-                          Nenhum lead nesta etapa
-                        </p>
+                        <p className="text-center text-sm text-muted-foreground py-8">Nenhum lead nesta etapa</p>
                       ) : (
                         leadsNaEtapa.map((lead) => (
                           <Card
@@ -355,10 +353,7 @@ const Kanban = () => {
                                   <div className="flex items-center gap-2">
                                     <Mail className="h-3.5 w-3.5" aria-hidden="true" />
                                     <span>
-                                      {lead.cidade && lead.uf 
-                                        ? `${lead.cidade}/${lead.uf}`
-                                        : lead.cidade || lead.uf
-                                      }
+                                      {lead.cidade && lead.uf ? `${lead.cidade}/${lead.uf}` : lead.cidade || lead.uf}
                                     </span>
                                   </div>
                                 )}
@@ -372,14 +367,17 @@ const Kanban = () => {
                                   <div className="flex items-center gap-2">
                                     <Package className="h-3.5 w-3.5" aria-hidden="true" />
                                     <div>
-                                      <span className="block">{lead.tipo_grao} - {lead.volume || "Volume não informado"}</span>
+                                      <span className="block">
+                                        {lead.tipo_grao} - {lead.volume || "Volume não informado"}
+                                      </span>
                                       {lead.valor_produto && (
                                         <span className="text-xs flex items-center gap-1 mt-0.5">
                                           <DollarSign className="h-3 w-3" aria-hidden="true" />
-                                          {new Intl.NumberFormat('pt-BR', { 
-                                            style: 'currency', 
-                                            currency: 'BRL' 
-                                          }).format(lead.valor_produto)}/sc
+                                          {new Intl.NumberFormat("pt-BR", {
+                                            style: "currency",
+                                            currency: "BRL",
+                                          }).format(lead.valor_produto)}
+                                          /sc
                                         </span>
                                       )}
                                     </div>
@@ -391,7 +389,7 @@ const Kanban = () => {
                                   {lead.intencao}
                                 </Badge>
                               )}
-                              
+
                               {/* Responsável - apenas para admins */}
                               {isAdmin && (
                                 <>
@@ -421,48 +419,46 @@ const Kanban = () => {
               </div>
             );
           })}
-          </div>
         </div>
-
-        {/* Dialog do Formulário */}
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingLead ? "Editar Lead" : "Novo Lead"}
-              </DialogTitle>
-            </DialogHeader>
-            <LeadForm
-              onSuccess={() => {
-                setIsFormOpen(false);
-                setEditingLead(null);
-                fetchLeads();
-              }}
-              onCancel={() => {
-                setIsFormOpen(false);
-                setEditingLead(null);
-              }}
-              initialData={editingLead}
-            />
-          </DialogContent>
-        </Dialog>
-
-        {/* Modal de Detalhes do Lead */}
-        <LeadDetailsModal
-          lead={selectedLead}
-          isOpen={isDetailsOpen}
-          onClose={() => {
-            setIsDetailsOpen(false);
-            setSelectedLead(null);
-          }}
-          onEdit={() => {
-            setIsDetailsOpen(false);
-            handleCardClick(selectedLead);
-          }}
-          onLeadUpdated={fetchLeads}
-        />
       </div>
-    );
-  };
 
-  export default Kanban;
+      {/* Dialog do Formulário */}
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingLead ? "Editar Lead" : "Novo Lead"}</DialogTitle>
+          </DialogHeader>
+          <LeadForm
+            onSuccess={() => {
+              setIsFormOpen(false);
+              setEditingLead(null);
+              fetchLeads();
+            }}
+            onCancel={() => {
+              setIsFormOpen(false);
+              setEditingLead(null);
+            }}
+            initialData={editingLead}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Detalhes do Lead */}
+      <LeadDetailsModal
+        lead={selectedLead}
+        isOpen={isDetailsOpen}
+        onClose={() => {
+          setIsDetailsOpen(false);
+          setSelectedLead(null);
+        }}
+        onEdit={() => {
+          setIsDetailsOpen(false);
+          handleCardClick(selectedLead);
+        }}
+        onLeadUpdated={fetchLeads}
+      />
+    </div>
+  );
+};
+
+export default Kanban;
