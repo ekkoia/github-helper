@@ -192,7 +192,7 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
+            <DialogTitle className="flex items-center justify-between pr-8">
               <span>Detalhes do Lead</span>
               <Button size="sm" onClick={onEdit} className="bg-gradient-primary">
                 <Edit className="h-4 w-4 mr-2" />
