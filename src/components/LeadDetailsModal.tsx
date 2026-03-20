@@ -1,16 +1,26 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Phone, User, TrendingUp, Edit, UserPlus, Check, AlertTriangle, Layers, MessageSquare, Save, Loader2 } from "lucide-react";
+import {
+  Mail,
+  Phone,
+  User,
+  TrendingUp,
+  Edit,
+  UserPlus,
+  Check,
+  AlertTriangle,
+  Layers,
+  MessageSquare,
+  Save,
+  Loader2,
+} from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useFunilEtapas } from "@/hooks/useFunilEtapas";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AssignLeadDialog } from "./AssignLeadDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLog } from "@/hooks/useActivityLog";
@@ -38,6 +48,8 @@ interface LeadDetailsModalProps {
 export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated }: LeadDetailsModalProps) => {
   const { isAdmin } = useUserRole();
   const { logActivity } = useActivityLog();
+  const { etapasNomes } = useFunilEtapas();
+  const [isChangingEtapa, setIsChangingEtapa] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [responsavelNome, setResponsavelNome] = useState<string | null>(null);
   const [currentLead, setCurrentLead] = useState(lead);
@@ -48,7 +60,7 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   const [notaDirty, setNotaDirty] = useState(false);
 
   // Verificar se é formulário 02
-  const isFormulario02 = currentLead?.observacoes?.includes('02 - Formulário FeeAgro');
+  const isFormulario02 = currentLead?.observacoes?.includes("02 - Formulário FeeAgro");
 
   // Atualizar currentLead quando lead mudar
   useEffect(() => {
@@ -68,9 +80,9 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
 
       try {
         const { data, error } = await supabase
-          .from('leadsNativo_feeagro')
+          .from("leadsNativo_feeagro")
           .select('"Você concorda que esse formulário não trata-se de empréstim"')
-          .ilike('email', currentLead.email)
+          .ilike("email", currentLead.email)
           .maybeSingle();
 
         if (error) {
@@ -120,33 +132,29 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   if (!currentLead) return null;
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
     }).format(value);
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(date).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const handleAssignSuccess = async () => {
-    const { data } = await supabase
-      .from("leads")
-      .select("*")
-      .eq("id", currentLead.id)
-      .single();
-    
+    const { data } = await supabase.from("leads").select("*").eq("id", currentLead.id).single();
+
     if (data) {
       setCurrentLead(data);
     }
-    
+
     onLeadUpdated?.();
   };
 
@@ -161,11 +169,11 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
 
       if (error) throw error;
 
-      await logActivity(
-        'lead_notes_added',
-        `Adicionou nota do assessor ao lead "${currentLead.nome_completo}"`,
-        { lead_id: currentLead.id, lead_nome: currentLead.nome_completo, tipo: 'nota_assessor' }
-      );
+      await logActivity("lead_notes_added", `Adicionou nota do assessor ao lead "${currentLead.nome_completo}"`, {
+        lead_id: currentLead.id,
+        lead_nome: currentLead.nome_completo,
+        tipo: "nota_assessor",
+      });
 
       setCurrentLead({ ...currentLead, nota_assessor: notaAssessor });
       setNotaDirty(false);
@@ -240,18 +248,11 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                 <div>
                   <p className="text-sm text-muted-foreground">Atribuído a</p>
                   <p className="font-medium">
-                    {responsavelNome || (
-                      <span className="text-muted-foreground italic">Não atribuído</span>
-                    )}
+                    {responsavelNome || <span className="text-muted-foreground italic">Não atribuído</span>}
                   </p>
                 </div>
                 {isAdmin && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsAssignDialogOpen(true)}
-                    className="gap-2"
-                  >
+                  <Button size="sm" variant="outline" onClick={() => setIsAssignDialogOpen(true)} className="gap-2">
                     <UserPlus className="h-4 w-4" />
                     {currentLead.responsavel_id ? "Alterar" : "Atribuir"}
                   </Button>
@@ -322,10 +323,49 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                   })()}
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Etapa do Funil</p>
-                  <Badge className="bg-primary text-primary-foreground">
-                    {currentLead.etapa_funil || "-"}
-                  </Badge>
+                  <p className="text-sm text-muted-foreground mb-1">Etapa do Funil</p>
+                  <Select
+                    value={currentLead.etapa_funil || ""}
+                    disabled={isChangingEtapa}
+                    onValueChange={async (novaEtapa) => {
+                      if (novaEtapa === currentLead.etapa_funil) return;
+                      setIsChangingEtapa(true);
+                      const etapaAnterior = currentLead.etapa_funil;
+                      const { error } = await supabase
+                        .from("leads")
+                        .update({ etapa_funil: novaEtapa })
+                        .eq("id", currentLead.id);
+                      if (error) {
+                        toast.error("Erro ao atualizar etapa");
+                      } else {
+                        await logActivity(
+                          "lead_stage_changed",
+                          `Moveu "${currentLead.nome_completo}" de "${etapaAnterior}" para "${novaEtapa}"`,
+                          {
+                            lead_id: currentLead.id,
+                            lead_nome: currentLead.nome_completo,
+                            etapa_anterior: etapaAnterior,
+                            etapa_nova: novaEtapa,
+                          },
+                        );
+                        setCurrentLead({ ...currentLead, etapa_funil: novaEtapa });
+                        toast.success(`Etapa alterada para ${novaEtapa}`);
+                        onLeadUpdated?.();
+                      }
+                      setIsChangingEtapa(false);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecionar etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {etapasNomes.map((etapa) => (
+                        <SelectItem key={etapa} value={etapa}>
+                          {etapa}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -366,17 +406,8 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                 className="mb-2"
               />
               <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  onClick={handleSaveNota}
-                  disabled={isSavingNota || !notaDirty}
-                  className="gap-2"
-                >
-                  {isSavingNota ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
+                <Button size="sm" onClick={handleSaveNota} disabled={isSavingNota || !notaDirty} className="gap-2">
+                  {isSavingNota ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Salvar Nota
                 </Button>
               </div>
@@ -387,37 +418,41 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                 <Separator />
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Observações</h3>
-                  
+
                   {isFormulario02 && concordaEmprestimo !== null && (
-                    <div className={`mb-4 p-4 rounded-lg border-2 ${
-                      concordaEmprestimo?.toLowerCase().startsWith('sim') 
-                        ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' 
-                        : 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800'
-                    }`}>
+                    <div
+                      className={`mb-4 p-4 rounded-lg border-2 ${
+                        concordaEmprestimo?.toLowerCase().startsWith("sim")
+                          ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800"
+                          : "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
+                      }`}
+                    >
                       <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4" />
                         Entende que não é empréstimo?
                       </p>
-                      <Badge 
+                      <Badge
                         className={`text-sm px-3 py-1 ${
-                          concordaEmprestimo?.toLowerCase().startsWith('sim')
-                            ? 'bg-green-500 hover:bg-green-600 text-white'
-                            : 'bg-amber-500 hover:bg-amber-600 text-white'
+                          concordaEmprestimo?.toLowerCase().startsWith("sim")
+                            ? "bg-green-500 hover:bg-green-600 text-white"
+                            : "bg-amber-500 hover:bg-amber-600 text-white"
                         }`}
                       >
-                        {concordaEmprestimo?.toLowerCase().startsWith('sim') ? (
-                          <><Check className="h-4 w-4 mr-1" /> Sim</>
+                        {concordaEmprestimo?.toLowerCase().startsWith("sim") ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1" /> Sim
+                          </>
                         ) : (
-                          <><AlertTriangle className="h-4 w-4 mr-1" /> Não</>
+                          <>
+                            <AlertTriangle className="h-4 w-4 mr-1" /> Não
+                          </>
                         )}
                       </Badge>
                     </div>
                   )}
 
                   {currentLead.observacoes && (
-                    <p className="text-sm whitespace-pre-wrap bg-muted p-4 rounded-lg">
-                      {currentLead.observacoes}
-                    </p>
+                    <p className="text-sm whitespace-pre-wrap bg-muted p-4 rounded-lg">{currentLead.observacoes}</p>
                   )}
                 </div>
               </>
