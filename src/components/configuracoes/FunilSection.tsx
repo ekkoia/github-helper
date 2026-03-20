@@ -7,13 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, GripVertical, Save, X } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,11 +40,7 @@ export const FunilSection = () => {
   }, []);
 
   const fetchEtapas = async () => {
-    const { data, error } = await supabase
-      .from("funil_etapas")
-      .select("*")
-      .eq("ativo", true)
-      .order("ordem");
+    const { data, error } = await supabase.from("funil_etapas").select("*").eq("ativo", true).order("ordem");
 
     if (error) {
       console.error("Erro ao buscar etapas:", error);
@@ -78,14 +68,9 @@ export const FunilSection = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.nome.trim()) {
-      toast.error("Nome da etapa é obrigatório");
-      return;
-    }
-
-    setIsSaving(true);
-
     if (editingEtapa) {
+      const nomeAntigo = etapas.find((e) => e.id === editingEtapa.id)?.nome;
+
       const { error } = await supabase
         .from("funil_etapas")
         .update({ nome: formData.nome, cor: formData.cor })
@@ -97,17 +82,28 @@ export const FunilSection = () => {
         return;
       }
 
+      if (nomeAntigo && nomeAntigo !== formData.nome) {
+        const { error: leadsError } = await supabase
+          .from("leads")
+          .update({ etapa_funil: formData.nome })
+          .eq("etapa_funil", nomeAntigo);
+
+        if (leadsError) {
+          toast.error("Etapa renomeada, mas erro ao migrar leads: " + leadsError.message);
+          setIsSaving(false);
+          return;
+        }
+      }
+
       toast.success("Etapa atualizada com sucesso!");
     } else {
-      const maxOrdem = Math.max(...etapas.map(e => e.ordem), 0);
-      const { error } = await supabase
-        .from("funil_etapas")
-        .insert({
-          nome: formData.nome,
-          cor: formData.cor,
-          ordem: maxOrdem + 1,
-          ativo: true,
-        });
+      const maxOrdem = Math.max(...etapas.map((e) => e.ordem), 0);
+      const { error } = await supabase.from("funil_etapas").insert({
+        nome: formData.nome,
+        cor: formData.cor,
+        ordem: maxOrdem + 1,
+        ativo: true,
+      });
 
       if (error) {
         toast.error("Erro ao criar etapa: " + error.message);
@@ -126,10 +122,7 @@ export const FunilSection = () => {
   const handleDelete = async () => {
     if (!deleteEtapaId) return;
 
-    const { error } = await supabase
-      .from("funil_etapas")
-      .update({ ativo: false })
-      .eq("id", deleteEtapaId);
+    const { error } = await supabase.from("funil_etapas").update({ ativo: false }).eq("id", deleteEtapaId);
 
     if (error) {
       toast.error("Erro ao excluir etapa: " + error.message);
@@ -147,9 +140,7 @@ export const FunilSection = () => {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>Etapas do Funil</CardTitle>
-            <CardDescription>
-              Personalize as etapas do funil de vendas
-            </CardDescription>
+            <CardDescription>Personalize as etapas do funil de vendas</CardDescription>
           </div>
           <Button onClick={() => handleOpenDialog()} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -166,28 +157,17 @@ export const FunilSection = () => {
             >
               <div className="flex items-center gap-4">
                 <GripVertical className="h-5 w-5 text-muted-foreground cursor-move" />
-                <div
-                  className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: etapa.cor }}
-                />
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: etapa.cor }} />
                 <div>
                   <p className="font-medium">{etapa.nome}</p>
                   <p className="text-sm text-muted-foreground">Ordem: {etapa.ordem}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleOpenDialog(etapa)}
-                >
+                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(etapa)}>
                   <Edit className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setDeleteEtapaId(etapa.id)}
-                >
+                <Button variant="ghost" size="icon" onClick={() => setDeleteEtapaId(etapa.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -200,13 +180,9 @@ export const FunilSection = () => {
       <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingEtapa ? "Editar Etapa" : "Nova Etapa"}
-            </DialogTitle>
+            <DialogTitle>{editingEtapa ? "Editar Etapa" : "Nova Etapa"}</DialogTitle>
             <DialogDescription>
-              {editingEtapa
-                ? "Edite as informações da etapa do funil"
-                : "Adicione uma nova etapa ao funil de vendas"}
+              {editingEtapa ? "Edite as informações da etapa do funil" : "Adicione uma nova etapa ao funil de vendas"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
