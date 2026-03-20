@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,12 +17,12 @@ const CORES_PADRAO: Record<string, string> = {
   "Atendimento Humano": "bg-indigo-500",
   "Reunião Agendada": "bg-amber-500",
   "Proposta Enviada": "bg-orange-500",
-  "Ganho": "bg-green-500",
-  "Perdido": "bg-red-500",
+  Ganho: "bg-green-500",
+  Perdido: "bg-red-500",
   "Sem interesse": "bg-gray-500",
-  "Ghost": "bg-slate-500",
-  "Nutrir": "bg-teal-500",
-  "Parceiro": "bg-cyan-500",
+  Ghost: "bg-slate-500",
+  Nutrir: "bg-teal-500",
+  Parceiro: "bg-cyan-500",
 };
 
 async function fetchFunilEtapas(): Promise<FunilEtapa[]> {
@@ -56,6 +57,12 @@ export function useFunilEtapas() {
     // Retorna a cor HEX diretamente para uso com inline style
     coresMap[etapa.nome] = etapa.cor || "#6b7280"; // gray-500 como fallback
   });
+
+  useEffect(() => {
+    const handler = () => query.refetch();
+    window.addEventListener("funil-reordenado", handler);
+    return () => window.removeEventListener("funil-reordenado", handler);
+  }, [query.refetch]);
 
   return {
     etapas: query.data || [],
