@@ -801,8 +801,7 @@ const LeadsTable = () => {
                         checked={paginatedLeads.length > 0 && selectedLeadIds.size === paginatedLeads.length}
                         onCheckedChange={toggleSelectAll}
                         aria-label="Selecionar todos"
-                        className="border-muted-foreground dark:border-slate-400"
-                       />
+                       className="border-muted-foreground dark:border-slate-400"
                       />
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted" onClick={() => toggleSort("nome_completo")}>
