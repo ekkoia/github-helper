@@ -795,6 +795,13 @@ const LeadsTable = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[40px]" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={paginatedLeads.length > 0 && selectedLeadIds.size === paginatedLeads.length}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Selecionar todos"
+                      />
+                    </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted" onClick={() => toggleSort("nome_completo")}>
                       <div className="flex items-center gap-2">
                         Nome
