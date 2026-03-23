@@ -1,74 +1,51 @@
 
 
-# Endpoint GET para consultar proximo assessor do round-robin
+# Alteração em massa de leads na tabela
 
-## Objetivo
+## O que será adicionado
 
-Criar uma Edge Function que simula a logica do round-robin (sem avançar o ponteiro) e retorna os dados do assessor que seria atribuido ao proximo lead, incluindo os dados do mapeamento Callix.
+Um sistema de seleção múltipla na tabela de leads com uma barra de ações em massa que permite alterar etapa do funil, responsável ou excluir vários leads de uma vez.
 
-## Como funciona
+## Como funciona para o usuário
 
-O endpoint recebe um parametro `faixa` via query string (`ate_10k` ou `acima_10k`) e:
+1. Uma coluna de checkbox aparece à esquerda de cada linha da tabela
+2. Um checkbox no header seleciona/deseleciona todos os leads da página atual
+3. Ao selecionar 1+ leads, uma barra flutuante aparece no topo com:
+   - Contador de leads selecionados
+   - Botao "Alterar Etapa" -- abre select com etapas do funil
+   - Botao "Atribuir Responsável" -- abre select com usuários (apenas admin)
+   - Botao "Excluir" -- com confirmação via AlertDialog
+   - Botao "Limpar seleção"
 
-1. Consulta a tabela `auto_assign_state` para obter o `last_assigned_order` da faixa
-2. Consulta a tabela `auto_assign_config` para encontrar o proximo usuario ativo na fila (ordem > last_assigned_order, ou volta ao inicio)
-3. Com o `user_id` encontrado, busca os dados na tabela `user_callix_mapping`
-4. Retorna os dados combinados
+## Detalhes técnicos
 
-## Resposta do endpoint
+### Arquivo: `src/pages/LeadsTable.tsx`
 
-```text
-GET /next-assessor?faixa=ate_10k
+**Novos estados:**
+- `selectedLeadIds: Set<string>` -- IDs dos leads selecionados
+- `isBulkStageOpen: boolean` -- popover de alterar etapa
+- `isBulkAssignOpen: boolean` -- popover de atribuir responsável
+- `isBulkDeleteOpen: boolean` -- dialog de confirmação de exclusão em massa
 
-{
-  "success": true,
-  "data": {
-    "user_id": "uuid-do-usuario",
-    "faixa": "ate_10k",
-    "callix_assessor_id": "123",
-    "callix_name": "Nome do Assessor",
-    "cal_event_type_id": "456",
-    "callix_list_id": "789"
-  }
-}
-```
+**Nova coluna checkbox:**
+- Header: checkbox "selecionar todos" (toggles todos da página atual)
+- Cada row: checkbox individual com `stopPropagation` para não abrir o modal de detalhes
 
-Se nao houver assessores configurados para a faixa, retorna erro 404.
+**Barra de ações em massa:**
+- Aparece condicionalmente quando `selectedLeadIds.size > 0`
+- Posicionada como sticky/fixed acima da tabela
+- Estilizada com `bg-primary text-primary-foreground`
 
-## Detalhes tecnicos
+**Funções de ação em massa:**
+- `handleBulkStageChange(etapa)`: UPDATE em batch via Supabase `.in('id', [...ids])`, log de atividade, refresh
+- `handleBulkAssign(userId)`: UPDATE `responsavel_id` em batch, notificação ao usuário, log
+- `handleBulkDelete()`: DELETE em batch (apenas admin), confirmação, log
+- Todas limpam a seleção e chamam `fetchLeads()` ao final
 
-### 1. Criar Edge Function `next-assessor`
+**Imports adicionais:** `Checkbox` de `@/components/ui/checkbox`, `CheckSquare` de lucide-react
 
-**Arquivo: `supabase/functions/next-assessor/index.ts`**
-
-- Metodo: GET
-- Query param obrigatorio: `faixa` (valores: `ate_10k` ou `acima_10k`)
-- Autenticacao: via API key no header `x-api-key` (mesmo padrao do webhook-lead) para uso externo
-- Usa `SUPABASE_SERVICE_ROLE_KEY` para acessar as tabelas sem restricao de RLS
-
-Logica:
-```text
-1. Validar faixa
-2. SELECT last_assigned_order FROM auto_assign_state WHERE faixa = ?
-3. SELECT user_id, ordem FROM auto_assign_config 
-   WHERE faixa = ? AND ativo = true AND ordem > last_assigned_order
-   ORDER BY ordem ASC LIMIT 1
-4. Se nao encontrou, buscar o primeiro (ordem ASC LIMIT 1)
-5. SELECT callix_assessor_id, callix_name, cal_event_type_id, callix_list_id 
-   FROM user_callix_mapping WHERE user_id = ?
-6. Retornar dados combinados
-```
-
-### 2. Atualizar `supabase/config.toml`
-
-Adicionar configuracao para desabilitar JWT verification:
-```text
-[functions.next-assessor]
-verify_jwt = false
-```
-
-## Arquivos a criar/modificar
-
-1. **Criar** `supabase/functions/next-assessor/index.ts` - Edge Function principal
-2. **Modificar** `supabase/config.toml` - adicionar config da funcao
+### Permissões
+- Alterar etapa: todos os usuários autenticados (RLS já permite update para leads atribuídos ou admin)
+- Atribuir responsável: apenas admin
+- Excluir em massa: apenas admin (RLS já restringe DELETE a admins)
 
