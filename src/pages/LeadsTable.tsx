@@ -55,7 +55,6 @@ import { getTopoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUsers } from "@/hooks/useUsers";
 
 const ITEMS_PER_PAGE = 20;
 
