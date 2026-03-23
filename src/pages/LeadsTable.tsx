@@ -93,7 +93,12 @@ const LeadsTable = () => {
   const [isExportPopoverOpen, setIsExportPopoverOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<"csv" | "xlsx">("csv");
 
-  const [filters, setFilters] = useState<{
+  // Bulk selection state
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkStageOpen, setIsBulkStageOpen] = useState(false);
+  const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
+
     etapa: string;
     protocolo: string;
     responsavel: string;
