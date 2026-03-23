@@ -282,6 +282,7 @@ const LeadsTable = () => {
 
   useEffect(() => {
     setCurrentPage(1);
+    clearSelection();
   }, [searchTerm, filters]);
 
   // Scroll to top when page changes
