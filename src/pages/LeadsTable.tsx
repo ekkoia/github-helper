@@ -723,7 +723,7 @@ const LeadsTable = () => {
                     Alterar Etapa
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-56 p-2" align="start">
+                <PopoverContent className="w-72 p-2" align="start">
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground px-2 py-1">Mover para:</p>
                     {etapasNomes.map((etapa) => (
@@ -731,7 +731,7 @@ const LeadsTable = () => {
                         key={etapa}
                         variant="ghost"
                         size="sm"
-                        className="w-full justify-start text-sm"
+                        className="w-full justify-start text-sm whitespace-normal h-auto py-1.5 text-left"
                         onClick={() => handleBulkStageChange(etapa)}
                       >
                         <span
@@ -801,6 +801,8 @@ const LeadsTable = () => {
                         checked={paginatedLeads.length > 0 && selectedLeadIds.size === paginatedLeads.length}
                         onCheckedChange={toggleSelectAll}
                         aria-label="Selecionar todos"
+                        className="border-muted-foreground dark:border-slate-400"
+                       />
                       />
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted" onClick={() => toggleSort("nome_completo")}>
@@ -843,6 +845,8 @@ const LeadsTable = () => {
                             checked={selectedLeadIds.has(lead.id)}
                             onCheckedChange={() => toggleSelectLead(lead.id)}
                             aria-label={`Selecionar ${lead.nome_completo}`}
+                           className="border-muted-foreground dark:border-slate-400"
+                           />
                           />
                         </TableCell>
                         <TableCell className="font-medium">{lead.nome_completo}</TableCell>
