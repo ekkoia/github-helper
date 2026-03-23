@@ -99,6 +99,7 @@ const LeadsTable = () => {
   const [isBulkStageOpen, setIsBulkStageOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
 
+  const [filters, setFilters] = useState<{
     etapa: string;
     protocolo: string;
     responsavel: string;
