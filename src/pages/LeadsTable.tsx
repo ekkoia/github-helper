@@ -837,6 +837,13 @@ const LeadsTable = () => {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => handleRowClick(lead)}
                       >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedLeadIds.has(lead.id)}
+                            onCheckedChange={() => toggleSelectLead(lead.id)}
+                            aria-label={`Selecionar ${lead.nome_completo}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{lead.nome_completo}</TableCell>
                         <TableCell>
                           <div className="text-sm">
