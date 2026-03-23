@@ -845,7 +845,6 @@ const LeadsTable = () => {
                             onCheckedChange={() => toggleSelectLead(lead.id)}
                             aria-label={`Selecionar ${lead.nome_completo}`}
                            className="border-muted-foreground dark:border-slate-400"
-                           />
                           />
                         </TableCell>
                         <TableCell className="font-medium">{lead.nome_completo}</TableCell>
