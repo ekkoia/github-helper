@@ -18,7 +18,10 @@ export type ActivityType =
   | 'user_deleted'
   | 'user_role_changed'
   | 'config_updated'
-  | 'funnel_updated';
+  | 'funnel_updated'
+  | 'bulk_stage_change'
+  | 'bulk_assign'
+  | 'bulk_delete';
 
 export const useActivityLog = () => {
   const { user } = useAuth();

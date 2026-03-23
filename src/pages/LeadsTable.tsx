@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { toast } from "sonner";
@@ -34,6 +35,10 @@ import {
   User,
   Layers,
   CalendarIcon,
+  CheckSquare,
+  X,
+  UserPlus,
+  ArrowRightLeft,
 } from "lucide-react";
 import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -49,6 +54,7 @@ import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -65,9 +71,10 @@ const ORIGEM_LABELS: Record<string, string> = {
 
 const LeadsTable = () => {
   const { logActivity } = useActivityLog();
-  const { coresMap } = useFunilEtapas();
+  const { etapasNomes, coresMap } = useFunilEtapas();
   const { isAdmin } = useUserRole();
-  const { usersMap } = useUsers();
+  const { usersMap, users } = useUsers();
+  const { user } = useAuth();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -85,6 +92,12 @@ const LeadsTable = () => {
   const [exportDateTo, setExportDateTo] = useState<Date>();
   const [isExportPopoverOpen, setIsExportPopoverOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<"csv" | "xlsx">("csv");
+
+  // Bulk selection state
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkStageOpen, setIsBulkStageOpen] = useState(false);
+  const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
 
   const [filters, setFilters] = useState<{
     etapa: string;
@@ -269,6 +282,7 @@ const LeadsTable = () => {
 
   useEffect(() => {
     setCurrentPage(1);
+    clearSelection();
   }, [searchTerm, filters]);
 
   // Scroll to top when page changes
@@ -345,6 +359,77 @@ const LeadsTable = () => {
       setSortBy(field);
       setSortOrder("desc");
     }
+  };
+
+  // Bulk selection helpers
+  const toggleSelectLead = (id: string) => {
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedLeadIds.size === paginatedLeads.length) {
+      setSelectedLeadIds(new Set());
+    } else {
+      setSelectedLeadIds(new Set(paginatedLeads.map((l) => l.id)));
+    }
+  };
+
+  const clearSelection = () => setSelectedLeadIds(new Set());
+
+  // Bulk action handlers
+  const handleBulkStageChange = async (etapa: string) => {
+    const ids = Array.from(selectedLeadIds);
+    const { error } = await supabase.from("leads").update({ etapa_funil: etapa }).in("id", ids);
+    if (error) {
+      toast.error("Erro ao alterar etapa em massa");
+      return;
+    }
+    await logActivity("bulk_stage_change", `Alterou etapa de ${ids.length} leads para "${etapa}"`, {
+      lead_ids: ids,
+      nova_etapa: etapa,
+    });
+    toast.success(`${ids.length} leads movidos para "${etapa}"`);
+    clearSelection();
+    setIsBulkStageOpen(false);
+    fetchLeads();
+  };
+
+  const handleBulkAssign = async (userId: string) => {
+    const ids = Array.from(selectedLeadIds);
+    const { error } = await supabase.from("leads").update({ responsavel_id: userId }).in("id", ids);
+    if (error) {
+      toast.error("Erro ao atribuir responsável em massa");
+      return;
+    }
+    const userName = usersMap[userId]?.nome_completo || "Usuário";
+    await logActivity("bulk_assign", `Atribuiu ${ids.length} leads para "${userName}"`, {
+      lead_ids: ids,
+      responsavel_id: userId,
+      responsavel_nome: userName,
+    });
+    toast.success(`${ids.length} leads atribuídos para "${userName}"`);
+    clearSelection();
+    setIsBulkAssignOpen(false);
+    fetchLeads();
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedLeadIds);
+    const { error } = await supabase.from("leads").delete().in("id", ids);
+    if (error) {
+      toast.error("Erro ao excluir leads em massa");
+      return;
+    }
+    await logActivity("bulk_delete", `Excluiu ${ids.length} leads em massa`, { lead_ids: ids });
+    toast.success(`${ids.length} leads excluídos com sucesso!`);
+    clearSelection();
+    setIsBulkDeleteOpen(false);
+    fetchLeads();
   };
 
   // KPIs calculation
@@ -621,11 +706,103 @@ const LeadsTable = () => {
 
         {/* Tabela */}
         <div className="flex-1 space-y-4" ref={tableContainerRef}>
+          {/* Bulk Action Bar */}
+          {selectedLeadIds.size > 0 && (
+            <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 p-3 shadow-sm">
+              <div className="flex items-center gap-2 mr-2">
+                <CheckSquare className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">
+                  {selectedLeadIds.size} lead{selectedLeadIds.size !== 1 ? "s" : ""} selecionado{selectedLeadIds.size !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              <Popover open={isBulkStageOpen} onOpenChange={setIsBulkStageOpen}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1.5">
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    Alterar Etapa
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="start">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Mover para:</p>
+                    {etapasNomes.map((etapa) => (
+                      <Button
+                        key={etapa}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-sm"
+                        onClick={() => handleBulkStageChange(etapa)}
+                      >
+                        <span
+                          className="h-2.5 w-2.5 rounded-full mr-2 shrink-0"
+                          style={{ backgroundColor: coresMap[etapa] || "#6b7280" }}
+                        />
+                        {etapa}
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {isAdmin && (
+                <Popover open={isBulkAssignOpen} onOpenChange={setIsBulkAssignOpen}>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1.5">
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Atribuir Responsável
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="start">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground px-2 py-1">Atribuir para:</p>
+                      {users.map((u) => (
+                        <Button
+                          key={u.user_id}
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start text-sm"
+                          onClick={() => handleBulkAssign(u.user_id)}
+                        >
+                          {u.nome_completo || u.email || "Usuário"}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => setIsBulkDeleteOpen(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir
+                </Button>
+              )}
+
+              <Button size="sm" variant="ghost" className="gap-1.5 ml-auto" onClick={clearSelection}>
+                <X className="h-3.5 w-3.5" />
+                Limpar
+              </Button>
+            </div>
+          )}
+
           <div className="rounded-lg border border-border bg-card shadow-card overflow-hidden">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[40px]" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={paginatedLeads.length > 0 && selectedLeadIds.size === paginatedLeads.length}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Selecionar todos"
+                      />
+                    </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted" onClick={() => toggleSort("nome_completo")}>
                       <div className="flex items-center gap-2">
                         Nome
@@ -650,7 +827,7 @@ const LeadsTable = () => {
                 <TableBody>
                   {paginatedLeads.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={isAdmin ? 10 : 9} className="text-center py-8 text-muted-foreground">
                         Nenhum lead encontrado
                       </TableCell>
                     </TableRow>
@@ -661,6 +838,13 @@ const LeadsTable = () => {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => handleRowClick(lead)}
                       >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedLeadIds.has(lead.id)}
+                            onCheckedChange={() => toggleSelectLead(lead.id)}
+                            aria-label={`Selecionar ${lead.nome_completo}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{lead.nome_completo}</TableCell>
                         <TableCell>
                           <div className="text-sm">
@@ -896,6 +1080,24 @@ const LeadsTable = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de Confirmação de Exclusão em Massa */}
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selectedLeadIds.size} leads</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedLeadIds.size} lead{selectedLeadIds.size !== 1 ? "s" : ""}? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground">
+              Excluir {selectedLeadIds.size} leads
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
