@@ -826,7 +826,7 @@ const LeadsTable = () => {
                 <TableBody>
                   {paginatedLeads.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={isAdmin ? 10 : 9} className="text-center py-8 text-muted-foreground">
                         Nenhum lead encontrado
                       </TableCell>
                     </TableRow>
