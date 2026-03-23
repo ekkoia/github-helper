@@ -360,6 +360,77 @@ const LeadsTable = () => {
     }
   };
 
+  // Bulk selection helpers
+  const toggleSelectLead = (id: string) => {
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedLeadIds.size === paginatedLeads.length) {
+      setSelectedLeadIds(new Set());
+    } else {
+      setSelectedLeadIds(new Set(paginatedLeads.map((l) => l.id)));
+    }
+  };
+
+  const clearSelection = () => setSelectedLeadIds(new Set());
+
+  // Bulk action handlers
+  const handleBulkStageChange = async (etapa: string) => {
+    const ids = Array.from(selectedLeadIds);
+    const { error } = await supabase.from("leads").update({ etapa_funil: etapa }).in("id", ids);
+    if (error) {
+      toast.error("Erro ao alterar etapa em massa");
+      return;
+    }
+    await logActivity("bulk_stage_change", `Alterou etapa de ${ids.length} leads para "${etapa}"`, {
+      lead_ids: ids,
+      nova_etapa: etapa,
+    });
+    toast.success(`${ids.length} leads movidos para "${etapa}"`);
+    clearSelection();
+    setIsBulkStageOpen(false);
+    fetchLeads();
+  };
+
+  const handleBulkAssign = async (userId: string) => {
+    const ids = Array.from(selectedLeadIds);
+    const { error } = await supabase.from("leads").update({ responsavel_id: userId }).in("id", ids);
+    if (error) {
+      toast.error("Erro ao atribuir responsável em massa");
+      return;
+    }
+    const userName = usersMap[userId]?.nome_completo || "Usuário";
+    await logActivity("bulk_assign", `Atribuiu ${ids.length} leads para "${userName}"`, {
+      lead_ids: ids,
+      responsavel_id: userId,
+      responsavel_nome: userName,
+    });
+    toast.success(`${ids.length} leads atribuídos para "${userName}"`);
+    clearSelection();
+    setIsBulkAssignOpen(false);
+    fetchLeads();
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedLeadIds);
+    const { error } = await supabase.from("leads").delete().in("id", ids);
+    if (error) {
+      toast.error("Erro ao excluir leads em massa");
+      return;
+    }
+    await logActivity("bulk_delete", `Excluiu ${ids.length} leads em massa`, { lead_ids: ids });
+    toast.success(`${ids.length} leads excluídos com sucesso!`);
+    clearSelection();
+    setIsBulkDeleteOpen(false);
+    fetchLeads();
+  };
+
   // KPIs calculation
   const kpis = useMemo(() => {
     const now = new Date();
