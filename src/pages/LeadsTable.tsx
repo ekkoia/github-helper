@@ -705,6 +705,91 @@ const LeadsTable = () => {
 
         {/* Tabela */}
         <div className="flex-1 space-y-4" ref={tableContainerRef}>
+          {/* Bulk Action Bar */}
+          {selectedLeadIds.size > 0 && (
+            <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 p-3 shadow-sm">
+              <div className="flex items-center gap-2 mr-2">
+                <CheckSquare className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">
+                  {selectedLeadIds.size} lead{selectedLeadIds.size !== 1 ? "s" : ""} selecionado{selectedLeadIds.size !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              <Popover open={isBulkStageOpen} onOpenChange={setIsBulkStageOpen}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1.5">
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    Alterar Etapa
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="start">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Mover para:</p>
+                    {etapasNomes.map((etapa) => (
+                      <Button
+                        key={etapa}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-sm"
+                        onClick={() => handleBulkStageChange(etapa)}
+                      >
+                        <span
+                          className="h-2.5 w-2.5 rounded-full mr-2 shrink-0"
+                          style={{ backgroundColor: coresMap[etapa] || "#6b7280" }}
+                        />
+                        {etapa}
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {isAdmin && (
+                <Popover open={isBulkAssignOpen} onOpenChange={setIsBulkAssignOpen}>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1.5">
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Atribuir Responsável
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="start">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground px-2 py-1">Atribuir para:</p>
+                      {users.map((u) => (
+                        <Button
+                          key={u.user_id}
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start text-sm"
+                          onClick={() => handleBulkAssign(u.user_id)}
+                        >
+                          {u.nome_completo || u.email || "Usuário"}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => setIsBulkDeleteOpen(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir
+                </Button>
+              )}
+
+              <Button size="sm" variant="ghost" className="gap-1.5 ml-auto" onClick={clearSelection}>
+                <X className="h-3.5 w-3.5" />
+                Limpar
+              </Button>
+            </div>
+          )}
+
           <div className="rounded-lg border border-border bg-card shadow-card overflow-hidden">
             <div className="overflow-x-auto">
               <Table>
