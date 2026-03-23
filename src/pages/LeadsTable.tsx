@@ -71,9 +71,10 @@ const ORIGEM_LABELS: Record<string, string> = {
 
 const LeadsTable = () => {
   const { logActivity } = useActivityLog();
-  const { coresMap } = useFunilEtapas();
+  const { etapasNomes, coresMap } = useFunilEtapas();
   const { isAdmin } = useUserRole();
-  const { usersMap } = useUsers();
+  const { usersMap, users } = useUsers();
+  const { user } = useAuth();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
