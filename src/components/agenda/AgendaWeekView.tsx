@@ -27,6 +27,7 @@ interface Props {
   selectedDate: Date | null;
   onSelectDate: (date: Date) => void;
   blockedDays?: Record<string, AgendaBlock[]>;
+  onSlotClick?: (date: Date, hour: number) => void;
 }
 
 function getEventPosition(event: AgendaEvent) {
