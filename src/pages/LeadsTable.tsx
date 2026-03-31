@@ -175,7 +175,9 @@ const LeadsTable = () => {
         (lead) =>
           lead.nome_completo?.toLowerCase().includes(term) ||
           lead.email?.toLowerCase().includes(term) ||
-          lead.telefone?.includes(term),
+          lead.telefone?.includes(term) ||
+          lead.nota_assessor?.toLowerCase().includes(term) ||
+          lead.observacoes?.toLowerCase().includes(term),
       );
     }
 
