@@ -1,32 +1,17 @@
 
 
-# Filtro de período na página /equipe
+# Ajustar legenda do gráfico "Etapas por Assessor"
 
-## O que será feito
+## Problema
+A legenda do Recharts `<Legend />` está renderizando inline dentro do `ResponsiveContainer` de 300px, ficando amontoada quando há muitas etapas.
 
-Adicionar filtro de período (Hoje, Ontem, 7d, 15d, 30d, Personalizado) na página `/equipe`, filtrando os dados passados para `EquipeMetrics`, `EquipeTable` e `EquipeCharts`.
+## Solução
 
-## Alterações
+### `src/components/equipe/EquipeCharts.tsx`
 
-### `src/pages/Equipe.tsx`
+1. **Remover `<Legend />` de dentro do chart** (linha 168)
+2. **Aumentar altura do ResponsiveContainer** de 300 para 350px para dar mais espaço ao gráfico
+3. **Adicionar legenda customizada abaixo do gráfico** usando `<div className="flex flex-wrap gap-2 mt-4">` com badges/chips para cada etapa, mostrando bolinha de cor + nome da etapa em fonte pequena (text-xs). Usar as cores de `coresMap` ou `COLORS` como fallback — mesma lógica já usada nas `<Bar>`.
 
-1. Adicionar estados: `period` (`"30"` default), `customDateFrom`, `customDateTo`, `showCustomDates`
-2. Adicionar função `getLeadDate()` (mesma lógica do `DashboardCharts` — prioriza `created_time_brasil`)
-3. Adicionar `filteredLeads` via `useMemo` que filtra `leads` pelo período selecionado
-4. Adicionar UI do filtro no header (Select + date pickers para modo personalizado) — mesmo padrão visual do `DashboardCharts`
-5. Passar `filteredLeads` em vez de `leads` para `EquipeMetrics`, `EquipeTable`, `EquipeCharts` e `EquipeExport`
-
-### Imports adicionais em Equipe.tsx
-
-`useMemo` do React, `Select/SelectContent/SelectItem/SelectTrigger/SelectValue`, `Button`, `Calendar`, `Popover/PopoverContent/PopoverTrigger`, `CalendarIcon`, `format/subDays/startOfDay/endOfDay/isWithinInterval` do date-fns, `ptBR`, `cn`
-
-### UI do filtro
-
-Posicionado na linha do header, ao lado do botão de exportação:
-
-```text
-[Gestão de Equipe]                    [Select período] [date pickers se custom] [Exportar]
-```
-
-Nenhuma alteração nos componentes filhos — eles já recebem `leads` como prop e renderizam com base nos dados recebidos.
+Resultado: legenda separada do gráfico, com layout flex-wrap que quebra linha naturalmente sem sobreposição.
 
