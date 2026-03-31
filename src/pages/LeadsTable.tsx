@@ -175,7 +175,9 @@ const LeadsTable = () => {
         (lead) =>
           lead.nome_completo?.toLowerCase().includes(term) ||
           lead.email?.toLowerCase().includes(term) ||
-          lead.telefone?.includes(term),
+          lead.telefone?.includes(term) ||
+          lead.nota_assessor?.toLowerCase().includes(term) ||
+          lead.observacoes?.toLowerCase().includes(term),
       );
     }
 
@@ -548,7 +550,7 @@ const LeadsTable = () => {
       />
 
       {/* Busca Global */}
-      <GlobalSearch value={searchTerm} onChange={setSearchTerm} placeholder="Buscar por nome, email ou telefone..." />
+      <GlobalSearch value={searchTerm} onChange={setSearchTerm} placeholder="Buscar por nome, email, telefone ou notas..." />
 
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
