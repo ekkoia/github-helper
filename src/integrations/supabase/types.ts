@@ -417,6 +417,7 @@ export type Database = {
           created_time_brasil: string | null
           data_atualizacao: string
           data_criacao: string
+          data_primeiro_contato: string | null
           distancia_km: number | null
           email: string | null
           estrada_terra_km: number | null
@@ -451,6 +452,7 @@ export type Database = {
           created_time_brasil?: string | null
           data_atualizacao?: string
           data_criacao?: string
+          data_primeiro_contato?: string | null
           distancia_km?: number | null
           email?: string | null
           estrada_terra_km?: number | null
@@ -485,6 +487,7 @@ export type Database = {
           created_time_brasil?: string | null
           data_atualizacao?: string
           data_criacao?: string
+          data_primeiro_contato?: string | null
           distancia_km?: number | null
           email?: string | null
           estrada_terra_km?: number | null
