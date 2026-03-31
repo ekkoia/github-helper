@@ -1,69 +1,72 @@
 
 
-# Sistema de Notificações Automáticas e Automação de Recontato
+# Página de Gestão de Equipe (/equipe)
 
 ## Visão geral
 
-Duas automações backend que rodam periodicamente via pg_cron + Edge Function:
+Transformar a página placeholder `/equipe` numa visão gerencial completa para admins, com métricas por assessor, gráficos de performance e exportação de dados.
 
-1. **Alerta de lead sem contato (2h):** Leads na etapa "Lead novo!" há mais de 2 horas geram notificação no CRM para o assessor responsável (e para admins/gestora).
-2. **Automação de recontato (24h):** Leads na etapa "Em contato comercial (assessor)." há mais de 24 horas são movidos automaticamente para "Provisório> recontato 24h".
-
-## Arquitetura
+## Estrutura de componentes
 
 ```text
-pg_cron (cada 5 min)
-  └─> net.http_post → Edge Function "lead-automations"
-        ├─ Query 1: leads em "Lead novo!" com data_criacao < now() - 2h
-        │   └─ Insere notificação na tabela notifications
-        │      (para responsavel_id + admins)
-        ├─ Query 2: leads em "Em contato comercial (assessor)." 
-        │   com data_atualizacao < now() - 24h
-        │   └─ UPDATE etapa_funil → "Provisório> recontato 24h"
-        │   └─ Insere notificação para o responsável
-        └─ Responde 200 OK
+src/pages/Equipe.tsx (página principal - reescrita)
+├── src/components/equipe/EquipeMetrics.tsx      (cards de métricas)
+├── src/components/equipe/EquipeCharts.tsx        (4 gráficos)
+├── src/components/equipe/EquipeTable.tsx          (tabela carteira por assessor)
+└── src/components/equipe/EquipeExport.tsx          (botão exportação)
 ```
 
-## Alterações
+## Dados necessários
 
-### 1. Migração SQL — Tabela de controle + pg_cron
+Reutiliza `fetchAllLeads()` + `useUsers()` + `useFunilEtapas()` existentes. Sem alteração no banco.
 
-- Adicionar coluna `alerta_sem_contato_enviado` (boolean, default false) na tabela `leads` para evitar alertas duplicados
-- Habilitar extensões `pg_cron` e `pg_net` (se não habilitadas)
+## 1. EquipeMetrics — Cards de resumo (4 cards)
 
-### 2. Nova Edge Function: `supabase/functions/lead-automations/index.ts`
+- **Total de Assessores Ativos** — count de users com leads atribuídos
+- **Total de Leads na Carteira** — total de leads com responsável
+- **Leads Sem Assessor** — leads com `responsavel_id = null`
+- **Taxa de Conversão Geral** — % leads em etapas finais vs total
 
-- Autenticação via service_role key
-- **Alerta 2h:** Busca leads em "Lead novo!" com `data_criacao < now() - interval '2 hours'` e `alerta_sem_contato_enviado = false`. Para cada lead:
-  - Insere notificação para o `responsavel_id` (se existir) e para todos os admins/globals
-  - Marca `alerta_sem_contato_enviado = true`
-- **Recontato 24h:** Busca leads em "Em contato comercial (assessor)." com `data_atualizacao < now() - interval '24 hours'`. Para cada lead:
-  - Atualiza `etapa_funil` para "Provisório> recontato 24h"
-  - Insere notificação para o responsável
-  - Registra atividade em `user_activities`
+Segue o mesmo padrão visual de `DashboardMetrics.tsx`.
 
-### 3. Agendamento pg_cron
+## 2. EquipeTable — Tabela de carteira por assessor
 
-- Cron job a cada 5 minutos chamando a Edge Function via `net.http_post`
+Tabela com colunas:
+| Assessor | Total Leads | Lead Novo | Em Contato | Proposta | Convertido | Valor Total |
 
-### 4. Sem alteração no frontend
+Cada linha = um assessor. Dados calculados agrupando leads por `responsavel_id`.
 
-- As notificações já aparecem no `NotificationsPopover` existente via realtime subscription
-- Os leads movidos de etapa refletem automaticamente no Kanban/tabela ao recarregar
+## 3. EquipeCharts — 4 gráficos (grid 2x2)
 
-## Detalhes técnicos
+1. **Leads por Assessor** (BarChart vertical) — quantidade de leads por assessor
+2. **Leads por Etapa por Assessor** (BarChart stacked) — distribuição de etapas por assessor
+3. **Evolução do Pipeline** (AreaChart) — leads criados por dia nos últimos 30 dias, agrupados por assessor
+4. **Taxa de Conversão por Assessor** (BarChart horizontal) — % de leads em etapas avançadas por assessor
 
-### Nova coluna
-```sql
-ALTER TABLE leads ADD COLUMN alerta_sem_contato_enviado boolean DEFAULT false;
-```
+Filtro de período idêntico ao do Dashboard (Hoje, Ontem, 7/15/30 dias, Personalizado).
 
-### Edge Function (resumo)
-- Usa `createClient` com `SUPABASE_SERVICE_ROLE_KEY` para bypass RLS
-- Processa em batches de 100 leads
-- Notificações com `type: 'lead_sem_contato'` e `type: 'lead_recontato'`
-- Metadata inclui `lead_id` e `lead_nome` para navegação no popover
+Estilo visual: mesmos padrões de cores, tooltips, CartesianGrid, ResponsiveContainer do `DashboardCharts.tsx`.
 
-### Ícone no NotificationsPopover
-- Adicionar ícone para `lead_sem_contato` (ex: `AlertCircle` em amarelo) e `lead_recontato` (ex: `Clock` em azul)
+## 4. EquipeExport — Exportação
+
+Botão "Exportar" com Popover (CSV/XLSX), reutilizando `exportToCSV` e `exportToXLSX` de `exportUtils.ts`. Os dados exportados incluem todos os leads com o nome do assessor responsável, etapa, data, etc.
+
+## 5. Equipe.tsx — Página principal
+
+- Guarda proteção admin (`useUserRole`)
+- Carrega leads via `fetchAllLeads()`, users via `useUsers()`
+- Renderiza na ordem: header + export button, metrics, table, charts
+- Filtro de período compartilhado entre charts e table
+
+## Arquivos a criar/editar
+
+| Arquivo | Ação |
+|---------|------|
+| `src/pages/Equipe.tsx` | Reescrever completamente |
+| `src/components/equipe/EquipeMetrics.tsx` | Criar |
+| `src/components/equipe/EquipeCharts.tsx` | Criar |
+| `src/components/equipe/EquipeTable.tsx` | Criar |
+| `src/components/equipe/EquipeExport.tsx` | Criar |
+
+Sem migrações SQL. Sem novos hooks. Reutiliza infraestrutura existente.
 
