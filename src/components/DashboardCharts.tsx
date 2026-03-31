@@ -553,6 +553,50 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
+        {/* Gráfico de Barras Horizontais - Leads por Origem */}
+        <Card className="col-span-1 lg:col-span-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold text-foreground">Leads por Origem</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">De onde os leads estão vindo</p>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {origemData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={Math.max(250, origemData.length * 45)}>
+                <BarChart data={origemData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" style={{ fontSize: '12px' }} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="origem" 
+                    width={160}
+                    stroke="hsl(var(--muted-foreground))"
+                    style={{ fontSize: '11px' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                    }}
+                    itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                    labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                  />
+                  <Bar dataKey="count" name="Quantidade">
+                    {origemData.map((_, index) => (
+                      <Cell key={`cell-origem-${index}`} fill={ORIGEM_COLORS[index % ORIGEM_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                Nenhum lead no período selecionado
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
