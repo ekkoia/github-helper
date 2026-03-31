@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { X, Pencil, Trash2, Clock, Bell, User, UserCircle, Filter } from 'lucide-react';
@@ -30,6 +30,7 @@ interface Props {
 
 export function AgendaEventPopover({ event, anchor, onClose, onEdit, onDelete, usersMap, leadsMap, coresMap }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // Close on click outside
   useEffect(() => {
@@ -87,15 +88,29 @@ export function AgendaEventPopover({ event, anchor, onClose, onEdit, onDelete, u
     >
       {/* Header actions */}
       <div className="flex items-center justify-end gap-1 px-3 pt-3 pb-1">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { onClose(); onEdit(event); }}>
-          <Pencil className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => { onClose(); onDelete(event.id); }}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
+        {!confirmingDelete ? (
+          <>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { onClose(); onEdit(event); }}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setConfirmingDelete(true)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </>
+        ) : (
+          <div className="flex items-center gap-2 w-full">
+            <span className="text-xs text-muted-foreground flex-1">Excluir este evento?</span>
+            <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={() => { onClose(); onDelete(event.id); }}>
+              Excluir
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setConfirmingDelete(false)}>
+              Cancelar
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Body */}
