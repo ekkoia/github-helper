@@ -70,8 +70,10 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setTitle('');
       setDescription('');
       setStartDate(defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
-      setStartTime('09:00');
-      setEndTime('10:00');
+      const st = defaultTime || '09:00';
+      setStartTime(st);
+      const nextHour = String(Math.min(parseInt(st.split(':')[0]) + 1, 23)).padStart(2, '0') + ':00';
+      setEndTime(nextHour);
       setAllDay(false);
       setUserId(user?.id || '');
       setReminderMinutes(30);
