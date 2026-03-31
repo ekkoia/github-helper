@@ -35,13 +35,40 @@ export const EquipeCharts = ({ leads, usersMap }: EquipeChartsProps) => {
 
   // Get unique assessor names with leads
   const assessorNames = useMemo(() => {
-    const map: Record<string, string> = {};
+    const fullNames: Record<string, string> = {};
     leads.forEach(l => {
-      if (l.responsavel_id && !map[l.responsavel_id]) {
-        map[l.responsavel_id] = usersMap[l.responsavel_id]?.nome_completo || "Desconhecido";
+      if (l.responsavel_id && !fullNames[l.responsavel_id]) {
+        fullNames[l.responsavel_id] = usersMap[l.responsavel_id]?.nome_completo || "Desconhecido";
       }
     });
-    return map;
+
+    const shortName = (full: string) => {
+      const parts = full.split(/\s+/);
+      return parts.length >= 2 ? `${parts[0]} ${parts[1]}` : full;
+    };
+
+    const shorts: Record<string, string[]> = {};
+    const idToShort: Record<string, string> = {};
+
+    Object.entries(fullNames).forEach(([id, full]) => {
+      const s = shortName(full);
+      idToShort[id] = s;
+      if (!shorts[s]) shorts[s] = [];
+      shorts[s].push(id);
+    });
+
+    const result: Record<string, string> = {};
+    Object.entries(fullNames).forEach(([id, full]) => {
+      const s = idToShort[id];
+      if (shorts[s].length > 1) {
+        const parts = full.split(/\s+/);
+        result[id] = parts.length >= 3 ? `${parts[0]} ${parts[2]}` : full;
+      } else {
+        result[id] = s;
+      }
+    });
+
+    return result;
   }, [leads, usersMap]);
 
   // 1. Leads por Assessor (Bar)
