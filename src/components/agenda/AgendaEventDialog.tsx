@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
+import { Bell } from 'lucide-react';
 import { format } from 'date-fns';
 import type { AgendaEvent, CreateEventData } from '@/hooks/useAgendaEvents';
 
@@ -35,6 +36,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
   const [endTime, setEndTime] = useState('10:00');
   const [allDay, setAllDay] = useState(false);
   const [userId, setUserId] = useState('');
+  const [reminderMinutes, setReminderMinutes] = useState(30);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setEndTime(event.end_at ? format(new Date(event.end_at), 'HH:mm') : '10:00');
       setAllDay(event.all_day || false);
       setUserId(event.user_id);
+      setReminderMinutes((event as any).reminder_minutes ?? 30);
     } else {
       setTitle('');
       setDescription('');
@@ -54,6 +57,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setEndTime('10:00');
       setAllDay(false);
       setUserId(user?.id || '');
+      setReminderMinutes(30);
     }
   }, [event, defaultDate, user, open]);
 
@@ -73,6 +77,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       end_at: endAt,
       all_day: allDay,
       user_id: userId || user?.id || '',
+      reminder_minutes: reminderMinutes,
     };
 
     let ok: boolean | undefined;
@@ -136,6 +141,21 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
               </div>
             </div>
           )}
+
+          <div>
+            <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Lembrete</Label>
+            <Select value={String(reminderMinutes)} onValueChange={(v) => setReminderMinutes(Number(v))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">Sem lembrete</SelectItem>
+                <SelectItem value="15">15 minutos antes</SelectItem>
+                <SelectItem value="30">30 minutos antes</SelectItem>
+                <SelectItem value="60">1 hora antes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {isAdmin && Object.keys(usersMap).length > 0 && (
             <div>

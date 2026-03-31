@@ -16,16 +16,16 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const now = new Date();
-    const in30min = new Date(now.getTime() + 30 * 60 * 1000);
+    const in60min = new Date(now.getTime() + 60 * 60 * 1000);
 
-    // Fetch upcoming events that haven't sent reminders
+    // Fetch upcoming events that haven't sent reminders (up to 60min ahead)
     const { data: events, error: fetchError } = await supabase
       .from("agenda_events")
-      .select("id, title, start_at, user_id, lead_id")
+      .select("id, title, start_at, user_id, lead_id, reminder_minutes")
       .eq("reminder_sent", false)
       .eq("all_day", false)
       .gte("start_at", now.toISOString())
-      .lte("start_at", in30min.toISOString());
+      .lte("start_at", in60min.toISOString());
 
     if (fetchError) {
       console.error("Error fetching events:", fetchError);
@@ -44,9 +44,18 @@ Deno.serve(async (req) => {
     let processed = 0;
 
     for (const event of events) {
-      const minutesUntil = Math.round(
-        (new Date(event.start_at).getTime() - now.getTime()) / 60000
-      );
+      const reminderMinutes = event.reminder_minutes ?? 30;
+      
+      // Skip events with no reminder (0 minutes)
+      if (reminderMinutes === 0) continue;
+
+      const eventStart = new Date(event.start_at).getTime();
+      const reminderTime = eventStart - reminderMinutes * 60000;
+
+      // Only send if now >= reminder time
+      if (now.getTime() < reminderTime) continue;
+
+      const minutesUntil = Math.round((eventStart - now.getTime()) / 60000);
 
       // Insert notification
       const { error: notifError } = await supabase.from("notifications").insert({

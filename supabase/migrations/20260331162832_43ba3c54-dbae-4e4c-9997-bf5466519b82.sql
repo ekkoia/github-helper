@@ -1,0 +1,1 @@
+ALTER TABLE agenda_events ADD COLUMN IF NOT EXISTS reminder_minutes integer DEFAULT 30;
