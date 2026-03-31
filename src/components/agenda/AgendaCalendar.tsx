@@ -5,7 +5,9 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Ban } from 'lucide-react';
 import type { AgendaEvent } from '@/hooks/useAgendaEvents';
+import type { AgendaBlock } from '@/hooks/useAgendaBlocks';
 
 const EVENT_COLORS: Record<string, string> = {
   manual: 'bg-blue-500',
@@ -18,9 +20,10 @@ interface Props {
   events: AgendaEvent[];
   selectedDate: Date | null;
   onSelectDate: (date: Date) => void;
+  blockedDays?: Record<string, AgendaBlock[]>;
 }
 
-export function AgendaCalendar({ currentMonth, events, selectedDate, onSelectDate }: Props) {
+export function AgendaCalendar({ currentMonth, events, selectedDate, onSelectDate, blockedDays = {} }: Props) {
   const weeks = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -64,6 +67,9 @@ export function AgendaCalendar({ currentMonth, events, selectedDate, onSelectDat
           {week.map((day) => {
             const key = format(day, 'yyyy-MM-dd');
             const dayEvents = eventsByDay[key] || [];
+            const dayBlocks = blockedDays[key] || [];
+            const isBlocked = dayBlocks.length > 0;
+            const hasAllDayBlock = dayBlocks.some(b => b.all_day);
             const inMonth = isSameMonth(day, currentMonth);
             const selected = selectedDate && isSameDay(day, selectedDate);
             const today = isToday(day);
@@ -76,19 +82,33 @@ export function AgendaCalendar({ currentMonth, events, selectedDate, onSelectDat
                   'min-h-[80px] p-1 text-left border-r border-border last:border-r-0 transition-colors hover:bg-muted/50',
                   !inMonth && 'opacity-40',
                   selected && 'bg-primary/10 ring-1 ring-primary',
+                  isBlocked && hasAllDayBlock && 'bg-destructive/5',
                 )}
               >
-                <span
-                  className={cn(
-                    'inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium',
-                    today && 'bg-primary text-primary-foreground',
+                <div className="flex items-center gap-0.5">
+                  <span
+                    className={cn(
+                      'inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium',
+                      today && 'bg-primary text-primary-foreground',
+                    )}
+                  >
+                    {format(day, 'd')}
+                  </span>
+                  {isBlocked && (
+                    <Ban className="h-3 w-3 text-destructive" />
                   )}
-                >
-                  {format(day, 'd')}
-                </span>
+                </div>
 
-                <div className="mt-1 space-y-0.5">
-                  {dayEvents.slice(0, 3).map((ev) => (
+                {isBlocked && (
+                  <div className="mt-0.5">
+                    <div className="text-[10px] leading-tight truncate rounded px-1 py-0.5 bg-destructive/10 text-destructive font-medium">
+                      {hasAllDayBlock ? 'Indisponível' : dayBlocks.map(b => `${b.start_time?.slice(0,5)}-${b.end_time?.slice(0,5)}`).join(', ')}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-0.5 space-y-0.5">
+                  {dayEvents.slice(0, isBlocked ? 2 : 3).map((ev) => (
                     <div
                       key={ev.id}
                       className={cn(
@@ -99,9 +119,9 @@ export function AgendaCalendar({ currentMonth, events, selectedDate, onSelectDat
                       {ev.title}
                     </div>
                   ))}
-                  {dayEvents.length > 3 && (
+                  {dayEvents.length > (isBlocked ? 2 : 3) && (
                     <div className="text-[10px] text-muted-foreground px-1">
-                      +{dayEvents.length - 3} mais
+                      +{dayEvents.length - (isBlocked ? 2 : 3)} mais
                     </div>
                   )}
                 </div>

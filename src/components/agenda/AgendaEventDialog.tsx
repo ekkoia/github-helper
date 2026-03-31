@@ -10,9 +10,11 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Bell } from 'lucide-react';
+import { Bell, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { AgendaEvent, CreateEventData } from '@/hooks/useAgendaEvents';
+import type { AgendaBlock } from '@/hooks/useAgendaBlocks';
 
 interface Props {
   open: boolean;

@@ -109,6 +109,8 @@ export const getActivityTypeIcon = (type: string): string => {
     agenda_created: '📅',
     agenda_updated: '🔄',
     agenda_deleted: '❌',
+    agenda_block_created: '🚫',
+    agenda_block_deleted: '✅',
   };
   return icons[type] || '📝';
 };
