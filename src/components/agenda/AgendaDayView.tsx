@@ -72,7 +72,7 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, o
               <div
                 key={ev.id}
                 className={cn('text-xs rounded px-2 py-1 text-white cursor-pointer hover:opacity-90', EVENT_COLORS[ev.event_type] || 'bg-muted-foreground')}
-                onClick={() => onEdit?.(ev)}
+                onClick={(e) => onEventClick ? onEventClick(ev, e) : onEdit?.(ev)}
               >
                 {ev.title}
               </div>

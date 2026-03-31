@@ -218,7 +218,7 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
                       )}
                       style={{ top: pos.top, height: pos.height, minHeight: 20 }}
                       title={ev.title}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); onEventClick?.(ev, e); }}
                     >
                       <div className="font-medium truncate">{ev.title}</div>
                       <div className="truncate opacity-80">
