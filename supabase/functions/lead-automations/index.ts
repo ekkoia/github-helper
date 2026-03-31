@@ -64,6 +64,26 @@ Deno.serve(async (req) => {
         await supabase.from("notifications").insert(notifications);
       }
 
+      // Create agenda events for 2h alerts
+      const agendaAlerts: any[] = [];
+      for (const lead of leadsNoContact) {
+        if (lead.responsavel_id) {
+          agendaAlerts.push({
+            title: `⚠️ Contatar lead: ${lead.nome_completo}`,
+            description: `Lead sem contato há mais de 2 horas.`,
+            event_type: "automation",
+            start_at: new Date().toISOString(),
+            all_day: false,
+            lead_id: lead.id,
+            user_id: lead.responsavel_id,
+            metadata: { type: "alerta_sem_contato", lead_id: lead.id },
+          });
+        }
+      }
+      if (agendaAlerts.length > 0) {
+        await supabase.from("agenda_events").insert(agendaAlerts);
+      }
+
       // Mark leads as alerted
       const leadIds = leadsNoContact.map((l: any) => l.id);
       await supabase
