@@ -170,7 +170,12 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
               >
                 {/* Hour grid lines */}
                 {HOURS.map((hour) => (
-                  <div key={hour} className="border-t border-border" style={{ height: HOUR_HEIGHT }} />
+                  <div
+                    key={hour}
+                    className="border-t border-border cursor-pointer hover:bg-muted/30 transition-colors"
+                    style={{ height: HOUR_HEIGHT }}
+                    onClick={(e) => { e.stopPropagation(); onSlotClick?.(day, hour); }}
+                  />
                 ))}
 
                 {/* Blocks */}
