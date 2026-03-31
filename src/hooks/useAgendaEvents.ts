@@ -167,6 +167,7 @@ export function useAgendaEvents(currentMonth: Date) {
     await fetchEvents();
     if (eventToDelete) {
       sendAgendaNotification(eventToDelete.user_id, eventToDelete.title, eventToDelete.start_at, eventToDelete.description || undefined, 'deleted');
+      logActivity('agenda_deleted', `Evento excluído: ${eventToDelete.title}`, { event_id: id, event_title: eventToDelete.title });
     }
     return true;
   };

@@ -102,6 +102,9 @@ export const getActivityTypeIcon = (type: string): string => {
     user_role_changed: '🛡️',
     config_updated: '⚙️',
     funnel_updated: '📊',
+    agenda_created: '📅',
+    agenda_updated: '🔄',
+    agenda_deleted: '❌',
   };
   return icons[type] || '📝';
 };
