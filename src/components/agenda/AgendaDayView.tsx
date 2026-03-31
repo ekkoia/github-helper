@@ -43,7 +43,7 @@ function getEventPosition(event: AgendaEvent) {
   return { top: Math.max(0, top), height };
 }
 
-export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, onSlotClick }: Props) {
+export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, onSlotClick, onEventClick }: Props) {
   const key = format(currentDate, 'yyyy-MM-dd');
   const dayBlocks = blockedDays[key] || [];
 
