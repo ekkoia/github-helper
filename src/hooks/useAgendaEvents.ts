@@ -81,6 +81,43 @@ export function useAgendaEvents(currentMonth: Date) {
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchEvents]);
 
+  const sendAgendaNotification = async (
+    eventUserId: string,
+    eventTitle: string,
+    eventStartAt: string,
+    eventDescription: string | undefined,
+    action: 'created' | 'updated' | 'deleted'
+  ) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email, nome_completo')
+        .eq('user_id', eventUserId)
+        .single();
+
+      if (!profile) return;
+
+      const startDate = new Date(eventStartAt);
+      const eventDate = startDate.toLocaleDateString('pt-BR');
+      const eventTime = startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      await supabase.functions.invoke('send-agenda-email', {
+        body: {
+          to_email: profile.email,
+          nome_assessor: profile.nome_completo || 'Assessor',
+          event_title: eventTitle,
+          event_date: eventDate,
+          event_time: eventTime,
+          event_description: eventDescription || '',
+          action,
+          user_id: eventUserId,
+        },
+      });
+    } catch (err) {
+      console.error('Error sending agenda notification:', err);
+    }
+  };
+
   const createEvent = async (data: CreateEventData) => {
     if (!user) return;
     const { error } = await supabase.from('agenda_events').insert({
@@ -94,6 +131,7 @@ export function useAgendaEvents(currentMonth: Date) {
     }
     toast.success('Evento criado com sucesso!');
     await fetchEvents();
+    sendAgendaNotification(data.user_id, data.title, data.start_at, data.description, 'created');
     return true;
   };
 
@@ -106,10 +144,15 @@ export function useAgendaEvents(currentMonth: Date) {
     }
     toast.success('Evento atualizado!');
     await fetchEvents();
+    if (data.user_id && data.title && data.start_at) {
+      sendAgendaNotification(data.user_id, data.title, data.start_at, data.description, 'updated');
+    }
     return true;
   };
 
   const deleteEvent = async (id: string) => {
+    // Get event data before deleting for notification
+    const eventToDelete = events.find(e => e.id === id);
     const { error } = await supabase.from('agenda_events').delete().eq('id', id);
     if (error) {
       toast.error('Erro ao excluir evento');
@@ -118,6 +161,9 @@ export function useAgendaEvents(currentMonth: Date) {
     }
     toast.success('Evento excluído!');
     await fetchEvents();
+    if (eventToDelete) {
+      sendAgendaNotification(eventToDelete.user_id, eventToDelete.title, eventToDelete.start_at, eventToDelete.description || undefined, 'deleted');
+    }
     return true;
   };
 

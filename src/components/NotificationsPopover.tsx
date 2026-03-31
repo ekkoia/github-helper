@@ -128,7 +128,7 @@ export const NotificationsPopover = () => {
     }
 
     // Navegar baseado no tipo
-    if (notification.type === "agenda_reminder") {
+    if (notification.type === "agenda_reminder" || notification.type === "agenda_created" || notification.type === "agenda_updated" || notification.type === "agenda_deleted") {
       navigate("/agenda");
     } else if (notification.metadata?.lead_id) {
       navigate("/leads");
