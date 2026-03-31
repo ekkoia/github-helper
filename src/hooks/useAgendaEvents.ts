@@ -33,6 +33,7 @@ export interface CreateEventData {
   lead_id?: string | null;
   user_id: string;
   reminder_minutes?: number;
+  metadata?: Record<string, any>;
 }
 
 export function useAgendaEvents(currentMonth: Date) {
