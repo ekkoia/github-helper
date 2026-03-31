@@ -33,6 +33,7 @@ export interface CreateEventData {
   lead_id?: string | null;
   user_id: string;
   reminder_minutes?: number;
+  metadata?: Record<string, any>;
 }
 
 export function useAgendaEvents(currentMonth: Date) {
@@ -122,8 +123,10 @@ export function useAgendaEvents(currentMonth: Date) {
 
   const createEvent = async (data: CreateEventData) => {
     if (!user) return;
+    const { metadata, ...rest } = data;
     const { error } = await supabase.from('agenda_events').insert({
-      ...data,
+      ...rest,
+      metadata: metadata || {},
       created_by: user.id,
     } as any);
     if (error) {
@@ -139,7 +142,9 @@ export function useAgendaEvents(currentMonth: Date) {
   };
 
   const updateEvent = async (id: string, data: Partial<CreateEventData>) => {
-    const { error } = await supabase.from('agenda_events').update(data as any).eq('id', id);
+    const { metadata, ...rest } = data;
+    const updatePayload = { ...rest, ...(metadata !== undefined ? { metadata } : {}) };
+    const { error } = await supabase.from('agenda_events').update(updatePayload as any).eq('id', id);
     if (error) {
       toast.error('Erro ao atualizar evento');
       console.error(error);

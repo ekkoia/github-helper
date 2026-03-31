@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAgendaEvents, AgendaEvent } from '@/hooks/useAgendaEvents';
 import { useAgendaBlocks } from '@/hooks/useAgendaBlocks';
 import { useUsers } from '@/hooks/useUsers';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useFunilEtapas } from '@/hooks/useFunilEtapas';
+import { supabase } from '@/integrations/supabase/client';
 import { AgendaCalendar } from '@/components/agenda/AgendaCalendar';
 import { AgendaEventList } from '@/components/agenda/AgendaEventList';
 import { AgendaEventDialog } from '@/components/agenda/AgendaEventDialog';
@@ -28,6 +30,28 @@ const Agenda = () => {
   const { users } = useUsers();
   const { events, loading, createEvent, updateEvent, deleteEvent } = useAgendaEvents(currentMonth);
   const { blocks, blocksByDate, createBlock, deleteBlock } = useAgendaBlocks(currentMonth);
+  const { coresMap } = useFunilEtapas();
+
+  // Fetch leads for the dialog
+  const [leads, setLeads] = useState<{ id: string; nome_completo: string }[]>([]);
+  useEffect(() => {
+    const fetchLeads = async () => {
+      const { data } = await supabase
+        .from('leads')
+        .select('id, nome_completo')
+        .order('nome_completo', { ascending: true })
+        .limit(1000);
+      setLeads(data || []);
+    };
+    fetchLeads();
+  }, []);
+
+  // Build leadsMap for event list display
+  const leadsMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    leads.forEach(l => { map[l.id] = l.nome_completo; });
+    return map;
+  }, [leads]);
 
   const usersMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -146,6 +170,8 @@ const Agenda = () => {
               usersMap={usersMap}
               blocks={blocks}
               onDeleteBlock={deleteBlock}
+              leadsMap={leadsMap}
+              coresMap={coresMap}
             />
           </div>
         </div>
@@ -160,6 +186,7 @@ const Agenda = () => {
         onSave={createEvent}
         onUpdate={updateEvent}
         blockedDays={blocksByDate}
+        leads={leads}
       />
 
       <AgendaBlockDialog

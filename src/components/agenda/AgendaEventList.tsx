@@ -27,9 +27,11 @@ interface Props {
   usersMap: Record<string, string>;
   blocks?: AgendaBlock[];
   onDeleteBlock?: (id: string) => void;
+  leadsMap?: Record<string, string>;
+  coresMap?: Record<string, string>;
 }
 
-export function AgendaEventList({ date, events, onEdit, onDelete, usersMap, blocks = [], onDeleteBlock }: Props) {
+export function AgendaEventList({ date, events, onEdit, onDelete, usersMap, blocks = [], onDeleteBlock, leadsMap = {}, coresMap = {} }: Props) {
   if (!date) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
@@ -114,11 +116,25 @@ export function AgendaEventList({ date, events, onEdit, onDelete, usersMap, bloc
                   )}
                   <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    {ev.all_day
+                   {ev.all_day
                       ? 'Dia inteiro'
                       : format(new Date(ev.start_at), 'HH:mm') +
                         (ev.end_at ? ` - ${format(new Date(ev.end_at), 'HH:mm')}` : '')}
                   </div>
+                  {ev.lead_id && leadsMap[ev.lead_id] && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      🔗 {leadsMap[ev.lead_id]}
+                    </p>
+                  )}
+                  {(ev.metadata as any)?.etapa_funil && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full shrink-0"
+                        style={{ backgroundColor: coresMap[(ev.metadata as any).etapa_funil] || '#6b7280' }}
+                      />
+                      <span className="text-xs text-muted-foreground">{(ev.metadata as any).etapa_funil}</span>
+                    </div>
+                  )}
                   {usersMap[ev.user_id] && (
                     <p className="text-xs text-muted-foreground mt-0.5">
                       👤 {usersMap[ev.user_id]}
