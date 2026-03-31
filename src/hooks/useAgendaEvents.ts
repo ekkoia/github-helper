@@ -91,6 +91,7 @@ export function useAgendaEvents(currentMonth: Date) {
       return false;
     }
     toast.success('Evento criado com sucesso!');
+    await fetchEvents();
     return true;
   };
 
@@ -102,6 +103,7 @@ export function useAgendaEvents(currentMonth: Date) {
       return false;
     }
     toast.success('Evento atualizado!');
+    await fetchEvents();
     return true;
   };
 
@@ -113,6 +115,7 @@ export function useAgendaEvents(currentMonth: Date) {
       return false;
     }
     toast.success('Evento excluído!');
+    await fetchEvents();
     return true;
   };
 
