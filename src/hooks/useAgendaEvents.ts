@@ -142,7 +142,9 @@ export function useAgendaEvents(currentMonth: Date) {
   };
 
   const updateEvent = async (id: string, data: Partial<CreateEventData>) => {
-    const { error } = await supabase.from('agenda_events').update(data as any).eq('id', id);
+    const { metadata, ...rest } = data;
+    const updatePayload = { ...rest, ...(metadata !== undefined ? { metadata } : {}) };
+    const { error } = await supabase.from('agenda_events').update(updatePayload as any).eq('id', id);
     if (error) {
       toast.error('Erro ao atualizar evento');
       console.error(error);
