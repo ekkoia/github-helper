@@ -115,13 +115,13 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Data *</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="dark:[color-scheme:dark]" />
             </div>
             {!allDay && (
               <>
                 <div>
                   <Label>Início</Label>
-                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="dark:[color-scheme:dark]" />
                 </div>
               </>
             )}
@@ -132,7 +132,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
               <div />
               <div>
                 <Label>Fim</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="dark:[color-scheme:dark]" />
               </div>
             </div>
           )}
