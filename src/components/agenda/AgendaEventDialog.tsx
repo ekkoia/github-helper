@@ -57,6 +57,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setEndTime('10:00');
       setAllDay(false);
       setUserId(user?.id || '');
+      setReminderMinutes(30);
     }
   }, [event, defaultDate, user, open]);
 
