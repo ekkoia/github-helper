@@ -35,6 +35,8 @@ const Agenda = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterUser, setFilterUser] = useState<string>('all');
   const [defaultTime, setDefaultTime] = useState<string | null>(null);
+  const [popoverEvent, setPopoverEvent] = useState<AgendaEvent | null>(null);
+  const [popoverAnchor, setPopoverAnchor] = useState<{ x: number; y: number } | null>(null);
 
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
