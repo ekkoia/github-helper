@@ -81,6 +81,8 @@ export const getActivityTypeLabel = (type: string): string => {
     agenda_created: 'Evento criado',
     agenda_updated: 'Evento atualizado',
     agenda_deleted: 'Evento excluído',
+    agenda_block_created: 'Agenda bloqueada',
+    agenda_block_deleted: 'Bloqueio removido',
   };
   return labels[type] || type;
 };
