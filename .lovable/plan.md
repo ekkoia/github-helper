@@ -1,40 +1,53 @@
 
 
-# Criar evento clicando em slot de horário vazio
+# Popover de detalhes do evento ao clicar (estilo Google Calendar)
 
 ## O que será feito
 
-Ao clicar em um slot de horário vazio nas visualizações Semana e Dia, o dialog de criação de evento abrirá automaticamente com a data e hora do slot pré-preenchidas.
+Ao clicar em um evento nas visualizações Semana, Dia ou Calendário Mensal, abrir um **popover flutuante** (não um dialog modal) posicionado próximo ao evento clicado, exibindo os detalhes do evento com ações rápidas (editar, excluir), similar ao Google Calendar.
 
 ## Alterações
 
-### 1. `src/pages/Agenda.tsx`
-- Adicionar estado `defaultTime` (string | null) para armazenar o horário clicado
-- Criar callback `handleSlotClick(date: Date, hour: number)` que define `currentDate`, `selectedDate`, `defaultTime` e abre o dialog com `editingEvent = null`
-- Passar `defaultTime` ao `AgendaEventDialog`
-- Limpar `defaultTime` quando o dialog fechar
+### 1. Novo componente: `src/components/agenda/AgendaEventPopover.tsx`
 
-### 2. `src/components/agenda/AgendaDayView.tsx`
-- Adicionar prop `onSlotClick?: (hour: number) => void`
-- Adicionar `onClick` handler em cada célula de hora no grid (as divs `border-t` com `height: HOUR_HEIGHT`), com `stopPropagation` nos eventos para não disparar ao clicar num evento existente
-- Adicionar `cursor-pointer` e `hover:bg-muted/30` nas células vazias
+Popover flutuante com:
+- **Header**: botões de ação (editar via lápis, excluir via lixeira, fechar via X) alinhados no topo direito
+- **Corpo**:
+  - Bolinha colorida (cor do tipo) + título do evento em destaque
+  - Data por extenso + horário (ex: "Terça-feira, 30 de dezembro de 2025 · 15:00 – 21:00")
+  - Descrição (se houver)
+  - Ícone sino + lembrete (ex: "30 minutos antes")
+  - Ícone lead + nome do lead vinculado (se houver)
+  - Ícone funil + etapa do funil com bolinha colorida (se houver)
+  - Ícone assessor + nome do assessor
+- Props: `event`, `anchorRect` (posição do click), `onClose`, `onEdit`, `onDelete`, `usersMap`, `leadsMap`, `coresMap`
+- Renderizado com `position: fixed` usando coordenadas do click, com lógica para não sair da tela
+
+### 2. `src/pages/Agenda.tsx`
+- Adicionar estado `popoverEvent: AgendaEvent | null` e `popoverAnchor: { x, y } | null`
+- Criar `handleEventClick(event, mouseEvent)` que salva o evento e as coordenadas do click
+- Fechar popover ao clicar fora, ao abrir dialog de edição, ou ao pressionar Escape
+- Botão "Editar" no popover → fecha popover, abre `AgendaEventDialog` com o evento
+- Botão "Excluir" no popover → confirma e exclui
 
 ### 3. `src/components/agenda/AgendaWeekView.tsx`
-- Adicionar prop `onSlotClick?: (date: Date, hour: number) => void`
-- Adicionar `onClick` handler em cada célula de hora de cada dia, passando o dia e a hora
-- Adicionar `cursor-pointer` e `hover:bg-muted/30` nas células
-- Impedir que cliques em eventos propaguem para o slot (`stopPropagation`)
+- Adicionar prop `onEventClick?: (event: AgendaEvent, e: React.MouseEvent) => void`
+- No `onClick` dos cards de evento, chamar `onEventClick` ao invés de apenas `stopPropagation`
 
-### 4. `src/components/agenda/AgendaEventDialog.tsx`
-- Aceitar prop opcional `defaultTime?: string | null`
-- No `useEffect` de inicialização (quando `!event`), usar `defaultTime` ao invés do hardcoded `'09:00'` para `startTime`, e calcular `endTime` como hora seguinte
+### 4. `src/components/agenda/AgendaDayView.tsx`
+- Substituir chamada direta a `onEdit` por `onEventClick` (mesma assinatura com MouseEvent)
+- Manter `onEdit` como fallback se `onEventClick` não for fornecido
+
+### 5. `src/components/agenda/AgendaCalendar.tsx`
+- Adicionar prop `onEventClick` para capturar cliques em eventos dentro do calendário mensal
 
 ## Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| `src/pages/Agenda.tsx` | Estado defaultTime + callback + passar props |
-| `src/components/agenda/AgendaDayView.tsx` | Prop onSlotClick + onClick nas células |
-| `src/components/agenda/AgendaWeekView.tsx` | Prop onSlotClick + onClick nas células |
-| `src/components/agenda/AgendaEventDialog.tsx` | Usar defaultTime para pré-preencher horário |
+| `src/components/agenda/AgendaEventPopover.tsx` | Criar |
+| `src/pages/Agenda.tsx` | Integrar popover + estado |
+| `src/components/agenda/AgendaWeekView.tsx` | Adicionar prop onEventClick |
+| `src/components/agenda/AgendaDayView.tsx` | Adicionar prop onEventClick |
+| `src/components/agenda/AgendaCalendar.tsx` | Adicionar prop onEventClick |
 
