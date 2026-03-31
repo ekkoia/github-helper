@@ -320,6 +320,19 @@ const Agenda = () => {
         usersMap={usersMap}
         onSave={createBlock}
       />
+
+      {popoverEvent && popoverAnchor && (
+        <AgendaEventPopover
+          event={popoverEvent}
+          anchor={popoverAnchor}
+          onClose={() => { setPopoverEvent(null); setPopoverAnchor(null); }}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          usersMap={usersMap}
+          leadsMap={leadsMap}
+          coresMap={coresMap}
+        />
+      )}
     </Layout>
   );
 };
