@@ -36,6 +36,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
   const [endTime, setEndTime] = useState('10:00');
   const [allDay, setAllDay] = useState(false);
   const [userId, setUserId] = useState('');
+  const [reminderMinutes, setReminderMinutes] = useState(30);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
