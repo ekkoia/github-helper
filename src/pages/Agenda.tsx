@@ -114,6 +114,33 @@ const Agenda = () => {
     setDialogOpen(true);
   };
 
+  const handleEventDrop = async (eventId: string, newDate: Date, newHour: number) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
+    const oldStart = parseISO(event.start_at);
+    const oldHour = getHours(oldStart);
+    const oldMinutes = getMinutes(oldStart);
+
+    // Calculate duration to preserve it
+    let durationMs = 60 * 60 * 1000; // default 1h
+    if (event.end_at) {
+      durationMs = parseISO(event.end_at).getTime() - oldStart.getTime();
+    }
+
+    // Build new start preserving minutes
+    const newStart = new Date(newDate);
+    newStart.setHours(newHour, oldMinutes, 0, 0);
+    const newEnd = new Date(newStart.getTime() + durationMs);
+
+    await updateEvent(eventId, {
+      start_at: newStart.toISOString(),
+      end_at: newEnd.toISOString(),
+      title: event.title,
+      user_id: event.user_id,
+    });
+  };
+
   // Navigation
   const goBack = () => {
     if (viewMode === 'month') setCurrentDate(m => subMonths(m, 1));
