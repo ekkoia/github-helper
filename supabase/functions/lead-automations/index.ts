@@ -160,6 +160,26 @@ Deno.serve(async (req) => {
         await supabase.from("user_activities").insert(activities);
       }
 
+      // Create agenda events for recontato
+      const agendaRecontato: any[] = [];
+      for (const lead of leadsRecontato) {
+        if (lead.responsavel_id) {
+          agendaRecontato.push({
+            title: `🔄 Recontatar: ${lead.nome_completo}`,
+            description: `Lead movido para recontato após 24h sem atualização.`,
+            event_type: "automation",
+            start_at: new Date().toISOString(),
+            all_day: false,
+            lead_id: lead.id,
+            user_id: lead.responsavel_id,
+            metadata: { type: "recontato_24h", lead_id: lead.id },
+          });
+        }
+      }
+      if (agendaRecontato.length > 0) {
+        await supabase.from("agenda_events").insert(agendaRecontato);
+      }
+
       recontatoCount = leadsRecontato.length;
     }
 

@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 const coreItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Leads", url: "/leads", icon: Users },
+  { title: "Agenda", url: "/agenda", icon: CalendarDays },
   { title: "Análises", url: "/analytics", icon: TrendingUp },
 ];
 
