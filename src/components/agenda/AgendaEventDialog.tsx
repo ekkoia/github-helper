@@ -10,11 +10,17 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Bell, AlertTriangle } from 'lucide-react';
+import { useFunilEtapas } from '@/hooks/useFunilEtapas';
+import { Bell, AlertTriangle, User, Target } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { AgendaEvent, CreateEventData } from '@/hooks/useAgendaEvents';
 import type { AgendaBlock } from '@/hooks/useAgendaBlocks';
+
+interface LeadOption {
+  id: string;
+  nome_completo: string;
+}
 
 interface Props {
   open: boolean;
@@ -25,12 +31,14 @@ interface Props {
   onSave: (data: CreateEventData) => Promise<boolean | undefined>;
   onUpdate: (id: string, data: Partial<CreateEventData>) => Promise<boolean | undefined>;
   blockedDays?: Record<string, AgendaBlock[]>;
+  leads?: LeadOption[];
 }
 
-export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate, blockedDays = {} }: Props) {
+export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate, blockedDays = {}, leads = [] }: Props) {
   const { user } = useAuth();
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
+  const { etapas, coresMap } = useFunilEtapas();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -40,6 +48,9 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
   const [allDay, setAllDay] = useState(false);
   const [userId, setUserId] = useState('');
   const [reminderMinutes, setReminderMinutes] = useState(30);
+  const [leadId, setLeadId] = useState<string>('');
+  const [etapaFunil, setEtapaFunil] = useState<string>('');
+  const [leadSearch, setLeadSearch] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -52,6 +63,8 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setAllDay(event.all_day || false);
       setUserId(event.user_id);
       setReminderMinutes((event as any).reminder_minutes ?? 30);
+      setLeadId(event.lead_id || '');
+      setEtapaFunil((event.metadata as any)?.etapa_funil || '');
     } else {
       setTitle('');
       setDescription('');
@@ -61,8 +74,15 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setAllDay(false);
       setUserId(user?.id || '');
       setReminderMinutes(30);
+      setLeadId('');
+      setEtapaFunil('');
     }
+    setLeadSearch('');
   }, [event, defaultDate, user, open]);
+
+  const filteredLeads = leads.filter(l =>
+    !leadSearch || l.nome_completo.toLowerCase().includes(leadSearch.toLowerCase())
+  );
 
   const handleSubmit = async () => {
     if (!title.trim() || !startDate) return;
@@ -73,6 +93,9 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       : new Date(`${startDate}T${startTime}`).toISOString();
     const endAt = allDay ? undefined : new Date(`${startDate}T${endTime}`).toISOString();
 
+    const metadata: Record<string, any> = {};
+    if (etapaFunil) metadata.etapa_funil = etapaFunil;
+
     const data: CreateEventData = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -81,6 +104,8 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       all_day: allDay,
       user_id: userId || user?.id || '',
       reminder_minutes: reminderMinutes,
+      lead_id: leadId || null,
+      metadata,
     };
 
     let ok: boolean | undefined;
@@ -96,7 +121,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{event ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
           <DialogDescription>
@@ -126,12 +151,10 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="dark:[color-scheme:dark]" />
             </div>
             {!allDay && (
-              <>
-                <div>
-                  <Label>Início</Label>
-                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="dark:[color-scheme:dark]" />
-                </div>
-              </>
+              <div>
+                <Label>Início</Label>
+                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="dark:[color-scheme:dark]" />
+              </div>
             )}
           </div>
 
@@ -146,7 +169,10 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
           )}
 
           <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Lembrete</Label>
+            <Label className="flex items-center gap-1.5">
+              <Bell className="h-3.5 w-3.5" />
+              Lembrete
+            </Label>
             <Select value={String(reminderMinutes)} onValueChange={(v) => setReminderMinutes(Number(v))}>
               <SelectTrigger>
                 <SelectValue />
@@ -159,6 +185,64 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
               </SelectContent>
             </Select>
           </div>
+
+          {/* Lead selector */}
+          {leads.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5" />
+                Lead vinculado
+              </Label>
+              <Select value={leadId || '_none'} onValueChange={(v) => setLeadId(v === '_none' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Nenhum lead" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 pb-1.5">
+                    <Input
+                      placeholder="Buscar lead..."
+                      value={leadSearch}
+                      onChange={(e) => setLeadSearch(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <SelectItem value="_none">Nenhum lead</SelectItem>
+                  {filteredLeads.slice(0, 50).map((lead) => (
+                    <SelectItem key={lead.id} value={lead.id}>{lead.nome_completo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Funnel stage selector */}
+          {etapas.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5" />
+                Etapa do funil
+              </Label>
+              <Select value={etapaFunil || '_none'} onValueChange={(v) => setEtapaFunil(v === '_none' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Nenhuma etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Nenhuma etapa</SelectItem>
+                  {etapas.map((etapa) => (
+                    <SelectItem key={etapa.id} value={etapa.nome}>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: coresMap[etapa.nome] || '#6b7280' }}
+                        />
+                        {etapa.nome}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {isAdmin && Object.keys(usersMap).length > 0 && (
             <div>

@@ -30,6 +30,28 @@ const Agenda = () => {
   const { users } = useUsers();
   const { events, loading, createEvent, updateEvent, deleteEvent } = useAgendaEvents(currentMonth);
   const { blocks, blocksByDate, createBlock, deleteBlock } = useAgendaBlocks(currentMonth);
+  const { coresMap } = useFunilEtapas();
+
+  // Fetch leads for the dialog
+  const [leads, setLeads] = useState<{ id: string; nome_completo: string }[]>([]);
+  useEffect(() => {
+    const fetchLeads = async () => {
+      const { data } = await supabase
+        .from('leads')
+        .select('id, nome_completo')
+        .order('nome_completo', { ascending: true })
+        .limit(1000);
+      setLeads(data || []);
+    };
+    fetchLeads();
+  }, []);
+
+  // Build leadsMap for event list display
+  const leadsMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    leads.forEach(l => { map[l.id] = l.nome_completo; });
+    return map;
+  }, [leads]);
 
   const usersMap = useMemo(() => {
     const map: Record<string, string> = {};
