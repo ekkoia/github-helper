@@ -24,6 +24,7 @@ interface Props {
   blockedDays?: Record<string, AgendaBlock[]>;
   onEdit?: (event: AgendaEvent) => void;
   onSlotClick?: (hour: number) => void;
+  onEventClick?: (event: AgendaEvent, e: React.MouseEvent) => void;
 }
 
 function getEventPosition(event: AgendaEvent) {
@@ -42,7 +43,7 @@ function getEventPosition(event: AgendaEvent) {
   return { top: Math.max(0, top), height };
 }
 
-export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, onSlotClick }: Props) {
+export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, onSlotClick, onEventClick }: Props) {
   const key = format(currentDate, 'yyyy-MM-dd');
   const dayBlocks = blockedDays[key] || [];
 
@@ -71,7 +72,7 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, o
               <div
                 key={ev.id}
                 className={cn('text-xs rounded px-2 py-1 text-white cursor-pointer hover:opacity-90', EVENT_COLORS[ev.event_type] || 'bg-muted-foreground')}
-                onClick={() => onEdit?.(ev)}
+                onClick={(e) => onEventClick ? onEventClick(ev, e) : onEdit?.(ev)}
               >
                 {ev.title}
               </div>
@@ -149,7 +150,7 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, o
                     EVENT_COLORS[ev.event_type] || 'bg-muted-foreground',
                   )}
                   style={{ top: pos.top, height: pos.height, minHeight: 24 }}
-                  onClick={(e) => { e.stopPropagation(); onEdit?.(ev); }}
+                  onClick={(e) => { e.stopPropagation(); onEventClick ? onEventClick(ev, e) : onEdit?.(ev); }}
                 >
                   <div className="font-medium truncate">{ev.title}</div>
                   <div className="truncate opacity-80">

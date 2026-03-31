@@ -12,6 +12,7 @@ import { AgendaDayView } from '@/components/agenda/AgendaDayView';
 import { AgendaEventList } from '@/components/agenda/AgendaEventList';
 import { AgendaEventDialog } from '@/components/agenda/AgendaEventDialog';
 import { AgendaBlockDialog } from '@/components/agenda/AgendaBlockDialog';
+import { AgendaEventPopover } from '@/components/agenda/AgendaEventPopover';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -34,6 +35,8 @@ const Agenda = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterUser, setFilterUser] = useState<string>('all');
   const [defaultTime, setDefaultTime] = useState<string | null>(null);
+  const [popoverEvent, setPopoverEvent] = useState<AgendaEvent | null>(null);
+  const [popoverAnchor, setPopoverAnchor] = useState<{ x: number; y: number } | null>(null);
 
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
@@ -81,8 +84,16 @@ const Agenda = () => {
   }, [events, filterType, filterUser]);
 
   const handleEdit = (event: AgendaEvent) => {
+    setPopoverEvent(null);
+    setPopoverAnchor(null);
     setEditingEvent(event);
     setDialogOpen(true);
+  };
+
+  const handleEventClick = (event: AgendaEvent, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPopoverEvent(event);
+    setPopoverAnchor({ x: e.clientX, y: e.clientY });
   };
 
   const handleDelete = async (id: string) => {
@@ -243,6 +254,7 @@ const Agenda = () => {
               selectedDate={selectedDate}
               onSelectDate={handleSelectDate}
               blockedDays={blocksByDate}
+              onEventClick={handleEventClick}
             />
           )}
 
@@ -254,6 +266,7 @@ const Agenda = () => {
               onSelectDate={handleSelectDate}
               blockedDays={blocksByDate}
               onSlotClick={handleSlotClick}
+              onEventClick={handleEventClick}
             />
           )}
 
@@ -264,6 +277,7 @@ const Agenda = () => {
               blockedDays={blocksByDate}
               onEdit={handleEdit}
               onSlotClick={(hour) => handleSlotClick(currentDate, hour)}
+              onEventClick={handleEventClick}
             />
           )}
 
@@ -306,6 +320,19 @@ const Agenda = () => {
         usersMap={usersMap}
         onSave={createBlock}
       />
+
+      {popoverEvent && popoverAnchor && (
+        <AgendaEventPopover
+          event={popoverEvent}
+          anchor={popoverAnchor}
+          onClose={() => { setPopoverEvent(null); setPopoverAnchor(null); }}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          usersMap={usersMap}
+          leadsMap={leadsMap}
+          coresMap={coresMap}
+        />
+      )}
     </Layout>
   );
 };

@@ -28,6 +28,7 @@ interface Props {
   onSelectDate: (date: Date) => void;
   blockedDays?: Record<string, AgendaBlock[]>;
   onSlotClick?: (date: Date, hour: number) => void;
+  onEventClick?: (event: AgendaEvent, e: React.MouseEvent) => void;
 }
 
 function getEventPosition(event: AgendaEvent) {
@@ -46,7 +47,7 @@ function getEventPosition(event: AgendaEvent) {
   return { top: Math.max(0, top), height };
 }
 
-export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate, blockedDays = {}, onSlotClick }: Props) {
+export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate, blockedDays = {}, onSlotClick, onEventClick }: Props) {
   const days = useMemo(() => {
     const weekStart = startOfWeek(currentDate, { locale: ptBR });
     const weekEnd = endOfWeek(currentDate, { locale: ptBR });
@@ -217,7 +218,7 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
                       )}
                       style={{ top: pos.top, height: pos.height, minHeight: 20 }}
                       title={ev.title}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); onEventClick?.(ev, e); }}
                     >
                       <div className="font-medium truncate">{ev.title}</div>
                       <div className="truncate opacity-80">
