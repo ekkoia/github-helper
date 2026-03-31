@@ -24,7 +24,7 @@ interface Props {
   onEventClick?: (event: AgendaEvent, e: React.MouseEvent) => void;
 }
 
-export function AgendaCalendar({ currentMonth, events, selectedDate, onSelectDate, blockedDays = {} }: Props) {
+export function AgendaCalendar({ currentMonth, events, selectedDate, onSelectDate, blockedDays = {}, onEventClick }: Props) {
   const weeks = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
