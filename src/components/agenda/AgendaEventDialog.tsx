@@ -35,7 +35,7 @@ interface Props {
   defaultTime?: string | null;
 }
 
-export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate, blockedDays = {}, leads = [] }: Props) {
+export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate, blockedDays = {}, leads = [], defaultTime }: Props) {
   const { user } = useAuth();
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
