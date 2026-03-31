@@ -150,7 +150,7 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, o
                     EVENT_COLORS[ev.event_type] || 'bg-muted-foreground',
                   )}
                   style={{ top: pos.top, height: pos.height, minHeight: 24 }}
-                  onClick={(e) => { e.stopPropagation(); onEdit?.(ev); }}
+                  onClick={(e) => { e.stopPropagation(); onEventClick ? onEventClick(ev, e) : onEdit?.(ev); }}
                 >
                   <div className="font-medium truncate">{ev.title}</div>
                   <div className="truncate opacity-80">
