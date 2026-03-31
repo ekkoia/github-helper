@@ -157,13 +157,13 @@ export const EquipeCharts = ({ leads, usersMap }: EquipeChartsProps) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* 1. Leads por Assessor */}
-      <Card>
+      <Card className="h-full">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold text-foreground">Leads por Assessor</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">Quantidade total de leads</p>
         </CardHeader>
         <CardContent className="pt-0">
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={350}>
             <BarChart data={leadsPorAssessor}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="nome" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} interval={0} angle={-20} textAnchor="end" height={60} />
