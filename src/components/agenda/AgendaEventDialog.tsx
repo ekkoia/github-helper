@@ -175,6 +175,32 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
               </Select>
             </div>
           )}
+
+          {/* Block conflict warning */}
+          {startDate && (() => {
+            const dayBlocks = blockedDays[startDate] || [];
+            if (dayBlocks.length === 0) return null;
+            const hasAllDayBlock = dayBlocks.some(b => b.all_day);
+            const hasTimeConflict = !allDay && dayBlocks.some(b => {
+              if (b.all_day) return true;
+              if (!b.start_time || !b.end_time) return false;
+              const bStart = b.start_time.slice(0, 5);
+              const bEnd = b.end_time.slice(0, 5);
+              return startTime < bEnd && endTime > bStart;
+            });
+            if (!hasAllDayBlock && !hasTimeConflict) return null;
+            return (
+              <Alert variant="destructive" className="bg-yellow-50 border-yellow-300 dark:bg-yellow-950/30 dark:border-yellow-800">
+                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <AlertDescription className="text-yellow-800 dark:text-yellow-200 text-xs">
+                  {hasAllDayBlock
+                    ? 'Este dia está marcado como indisponível.'
+                    : 'Este horário conflita com um bloqueio de agenda.'}
+                  {dayBlocks[0]?.reason && ` Motivo: ${dayBlocks[0].reason}`}
+                </AlertDescription>
+              </Alert>
+            );
+          })()}
         </div>
 
         <DialogFooter>
