@@ -1,31 +1,40 @@
 
 
-# Corrigir UI das visualizações Semana e Dia na agenda
+# Criar evento clicando em slot de horário vazio
 
-## Problemas identificados
+## O que será feito
 
-1. **Horários cortados no topo**: O label da hora usa `-mt-2` que puxa o texto para cima, cortando na primeira hora
-2. **Horários sobre a linha**: Labels ficam posicionados em cima da borda ao invés de alinhados ao centro da linha (como no Google Calendar)
-3. **Range de horários errado**: Atual vai de 06:00–22:00, deveria ir de 01:00–23:00
+Ao clicar em um slot de horário vazio nas visualizações Semana e Dia, o dialog de criação de evento abrirá automaticamente com a data e hora do slot pré-preenchidas.
 
-## Solução
+## Alterações
 
-Seguir o padrão do Google Calendar: o label da hora fica **centralizado verticalmente na linha horizontal**, e o range cobre 01:00 a 23:00 (22 slots).
+### 1. `src/pages/Agenda.tsx`
+- Adicionar estado `defaultTime` (string | null) para armazenar o horário clicado
+- Criar callback `handleSlotClick(date: Date, hour: number)` que define `currentDate`, `selectedDate`, `defaultTime` e abre o dialog com `editingEvent = null`
+- Passar `defaultTime` ao `AgendaEventDialog`
+- Limpar `defaultTime` quando o dialog fechar
 
-### Alterações em ambos os arquivos (`AgendaDayView.tsx` e `AgendaWeekView.tsx`)
+### 2. `src/components/agenda/AgendaDayView.tsx`
+- Adicionar prop `onSlotClick?: (hour: number) => void`
+- Adicionar `onClick` handler em cada célula de hora no grid (as divs `border-t` com `height: HOUR_HEIGHT`), com `stopPropagation` nos eventos para não disparar ao clicar num evento existente
+- Adicionar `cursor-pointer` e `hover:bg-muted/30` nas células vazias
 
-1. **Mudar range**: `START_HOUR = 1`, `END_HOUR = 23` (gera array [1, 2, ..., 22] = 22 slots)
-2. **Posicionar labels corretamente**: Ao invés de `-mt-2` (que corta), usar posicionamento onde o label fica **alinhado ao centro da borda** entre dois slots. Modelo Google Calendar: cada slot tem a borda no topo, e o label fica posicionado com `top: -8px` (metade da altura do texto) via `relative` no container do label, sem overflow hidden cortando.
-3. **Adicionar padding-top** no container do grid para que o primeiro label (01:00) não fique cortado — um espaçador de ~8px no topo.
+### 3. `src/components/agenda/AgendaWeekView.tsx`
+- Adicionar prop `onSlotClick?: (date: Date, hour: number) => void`
+- Adicionar `onClick` handler em cada célula de hora de cada dia, passando o dia e a hora
+- Adicionar `cursor-pointer` e `hover:bg-muted/30` nas células
+- Impedir que cliques em eventos propaguem para o slot (`stopPropagation`)
 
-### Estrutura do label (estilo Google Calendar)
-
-Cada célula de hora terá o label posicionado no topo da célula com `transform: translateY(-50%)` para centralizar na linha divisória. O container pai terá `overflow: visible` para não cortar.
+### 4. `src/components/agenda/AgendaEventDialog.tsx`
+- Aceitar prop opcional `defaultTime?: string | null`
+- No `useEffect` de inicialização (quando `!event`), usar `defaultTime` ao invés do hardcoded `'09:00'` para `startTime`, e calcular `endTime` como hora seguinte
 
 ## Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/agenda/AgendaDayView.tsx` | Ajustar range 1-23, corrigir posição dos labels |
-| `src/components/agenda/AgendaWeekView.tsx` | Ajustar range 1-23, corrigir posição dos labels |
+| `src/pages/Agenda.tsx` | Estado defaultTime + callback + passar props |
+| `src/components/agenda/AgendaDayView.tsx` | Prop onSlotClick + onClick nas células |
+| `src/components/agenda/AgendaWeekView.tsx` | Prop onSlotClick + onClick nas células |
+| `src/components/agenda/AgendaEventDialog.tsx` | Usar defaultTime para pré-preencher horário |
 
