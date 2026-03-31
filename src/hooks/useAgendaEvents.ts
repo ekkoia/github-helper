@@ -134,6 +134,7 @@ export function useAgendaEvents(currentMonth: Date) {
     toast.success('Evento criado com sucesso!');
     await fetchEvents();
     sendAgendaNotification(data.user_id, data.title, data.start_at, data.description, 'created');
+    logActivity('agenda_created', `Evento criado: ${data.title}`, { event_title: data.title, start_at: data.start_at, user_id: data.user_id });
     return true;
   };
 
