@@ -33,6 +33,7 @@ const Agenda = () => {
   const [editingEvent, setEditingEvent] = useState<AgendaEvent | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterUser, setFilterUser] = useState<string>('all');
+  const [defaultTime, setDefaultTime] = useState<string | null>(null);
 
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
