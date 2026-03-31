@@ -1,29 +1,29 @@
 
 
-# Adicionar espaçamento no scrollbar da agenda (estilo Google Calendar)
+# Replicar UI de exportação por período do /leads no /equipe
 
-## Problema
+## O que será feito
 
-Na imagem de referência do Google Calendar, o scrollbar vertical tem um espaçamento/margem à direita do conteúdo, criando uma separação visual clara. Atualmente, o scrollbar da agenda fica colado ao conteúdo sem espaçamento.
+Substituir o popover simples de exportação do `/equipe` (que só mostra CSV/XLSX) pelo mesmo popover completo do `/leads` com seleção de período, datas customizadas e formato.
 
 ## Alterações
 
-### 1. `src/components/agenda/AgendaDayView.tsx`
-- Na `ScrollArea`, adicionar padding-right no container interno do grid para criar espaço entre o conteúdo e o scrollbar (ex: `pr-3`)
+### `src/components/equipe/EquipeExport.tsx`
 
-### 2. `src/components/agenda/AgendaWeekView.tsx`
-- Mesmo ajuste: adicionar padding-right no container do grid dentro da `ScrollArea`
+Reescrever o componente para incluir:
+- Estado: `exportPeriod`, `exportDateFrom`, `exportDateTo`, `exportFormat`, `isOpen`
+- Select de período: Todos, Hoje, Ontem, 7/15/30 dias, Personalizado
+- Calendários de data início/fim quando período = "custom"
+- Select de formato: CSV / Excel (.xlsx)
+- Botão "Exportar" com label dinâmico
+- Filtro de leads por período usando `getLeadDate` (mesma lógica do `/leads` com `created_time_brasil` fallback)
+- Imports: `Calendar`, `Select`, `format`, `subDays`, `startOfDay`, `endOfDay`, `isWithinInterval`, `ptBR`, `cn`
 
-### 3. `src/components/ui/scroll-area.tsx` (opcional)
-- Aumentar a largura do scrollbar de `w-2.5` para `w-3` e adicionar margem lateral para dar mais respiro visual, similar ao Google Calendar
+A lógica de filtragem por período será interna ao componente (recebe `leads` completos, filtra antes de exportar) — exatamente como funciona no `/leads`.
 
-## Detalhes técnicos
-
-- Adicionar `pr-3` ou `pr-4` na div do grid dentro de cada `ScrollArea` nas views Dia e Semana
-- Ajustar o `ScrollBar` para ter um pouco mais de padding (`p-[2px]`) e margem
+## Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/agenda/AgendaDayView.tsx` | Adicionar padding-right no grid |
-| `src/components/agenda/AgendaWeekView.tsx` | Adicionar padding-right no grid |
+| `src/components/equipe/EquipeExport.tsx` | Reescrever com UI de período |
 
