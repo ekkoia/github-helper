@@ -180,7 +180,7 @@ export const EquipeCharts = ({ leads, usersMap }: EquipeChartsProps) => {
       </Card>
 
       {/* 2. Leads por Etapa por Assessor */}
-      <Card>
+      <Card className="h-full">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold text-foreground">Etapas por Assessor</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">Distribuição de pipeline</p>
