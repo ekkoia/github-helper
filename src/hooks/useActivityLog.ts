@@ -24,7 +24,9 @@ export type ActivityType =
   | 'bulk_delete'
   | 'agenda_created'
   | 'agenda_updated'
-  | 'agenda_deleted';
+  | 'agenda_deleted'
+  | 'agenda_block_created'
+  | 'agenda_block_deleted';
 
 export const useActivityLog = () => {
   const { user } = useAuth();

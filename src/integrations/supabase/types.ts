@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      agenda_blocks: {
+        Row: {
+          all_day: boolean | null
+          block_date: string
+          created_at: string | null
+          end_time: string | null
+          id: string
+          reason: string | null
+          start_time: string | null
+          user_id: string
+        }
+        Insert: {
+          all_day?: boolean | null
+          block_date: string
+          created_at?: string | null
+          end_time?: string | null
+          id?: string
+          reason?: string | null
+          start_time?: string | null
+          user_id: string
+        }
+        Update: {
+          all_day?: boolean | null
+          block_date?: string
+          created_at?: string | null
+          end_time?: string | null
+          id?: string
+          reason?: string | null
+          start_time?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       agenda_events: {
         Row: {
           all_day: boolean | null
