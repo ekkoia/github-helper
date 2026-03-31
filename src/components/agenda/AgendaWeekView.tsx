@@ -11,8 +11,8 @@ import type { AgendaBlock } from '@/hooks/useAgendaBlocks';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const HOUR_HEIGHT = 60;
-const START_HOUR = 6;
-const END_HOUR = 22;
+const START_HOUR = 1;
+const END_HOUR = 23;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
 const EVENT_COLORS: Record<string, string> = {
@@ -35,7 +35,7 @@ function getEventPosition(event: AgendaEvent) {
   const m = getMinutes(start);
   const top = (h - START_HOUR) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT;
 
-  let height = HOUR_HEIGHT; // default 1h
+  let height = HOUR_HEIGHT;
   if (event.end_at) {
     const end = parseISO(event.end_at);
     const diffMs = end.getTime() - start.getTime();
@@ -51,16 +51,6 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
     const weekEnd = endOfWeek(currentDate, { locale: ptBR });
     return eachDayOfInterval({ start: weekStart, end: weekEnd });
   }, [currentDate]);
-
-  const eventsByDay = useMemo(() => {
-    const map: Record<string, AgendaEvent[]> = {};
-    for (const ev of events) {
-      const key = format(parseISO(ev.start_at), 'yyyy-MM-dd');
-      if (!map[key]) map[key] = [];
-      map[key].push(ev);
-    }
-    return map;
-  }, [events]);
 
   const allDayEvents = useMemo(() => {
     const map: Record<string, AgendaEvent[]> = {};
@@ -146,12 +136,15 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
 
       {/* Time grid */}
       <ScrollArea className="flex-1 max-h-[600px]">
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] relative">
+        <div className="grid grid-cols-[60px_repeat(7,1fr)] relative pt-2">
           {/* Hour labels */}
-          <div className="relative">
+          <div className="relative" style={{ overflow: 'visible' }}>
             {HOURS.map((hour) => (
-              <div key={hour} className="border-b border-border" style={{ height: HOUR_HEIGHT }}>
-                <span className="text-[10px] text-muted-foreground block text-right pr-2 -mt-2">
+              <div key={hour} className="relative" style={{ height: HOUR_HEIGHT }}>
+                <span
+                  className="absolute right-2 text-[10px] text-muted-foreground leading-none"
+                  style={{ top: '-0.45em' }}
+                >
                   {String(hour).padStart(2, '0')}:00
                 </span>
               </div>
@@ -176,7 +169,7 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
               >
                 {/* Hour grid lines */}
                 {HOURS.map((hour) => (
-                  <div key={hour} className="border-b border-border" style={{ height: HOUR_HEIGHT }} />
+                  <div key={hour} className="border-t border-border" style={{ height: HOUR_HEIGHT }} />
                 ))}
 
                 {/* Blocks */}

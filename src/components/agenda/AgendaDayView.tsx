@@ -8,8 +8,8 @@ import type { AgendaBlock } from '@/hooks/useAgendaBlocks';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const HOUR_HEIGHT = 64;
-const START_HOUR = 6;
-const END_HOUR = 22;
+const START_HOUR = 1;
+const END_HOUR = 23;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
 const EVENT_COLORS: Record<string, string> = {
@@ -81,12 +81,15 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit }:
 
       {/* Time grid */}
       <ScrollArea className="flex-1 max-h-[600px]">
-        <div className="grid grid-cols-[60px_1fr] relative">
+        <div className="grid grid-cols-[60px_1fr] relative pt-2">
           {/* Hour labels */}
-          <div className="relative">
+          <div className="relative" style={{ overflow: 'visible' }}>
             {HOURS.map((hour) => (
-              <div key={hour} className="border-b border-border" style={{ height: HOUR_HEIGHT }}>
-                <span className="text-xs text-muted-foreground block text-right pr-2 -mt-2">
+              <div key={hour} className="relative" style={{ height: HOUR_HEIGHT }}>
+                <span
+                  className="absolute right-2 text-xs text-muted-foreground leading-none"
+                  style={{ top: '-0.45em' }}
+                >
                   {String(hour).padStart(2, '0')}:00
                 </span>
               </div>
@@ -97,7 +100,7 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit }:
           <div className="relative border-l border-border">
             {/* Hour grid lines */}
             {HOURS.map((hour) => (
-              <div key={hour} className="border-b border-border" style={{ height: HOUR_HEIGHT }} />
+              <div key={hour} className="border-t border-border" style={{ height: HOUR_HEIGHT }} />
             ))}
 
             {/* Blocks */}
