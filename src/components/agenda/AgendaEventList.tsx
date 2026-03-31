@@ -31,7 +31,7 @@ interface Props {
   coresMap?: Record<string, string>;
 }
 
-export function AgendaEventList({ date, events, onEdit, onDelete, usersMap, blocks = [], onDeleteBlock }: Props) {
+export function AgendaEventList({ date, events, onEdit, onDelete, usersMap, blocks = [], onDeleteBlock, leadsMap = {}, coresMap = {} }: Props) {
   if (!date) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
