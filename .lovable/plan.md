@@ -1,53 +1,31 @@
 
 
-# Visualização semanal e diária na agenda
+# Corrigir UI das visualizações Semana e Dia na agenda
 
-## O que será feito
+## Problemas identificados
 
-Adicionar alternância entre 3 modos de visualização (Mês / Semana / Dia) na página `/agenda`, com componentes dedicados para cada vista.
+1. **Horários cortados no topo**: O label da hora usa `-mt-2` que puxa o texto para cima, cortando na primeira hora
+2. **Horários sobre a linha**: Labels ficam posicionados em cima da borda ao invés de alinhados ao centro da linha (como no Google Calendar)
+3. **Range de horários errado**: Atual vai de 06:00–22:00, deveria ir de 01:00–23:00
 
-## Alterações
+## Solução
 
-### 1. `src/pages/Agenda.tsx`
-- Adicionar estado `viewMode: 'month' | 'week' | 'day'`
-- Substituir navegação de mês por navegação genérica (prev/next adapta ao modo: mês, semana ou dia)
-- Adicionar `ToggleGroup` com 3 opções (Mês, Semana, Dia) na barra de navegação
-- Renderizar condicionalmente: `AgendaCalendar` (mês), `AgendaWeekView` (semana) ou `AgendaDayView` (dia)
-- Ao clicar num dia na vista semanal/mensal, mudar para vista diária daquele dia
+Seguir o padrão do Google Calendar: o label da hora fica **centralizado verticalmente na linha horizontal**, e o range cobre 01:00 a 23:00 (22 slots).
 
-### 2. `src/components/agenda/AgendaWeekView.tsx` (novo)
-- Grade de 7 colunas (dias da semana) x linhas de hora (06:00–22:00)
-- Cabeçalho com dia da semana + número
-- Eventos posicionados por horário (top/height calculados pelo start/end)
-- Bloqueios exibidos como faixas vermelhas translúcidas
-- Eventos all-day em barra no topo
-- Click num slot vazio seleciona o dia/hora
+### Alterações em ambos os arquivos (`AgendaDayView.tsx` e `AgendaWeekView.tsx`)
 
-### 3. `src/components/agenda/AgendaDayView.tsx` (novo)
-- Grade de coluna única com linhas de hora (06:00–22:00)
-- Eventos posicionados verticalmente pelo horário
-- Bloqueios como faixas vermelhas
-- Eventos all-day em barra superior
-- Click num slot abre dialog de criação com hora preenchida
+1. **Mudar range**: `START_HOUR = 1`, `END_HOUR = 23` (gera array [1, 2, ..., 22] = 22 slots)
+2. **Posicionar labels corretamente**: Ao invés de `-mt-2` (que corta), usar posicionamento onde o label fica **alinhado ao centro da borda** entre dois slots. Modelo Google Calendar: cada slot tem a borda no topo, e o label fica posicionado com `top: -8px` (metade da altura do texto) via `relative` no container do label, sem overflow hidden cortando.
+3. **Adicionar padding-top** no container do grid para que o primeiro label (01:00) não fique cortado — um espaçador de ~8px no topo.
 
-### 4. Navegação adaptativa em `Agenda.tsx`
-- Modo mês: prev/next mês, título "março 2026"
-- Modo semana: prev/next semana, título "24–30 mar 2026"
-- Modo dia: prev/next dia, título "31 de março, terça-feira"
-- Botão "Hoje" para voltar à data atual em qualquer modo
+### Estrutura do label (estilo Google Calendar)
 
-## Detalhes técnicos
-
-- Ambas as vistas recebem as mesmas props: `events`, `blockedDays`, `selectedDate`, `onSelectDate`
-- Slots de hora: div com `height: 60px` por hora, eventos posicionados com `position: absolute` e `top` calculado em minutos
-- Usar `startOfWeek`/`endOfWeek` do date-fns (locale ptBR) para vista semanal
-- Hora range: 06:00–22:00 (16 slots), com scroll para ver horários fora do range se houver eventos
+Cada célula de hora terá o label posicionado no topo da célula com `transform: translateY(-50%)` para centralizar na linha divisória. O container pai terá `overflow: visible` para não cortar.
 
 ## Arquivos
 
-| Arquivo | Acao |
+| Arquivo | Ação |
 |---------|------|
-| `src/components/agenda/AgendaWeekView.tsx` | Criar |
-| `src/components/agenda/AgendaDayView.tsx` | Criar |
-| `src/pages/Agenda.tsx` | Adicionar toggle de modo + navegação adaptativa + renderização condicional |
+| `src/components/agenda/AgendaDayView.tsx` | Ajustar range 1-23, corrigir posição dos labels |
+| `src/components/agenda/AgendaWeekView.tsx` | Ajustar range 1-23, corrigir posição dos labels |
 
