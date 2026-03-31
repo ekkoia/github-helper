@@ -316,6 +316,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          alerta_sem_contato_enviado: boolean | null
           armazenamento: string | null
           cidade: string | null
           created_time_brasil: string | null
@@ -349,6 +350,7 @@ export type Database = {
           volume: string | null
         }
         Insert: {
+          alerta_sem_contato_enviado?: boolean | null
           armazenamento?: string | null
           cidade?: string | null
           created_time_brasil?: string | null
@@ -382,6 +384,7 @@ export type Database = {
           volume?: string | null
         }
         Update: {
+          alerta_sem_contato_enviado?: boolean | null
           armazenamento?: string | null
           cidade?: string | null
           created_time_brasil?: string | null
