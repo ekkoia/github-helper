@@ -33,6 +33,9 @@ const METADATA_LABELS: Record<string, string> = {
   ip_address: "Endereço IP",
   user_agent: "Navegador",
   timestamp: "Data/hora",
+  event_title: "Título do evento",
+  event_id: "ID do evento",
+  start_at: "Data/hora início",
 };
 
 // Mapeamento de valores para português

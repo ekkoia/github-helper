@@ -21,7 +21,10 @@ export type ActivityType =
   | 'funnel_updated'
   | 'bulk_stage_change'
   | 'bulk_assign'
-  | 'bulk_delete';
+  | 'bulk_delete'
+  | 'agenda_created'
+  | 'agenda_updated'
+  | 'agenda_deleted';
 
 export const useActivityLog = () => {
   const { user } = useAuth();
@@ -73,6 +76,9 @@ export const getActivityTypeLabel = (type: string): string => {
     user_role_changed: 'Permissão alterada',
     config_updated: 'Configuração atualizada',
     funnel_updated: 'Funil atualizado',
+    agenda_created: 'Evento criado',
+    agenda_updated: 'Evento atualizado',
+    agenda_deleted: 'Evento excluído',
   };
   return labels[type] || type;
 };
@@ -96,6 +102,9 @@ export const getActivityTypeIcon = (type: string): string => {
     user_role_changed: '🛡️',
     config_updated: '⚙️',
     funnel_updated: '📊',
+    agenda_created: '📅',
+    agenda_updated: '🔄',
+    agenda_deleted: '❌',
   };
   return icons[type] || '📝';
 };

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useActivityLog } from '@/hooks/useActivityLog';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -39,6 +40,7 @@ export function useAgendaEvents(currentMonth: Date) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { role } = useUserRole();
+  const { logActivity } = useActivityLog();
 
   const fetchEvents = useCallback(async () => {
     if (!user) return;
@@ -132,6 +134,7 @@ export function useAgendaEvents(currentMonth: Date) {
     toast.success('Evento criado com sucesso!');
     await fetchEvents();
     sendAgendaNotification(data.user_id, data.title, data.start_at, data.description, 'created');
+    logActivity('agenda_created', `Evento criado: ${data.title}`, { event_title: data.title, start_at: data.start_at, user_id: data.user_id });
     return true;
   };
 
@@ -147,6 +150,7 @@ export function useAgendaEvents(currentMonth: Date) {
     if (data.user_id && data.title && data.start_at) {
       sendAgendaNotification(data.user_id, data.title, data.start_at, data.description, 'updated');
     }
+    logActivity('agenda_updated', `Evento atualizado: ${data.title || 'sem título'}`, { event_id: id, event_title: data.title });
     return true;
   };
 
@@ -163,6 +167,7 @@ export function useAgendaEvents(currentMonth: Date) {
     await fetchEvents();
     if (eventToDelete) {
       sendAgendaNotification(eventToDelete.user_id, eventToDelete.title, eventToDelete.start_at, eventToDelete.description || undefined, 'deleted');
+      logActivity('agenda_deleted', `Evento excluído: ${eventToDelete.title}`, { event_id: id, event_title: eventToDelete.title });
     }
     return true;
   };
