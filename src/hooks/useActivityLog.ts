@@ -76,6 +76,9 @@ export const getActivityTypeLabel = (type: string): string => {
     user_role_changed: 'Permissão alterada',
     config_updated: 'Configuração atualizada',
     funnel_updated: 'Funil atualizado',
+    agenda_created: 'Evento criado',
+    agenda_updated: 'Evento atualizado',
+    agenda_deleted: 'Evento excluído',
   };
   return labels[type] || type;
 };
