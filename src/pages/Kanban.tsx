@@ -44,6 +44,7 @@ const Kanban = () => {
   const [draggedLead, setDraggedLead] = useState<any>(null);
   const [editingLead, setEditingLead] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterResponsavel, setFilterResponsavel] = useState("all");
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
