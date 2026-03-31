@@ -43,8 +43,8 @@ export function useAgendaEvents(currentMonth: Date) {
     if (!user) return;
     setLoading(true);
     try {
-      const start = startOfMonth(currentMonth).toISOString();
-      const end = endOfMonth(currentMonth).toISOString();
+      const start = startOfWeek(startOfMonth(currentMonth), { locale: ptBR }).toISOString();
+      const end = endOfWeek(endOfMonth(currentMonth), { locale: ptBR }).toISOString();
 
       const { data, error } = await supabase
         .from('agenda_events')
