@@ -1,4 +1,4 @@
-import { AlertCircle, Bell, Check, CheckCheck, Clock, Trash2, User } from "lucide-react";
+import { AlertCircle, Bell, CalendarDays, Check, CheckCheck, Clock, Trash2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -22,6 +22,8 @@ const getNotificationIcon = (type: string) => {
       return <AlertCircle className="h-4 w-4 text-yellow-500" />;
     case "lead_recontato":
       return <Clock className="h-4 w-4 text-blue-500" />;
+    case "agenda_reminder":
+      return <CalendarDays className="h-4 w-4 text-emerald-500" />;
     default:
       return <Bell className="h-4 w-4 text-muted-foreground" />;
   }
@@ -119,8 +121,10 @@ export const NotificationsPopover = () => {
       markAsRead(notification.id);
     }
 
-    // Navegar se tiver lead_id no metadata
-    if (notification.metadata?.lead_id) {
+    // Navegar baseado no tipo
+    if (notification.type === "agenda_reminder") {
+      navigate("/agenda");
+    } else if (notification.metadata?.lead_id) {
       navigate("/leads");
     }
   };

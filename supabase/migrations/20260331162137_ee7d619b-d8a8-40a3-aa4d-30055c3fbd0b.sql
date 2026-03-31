@@ -1,0 +1,2 @@
+ALTER TABLE agenda_events ADD COLUMN IF NOT EXISTS reminder_sent boolean DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_agenda_events_reminder ON agenda_events (start_at, reminder_sent) WHERE reminder_sent = false;
