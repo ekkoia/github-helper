@@ -12,6 +12,7 @@ import { AgendaDayView } from '@/components/agenda/AgendaDayView';
 import { AgendaEventList } from '@/components/agenda/AgendaEventList';
 import { AgendaEventDialog } from '@/components/agenda/AgendaEventDialog';
 import { AgendaBlockDialog } from '@/components/agenda/AgendaBlockDialog';
+import { AgendaEventPopover } from '@/components/agenda/AgendaEventPopover';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
