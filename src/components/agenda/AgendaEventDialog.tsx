@@ -10,9 +10,11 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Bell } from 'lucide-react';
+import { Bell, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { AgendaEvent, CreateEventData } from '@/hooks/useAgendaEvents';
+import type { AgendaBlock } from '@/hooks/useAgendaBlocks';
 
 interface Props {
   open: boolean;
@@ -22,9 +24,10 @@ interface Props {
   usersMap: Record<string, string>;
   onSave: (data: CreateEventData) => Promise<boolean | undefined>;
   onUpdate: (id: string, data: Partial<CreateEventData>) => Promise<boolean | undefined>;
+  blockedDays?: Record<string, AgendaBlock[]>;
 }
 
-export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate }: Props) {
+export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate, blockedDays = {} }: Props) {
   const { user } = useAuth();
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
@@ -172,6 +175,32 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
               </Select>
             </div>
           )}
+
+          {/* Block conflict warning */}
+          {startDate && (() => {
+            const dayBlocks = blockedDays[startDate] || [];
+            if (dayBlocks.length === 0) return null;
+            const hasAllDayBlock = dayBlocks.some(b => b.all_day);
+            const hasTimeConflict = !allDay && dayBlocks.some(b => {
+              if (b.all_day) return true;
+              if (!b.start_time || !b.end_time) return false;
+              const bStart = b.start_time.slice(0, 5);
+              const bEnd = b.end_time.slice(0, 5);
+              return startTime < bEnd && endTime > bStart;
+            });
+            if (!hasAllDayBlock && !hasTimeConflict) return null;
+            return (
+              <Alert variant="destructive" className="bg-yellow-50 border-yellow-300 dark:bg-yellow-950/30 dark:border-yellow-800">
+                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <AlertDescription className="text-yellow-800 dark:text-yellow-200 text-xs">
+                  {hasAllDayBlock
+                    ? 'Este dia está marcado como indisponível.'
+                    : 'Este horário conflita com um bloqueio de agenda.'}
+                  {dayBlocks[0]?.reason && ` Motivo: ${dayBlocks[0].reason}`}
+                </AlertDescription>
+              </Alert>
+            );
+          })()}
         </div>
 
         <DialogFooter>

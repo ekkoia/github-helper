@@ -24,7 +24,9 @@ export type ActivityType =
   | 'bulk_delete'
   | 'agenda_created'
   | 'agenda_updated'
-  | 'agenda_deleted';
+  | 'agenda_deleted'
+  | 'agenda_block_created'
+  | 'agenda_block_deleted';
 
 export const useActivityLog = () => {
   const { user } = useAuth();
@@ -79,6 +81,8 @@ export const getActivityTypeLabel = (type: string): string => {
     agenda_created: 'Evento criado',
     agenda_updated: 'Evento atualizado',
     agenda_deleted: 'Evento excluído',
+    agenda_block_created: 'Agenda bloqueada',
+    agenda_block_deleted: 'Bloqueio removido',
   };
   return labels[type] || type;
 };
@@ -105,6 +109,8 @@ export const getActivityTypeIcon = (type: string): string => {
     agenda_created: '📅',
     agenda_updated: '🔄',
     agenda_deleted: '❌',
+    agenda_block_created: '🚫',
+    agenda_block_deleted: '✅',
   };
   return icons[type] || '📝';
 };
