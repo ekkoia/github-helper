@@ -1,4 +1,4 @@
-import { BarChart3, Users, TrendingUp, UserCog, User, Settings, LogOut, Activity } from "lucide-react";
+import { BarChart3, Users, TrendingUp, UserCog, User, Settings, LogOut, Activity, CalendarDays } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
