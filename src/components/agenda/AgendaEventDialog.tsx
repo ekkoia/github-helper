@@ -77,6 +77,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       end_at: endAt,
       all_day: allDay,
       user_id: userId || user?.id || '',
+      reminder_minutes: reminderMinutes,
     };
 
     let ok: boolean | undefined;
