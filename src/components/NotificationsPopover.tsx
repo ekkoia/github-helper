@@ -1,4 +1,4 @@
-import { Bell, Check, CheckCheck, Trash2, User } from "lucide-react";
+import { AlertCircle, Bell, Check, CheckCheck, Clock, Trash2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -18,6 +18,10 @@ const getNotificationIcon = (type: string) => {
   switch (type) {
     case "lead_assigned":
       return <User className="h-4 w-4 text-primary" />;
+    case "lead_sem_contato":
+      return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+    case "lead_recontato":
+      return <Clock className="h-4 w-4 text-blue-500" />;
     default:
       return <Bell className="h-4 w-4 text-muted-foreground" />;
   }
