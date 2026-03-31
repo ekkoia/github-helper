@@ -121,8 +121,10 @@ export const NotificationsPopover = () => {
       markAsRead(notification.id);
     }
 
-    // Navegar se tiver lead_id no metadata
-    if (notification.metadata?.lead_id) {
+    // Navegar baseado no tipo
+    if (notification.type === "agenda_reminder") {
+      navigate("/agenda");
+    } else if (notification.metadata?.lead_id) {
       navigate("/leads");
     }
   };
