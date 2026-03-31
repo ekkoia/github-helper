@@ -21,6 +21,7 @@ interface Props {
   selectedDate: Date | null;
   onSelectDate: (date: Date) => void;
   blockedDays?: Record<string, AgendaBlock[]>;
+  onEventClick?: (event: AgendaEvent, e: React.MouseEvent) => void;
 }
 
 export function AgendaCalendar({ currentMonth, events, selectedDate, onSelectDate, blockedDays = {} }: Props) {
