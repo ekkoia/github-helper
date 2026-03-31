@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 export interface AgendaEvent {
@@ -42,8 +43,8 @@ export function useAgendaEvents(currentMonth: Date) {
     if (!user) return;
     setLoading(true);
     try {
-      const start = startOfMonth(currentMonth).toISOString();
-      const end = endOfMonth(currentMonth).toISOString();
+      const start = startOfWeek(startOfMonth(currentMonth), { locale: ptBR }).toISOString();
+      const end = endOfWeek(endOfMonth(currentMonth), { locale: ptBR }).toISOString();
 
       const { data, error } = await supabase
         .from('agenda_events')
