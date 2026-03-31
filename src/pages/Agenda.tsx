@@ -277,6 +277,7 @@ const Agenda = () => {
               blockedDays={blocksByDate}
               onEdit={handleEdit}
               onSlotClick={(hour) => handleSlotClick(currentDate, hour)}
+              onEventClick={handleEventClick}
             />
           )}
 

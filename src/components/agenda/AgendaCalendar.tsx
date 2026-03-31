@@ -113,9 +113,10 @@ export function AgendaCalendar({ currentMonth, events, selectedDate, onSelectDat
                     <div
                       key={ev.id}
                       className={cn(
-                        'text-[10px] leading-tight truncate rounded px-1 py-0.5 text-white',
+                        'text-[10px] leading-tight truncate rounded px-1 py-0.5 text-white cursor-pointer hover:opacity-80',
                         EVENT_COLORS[ev.event_type] || 'bg-muted-foreground',
                       )}
+                      onClick={(e) => { e.stopPropagation(); onEventClick?.(ev, e); }}
                     >
                       {ev.title}
                     </div>
