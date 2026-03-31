@@ -1,22 +1,28 @@
 
 
-# Mostrar eventos dos dias adjacentes visíveis no calendário
+# Corrigir fuso horário nos eventos da agenda
 
 ## Problema
-O calendário mostra dias de meses adjacentes (ex: 1-4 de abril quando vendo março), mas o hook só busca eventos entre `startOfMonth` e `endOfMonth` do mês atual. Eventos nesses dias de overflow não aparecem.
+
+Ao criar/editar um evento com horário 09:00, o Supabase recebe `2026-04-04T09:00:00` **sem timezone**. A coluna é `timestamptz`, então o Supabase interpreta como UTC. Ao exibir, o browser converte UTC → horário local (Brasil = UTC-3), mostrando 06:00 ao invés de 09:00. Na edição, o mesmo problema faz o horário parecer não mudar.
 
 ## Solução
 
-### `src/hooks/useAgendaEvents.ts`
+### `src/components/agenda/AgendaEventDialog.tsx`
 
-Alterar o cálculo do range de busca (linhas 45-46) para usar `startOfWeek(startOfMonth(...))` e `endOfWeek(endOfMonth(...))` — espelhando exatamente a lógica do calendário:
+Ao montar `startAt` e `endAt` no `handleSubmit`, usar `new Date(...)` para construir a data local e enviar como ISO string (que inclui o offset do timezone automaticamente):
 
 ```typescript
-const start = startOfWeek(startOfMonth(currentMonth), { locale: ptBR }).toISOString();
-const end = endOfWeek(endOfMonth(currentMonth), { locale: ptBR }).toISOString();
+// Antes (sem timezone — Supabase trata como UTC):
+const startAt = `${startDate}T${startTime}:00`;
+
+// Depois (com timezone local):
+const startAt = new Date(`${startDate}T${startTime}`).toISOString();
 ```
 
-Adicionar imports de `startOfWeek`, `endOfWeek` e `ptBR` no hook.
+Isso faz `09:00` no Brasil gerar `2026-04-04T12:00:00.000Z` (UTC), que ao ser lido de volta converte corretamente para 09:00 local.
 
-Apenas 1 arquivo alterado, 3 linhas modificadas.
+Mesma mudança para `endAt` e para o caso `allDay`.
+
+### Apenas 1 arquivo alterado, ~4 linhas modificadas.
 
