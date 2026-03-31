@@ -1,16 +1,40 @@
 
 
-# Equalizar altura do card "Leads por Assessor"
+# Adicionar badge no nome do assessor no tooltip "Etapas por Assessor"
 
 ## Problema
-O card "Leads por Assessor" tem o gráfico com `height={300}` enquanto o card "Etapas por Assessor" ao lado tem `height={350}` + legenda customizada abaixo, resultando em espaço vazio visível no primeiro card.
+No tooltip do gráfico "Etapas por Assessor", o nome do assessor (label) e as etapas listadas abaixo não têm distinção visual — tudo aparece com o mesmo estilo de texto.
 
 ## Solução
 
 ### `src/components/equipe/EquipeCharts.tsx`
 
-1. Aumentar a altura do `ResponsiveContainer` do gráfico "Leads por Assessor" de `300` para `350` (linha 166)
-2. Adicionar `className="h-full"` nos dois cards da primeira linha para que o CSS grid os estique igualmente (ambos os `<Card>` ficam com altura igual automaticamente via `grid`)
+Criar um componente de tooltip customizado para o gráfico "Etapas por Assessor" e passá-lo via `<Tooltip content={...} />`.
 
-Isso faz o gráfico ocupar mais espaço vertical e os cards ficarem alinhados.
+O tooltip customizado irá:
+1. Renderizar o **nome do assessor** (prop `label`) dentro de um `<Badge>` (ou `<span>` estilizado como badge com `bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs font-semibold`) para criar contraste visual
+2. Listar as etapas abaixo com bolinha de cor + nome + valor, mantendo o estilo atual
+
+```tsx
+const EtapasTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={tooltipStyle.contentStyle} className="p-3">
+      <span className="inline-flex items-center rounded-full bg-primary text-primary-foreground px-2.5 py-0.5 text-xs font-semibold mb-2">
+        {label}
+      </span>
+      {payload.filter(p => p.value > 0).map(p => (
+        <div className="flex items-center gap-2 text-sm" style={tooltipStyle.itemStyle}>
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.fill }} />
+          {p.name}: {p.value}
+        </div>
+      ))}
+    </div>
+  );
+};
+```
+
+Substituir `<Tooltip {...tooltipStyle} />` (linha 194) por `<Tooltip content={<EtapasTooltip />} />`.
+
+Apenas 1 arquivo alterado: `src/components/equipe/EquipeCharts.tsx`.
 
