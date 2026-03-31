@@ -32,6 +32,7 @@ interface Props {
   onUpdate: (id: string, data: Partial<CreateEventData>) => Promise<boolean | undefined>;
   blockedDays?: Record<string, AgendaBlock[]>;
   leads?: LeadOption[];
+  defaultTime?: string | null;
 }
 
 export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate, blockedDays = {}, leads = [] }: Props) {
