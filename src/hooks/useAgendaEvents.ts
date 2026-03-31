@@ -150,6 +150,7 @@ export function useAgendaEvents(currentMonth: Date) {
     if (data.user_id && data.title && data.start_at) {
       sendAgendaNotification(data.user_id, data.title, data.start_at, data.description, 'updated');
     }
+    logActivity('agenda_updated', `Evento atualizado: ${data.title || 'sem título'}`, { event_id: id, event_title: data.title });
     return true;
   };
 
