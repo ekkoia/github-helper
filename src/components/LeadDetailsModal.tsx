@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Layers,
   MessageSquare,
+  MessageCircle,
   Save,
   Loader2,
 } from "lucide-react";
@@ -25,6 +26,7 @@ import { AssignLeadDialog } from "./AssignLeadDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { toast } from "sonner";
+import { getWhatsAppUrl } from "@/lib/utils";
 
 const ORIGEM_LABELS: Record<string, string> = {
   instagram_ads: "Instagram Ads",
@@ -225,6 +227,17 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                   <p className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground" />
                     {currentLead.telefone || "-"}
+                    {currentLead.telefone && (
+                      <a
+                        href={getWhatsAppUrl(currentLead.telefone)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-500 hover:text-green-600 transition-colors"
+                        title="Abrir WhatsApp"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </a>
+                    )}
                   </p>
                 </div>
                 {currentLead.protocolo_atendimento && (

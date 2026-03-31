@@ -39,6 +39,7 @@ import {
   X,
   UserPlus,
   ArrowRightLeft,
+  MessageCircle,
 } from "lucide-react";
 import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -49,7 +50,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { cn, getWhatsAppUrl } from "@/lib/utils";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -852,7 +853,21 @@ const LeadsTable = () => {
                         <TableCell className="font-medium">{lead.nome_completo}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <div>{lead.telefone || "-"}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span>{lead.telefone || "-"}</span>
+                              {lead.telefone && (
+                                <a
+                                  href={getWhatsAppUrl(lead.telefone)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-green-500 hover:text-green-600 transition-colors"
+                                  title="Abrir WhatsApp"
+                                >
+                                  <MessageCircle className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                            </div>
                             <div className="text-muted-foreground text-xs truncate max-w-[150px]">
                               {lead.email || "-"}
                             </div>

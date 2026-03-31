@@ -18,8 +18,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
+import { getWhatsAppUrl } from "@/lib/utils";
 import { toast } from "sonner";
-import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit, AlertCircle } from "lucide-react";
+import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit, AlertCircle, MessageCircle } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -361,6 +362,16 @@ const Kanban = () => {
                                   <div className="flex items-center gap-2">
                                     <Phone className="h-3.5 w-3.5" aria-hidden="true" />
                                     <span>{lead.telefone}</span>
+                                    <a
+                                      href={getWhatsAppUrl(lead.telefone)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-green-500 hover:text-green-600 transition-colors"
+                                      title="Abrir WhatsApp"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5" />
+                                    </a>
                                   </div>
                                 )}
                                 {lead.tipo_grao && (
