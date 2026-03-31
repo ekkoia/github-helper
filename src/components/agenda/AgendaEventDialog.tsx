@@ -27,7 +27,7 @@ interface Props {
   blockedDays?: Record<string, AgendaBlock[]>;
 }
 
-export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate }: Props) {
+export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate, blockedDays = {} }: Props) {
   const { user } = useAuth();
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
