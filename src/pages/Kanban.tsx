@@ -256,12 +256,45 @@ const Kanban = () => {
 
   return (
     <div className="space-y-4">
-      {/* Busca Global */}
-      <GlobalSearch
-        value={searchTerm}
-        onChange={setSearchTerm}
-        placeholder="Buscar por nome, email, telefone ou cidade..."
-      />
+      {/* Busca Global + Filtro Assessor */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <GlobalSearch
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Buscar por nome, email, telefone ou cidade..."
+          />
+        </div>
+        {isAdmin && (
+          <Select value={filterResponsavel} onValueChange={setFilterResponsavel}>
+            <SelectTrigger className="w-full sm:w-[220px]">
+              <SelectValue placeholder="Filtrar por assessor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <span className="flex items-center gap-2">
+                  <User className="h-3.5 w-3.5" />
+                  Todos os assessores
+                </span>
+              </SelectItem>
+              <SelectItem value="unassigned">
+                <span className="flex items-center gap-2 text-amber-600">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Não atribuídos
+                </span>
+              </SelectItem>
+              {Object.values(usersMap).map((user) => (
+                <SelectItem key={user.user_id} value={user.user_id}>
+                  <span className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5" />
+                    {user.nome_completo || user.email || "Usuário"}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
       {/* Header com Botão */}
       <div className="flex items-start justify-between gap-4">
