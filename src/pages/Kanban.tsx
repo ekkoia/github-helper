@@ -21,6 +21,13 @@ import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { getWhatsAppUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit, AlertCircle, MessageCircle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -37,6 +44,7 @@ const Kanban = () => {
   const [draggedLead, setDraggedLead] = useState<any>(null);
   const [editingLead, setEditingLead] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterResponsavel, setFilterResponsavel] = useState("all");
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -144,19 +152,31 @@ const Kanban = () => {
     };
   }, []);
 
-  // Filtrar leads por busca global
+  // Filtrar leads por busca global e responsável
   const filteredLeads = useMemo(() => {
-    if (!searchTerm) return leads;
+    let result = leads;
 
-    const term = searchTerm.toLowerCase();
-    return leads.filter(
-      (lead) =>
-        lead.nome_completo?.toLowerCase().includes(term) ||
-        lead.email?.toLowerCase().includes(term) ||
-        lead.telefone?.includes(term) ||
-        lead.cidade?.toLowerCase().includes(term),
-    );
-  }, [leads, searchTerm]);
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(
+        (lead) =>
+          lead.nome_completo?.toLowerCase().includes(term) ||
+          lead.email?.toLowerCase().includes(term) ||
+          lead.telefone?.includes(term) ||
+          lead.cidade?.toLowerCase().includes(term),
+      );
+    }
+
+    if (filterResponsavel !== "all") {
+      if (filterResponsavel === "unassigned") {
+        result = result.filter((lead) => !lead.responsavel_id);
+      } else {
+        result = result.filter((lead) => lead.responsavel_id === filterResponsavel);
+      }
+    }
+
+    return result;
+  }, [leads, searchTerm, filterResponsavel]);
 
   const getLeadsByEtapa = (etapa: string) => {
     return filteredLeads.filter((lead) => lead.etapa_funil === etapa);
@@ -236,12 +256,45 @@ const Kanban = () => {
 
   return (
     <div className="space-y-4">
-      {/* Busca Global */}
-      <GlobalSearch
-        value={searchTerm}
-        onChange={setSearchTerm}
-        placeholder="Buscar por nome, email, telefone ou cidade..."
-      />
+      {/* Busca Global + Filtro Assessor */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <GlobalSearch
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Buscar por nome, email, telefone ou cidade..."
+          />
+        </div>
+        {isAdmin && (
+          <Select value={filterResponsavel} onValueChange={setFilterResponsavel}>
+            <SelectTrigger className="w-full sm:w-[220px]">
+              <SelectValue placeholder="Filtrar por assessor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <span className="flex items-center gap-2">
+                  <User className="h-3.5 w-3.5" />
+                  Todos os assessores
+                </span>
+              </SelectItem>
+              <SelectItem value="unassigned">
+                <span className="flex items-center gap-2 text-amber-600">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Não atribuídos
+                </span>
+              </SelectItem>
+              {Object.values(usersMap).map((user) => (
+                <SelectItem key={user.user_id} value={user.user_id}>
+                  <span className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5" />
+                    {user.nome_completo || user.email || "Usuário"}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
       {/* Header com Botão */}
       <div className="flex items-start justify-between gap-4">
