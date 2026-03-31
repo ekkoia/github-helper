@@ -1,44 +1,48 @@
 
 
-# Configurar antecedência do lembrete por evento
+# Notificações internas + Email via Resend para eventos da agenda
 
-## Problema
-Atualmente todos os lembretes são disparados 30 minutos antes, sem opção de personalização por evento.
+## O que será feito
 
-## Solução
+Ao criar, editar ou excluir um evento da agenda, o sistema irá:
+1. Criar uma **notificação interna no CRM** (sino de notificações) para o assessor responsável
+2. Enviar um **email via Resend** para o assessor com os detalhes do evento
 
-### 1. Migration SQL
-Adicionar coluna `reminder_minutes` na tabela `agenda_events`:
-```sql
-ALTER TABLE agenda_events ADD COLUMN reminder_minutes integer DEFAULT 30;
-```
+## Alterações
 
-### 2. `supabase/functions/agenda-reminders/index.ts`
-Alterar a lógica de busca: em vez de um range fixo de 30 min, buscar todos os eventos com `reminder_sent = false` e `start_at` no futuro próximo (até 60 min), e filtrar comparando `start_at - reminder_minutes` com o momento atual. Na prática:
+### 1. Nova Edge Function: `send-agenda-email/index.ts`
+Edge Function dedicada para envio de emails de agenda via Resend (usando a mesma `RESEND_API_KEY` já configurada e o remetente `noreply@imaculada.online`).
 
-- Buscar eventos onde `reminder_sent = false`, `start_at` entre agora e agora + 60 min
-- Para cada evento, calcular se `now >= start_at - reminder_minutes`
-- Se sim, disparar notificação e marcar `reminder_sent = true`
-- Ajustar a mensagem para usar o valor real de `reminder_minutes`
+Recebe: `to_email`, `nome_assessor`, `event_title`, `event_date`, `event_time`, `event_description`, `action` (created/updated/deleted).
 
-### 3. `src/hooks/useAgendaEvents.ts`
-Adicionar `reminder_minutes` ao tipo `CreateEventData`.
+Template HTML seguindo o mesmo estilo visual dos emails existentes (gradiente verde `#65a30d → #84cc16`, fonte Segoe UI, layout responsivo). O assunto e conteúdo variam conforme a ação:
+- **Criado**: "Novo evento na sua agenda"
+- **Atualizado**: "Evento atualizado na sua agenda"  
+- **Excluído**: "Evento cancelado na sua agenda"
 
-### 4. `src/components/agenda/AgendaEventDialog.tsx`
-Adicionar um `<Select>` com as opções:
-- Sem lembrete
-- 15 minutos antes
-- 30 minutos antes (padrão)
-- 1 hora antes
+### 2. `src/hooks/useAgendaEvents.ts`
+Após cada operação de CRUD bem-sucedida (`createEvent`, `updateEvent`, `deleteEvent`):
+- Buscar o email e nome do assessor responsável na tabela `profiles` (pelo `user_id` do evento)
+- Criar notificação interna via `supabase.from('notifications').insert(...)` com tipo adequado (`agenda_created`, `agenda_updated`, `agenda_deleted`)
+- Invocar `send-agenda-email` via `supabase.functions.invoke()` para enviar o email
 
-Estado `reminderMinutes` inicializado com `event?.reminder_minutes ?? 30`. Incluir no `data` enviado ao salvar.
+A notificação interna segue a RLS existente — o insert precisa ser feito para o `user_id` do evento. Como a policy de INSERT em `notifications` exige `is_admin`, vamos chamar a Edge Function para fazer o insert com service role.
+
+### 3. Ajuste na Edge Function `send-agenda-email`
+A Edge Function também criará a notificação interna usando o service role client, evitando problemas de RLS. Assim, com uma única chamada do frontend, ambos (email + notificação) são processados.
+
+### 4. `src/components/NotificationsPopover.tsx`
+Adicionar ícones e navegação para os novos tipos:
+- `agenda_created` → ícone CalendarPlus verde
+- `agenda_updated` → ícone CalendarClock azul
+- `agenda_deleted` → ícone CalendarX vermelho
+- Click → navega para `/agenda`
 
 ## Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| Migration SQL | Adicionar `reminder_minutes` |
-| `supabase/functions/agenda-reminders/index.ts` | Usar `reminder_minutes` por evento |
-| `src/hooks/useAgendaEvents.ts` | Adicionar campo ao tipo |
-| `src/components/agenda/AgendaEventDialog.tsx` | Adicionar select de antecedência |
+| `supabase/functions/send-agenda-email/index.ts` | Criar |
+| `src/hooks/useAgendaEvents.ts` | Editar (invocar Edge Function após CRUD) |
+| `src/components/NotificationsPopover.tsx` | Editar (novos ícones de agenda) |
 
