@@ -201,6 +201,44 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
       .map(([name, value]) => ({ name, value }));
   }, [filteredLeads]);
 
+  // Mapeamento de origens para labels legíveis
+  const ORIGEM_LABELS: Record<string, string> = {
+    instagram_ads: "Instagram Ads",
+    facebook_ads: "Facebook Ads",
+    whatsapp: "WhatsApp",
+    meta_form: "Formulário Meta",
+    campanha_mensagem: "Campanha de Mensagem",
+    indicacao: "Indicação",
+    site: "Site/Landing Page",
+    outro: "Outro",
+  };
+
+  const ORIGEM_COLORS = [
+    "hsl(210, 90%, 55%)",  // Azul
+    "hsl(220, 80%, 50%)",  // Azul escuro
+    "hsl(142, 70%, 45%)",  // Verde
+    "hsl(280, 65%, 55%)",  // Roxo
+    "hsl(35, 95%, 55%)",   // Laranja
+    "hsl(350, 75%, 55%)",  // Vermelho
+    "hsl(180, 60%, 45%)",  // Teal
+    "hsl(45, 90%, 50%)",   // Amarelo
+  ];
+
+  // Dados para o gráfico de Leads por Origem
+  const origemData = useMemo(() => {
+    const origens: Record<string, number> = {};
+    
+    filteredLeads.forEach(lead => {
+      const origem = lead.origem || "Não informado";
+      const label = ORIGEM_LABELS[origem] || origem;
+      origens[label] = (origens[label] || 0) + 1;
+    });
+
+    return Object.entries(origens)
+      .map(([origem, count]) => ({ origem, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredLeads]);
+
   const handlePeriodChange = (value: string) => {
     setPeriod(value);
     if (value === "custom") {
@@ -513,6 +551,50 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Gráfico de Barras Horizontais - Leads por Origem */}
+        <Card className="col-span-1 lg:col-span-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold text-foreground">Leads por Origem</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">De onde os leads estão vindo</p>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {origemData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={Math.max(250, origemData.length * 45)}>
+                <BarChart data={origemData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" style={{ fontSize: '12px' }} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="origem" 
+                    width={160}
+                    stroke="hsl(var(--muted-foreground))"
+                    style={{ fontSize: '11px' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                    }}
+                    itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                    labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                  />
+                  <Bar dataKey="count" name="Quantidade">
+                    {origemData.map((_, index) => (
+                      <Cell key={`cell-origem-${index}`} fill={ORIGEM_COLORS[index % ORIGEM_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                Nenhum lead no período selecionado
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
