@@ -39,6 +39,7 @@ import {
   X,
   UserPlus,
   ArrowRightLeft,
+  MessageCircle,
 } from "lucide-react";
 import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
