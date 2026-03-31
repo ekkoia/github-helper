@@ -170,6 +170,8 @@ const Agenda = () => {
               usersMap={usersMap}
               blocks={blocks}
               onDeleteBlock={deleteBlock}
+              leadsMap={leadsMap}
+              coresMap={coresMap}
             />
           </div>
         </div>
@@ -184,6 +186,7 @@ const Agenda = () => {
         onSave={createEvent}
         onUpdate={updateEvent}
         blockedDays={blocksByDate}
+        leads={leads}
       />
 
       <AgendaBlockDialog

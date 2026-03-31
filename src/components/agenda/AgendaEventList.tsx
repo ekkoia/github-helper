@@ -27,6 +27,8 @@ interface Props {
   usersMap: Record<string, string>;
   blocks?: AgendaBlock[];
   onDeleteBlock?: (id: string) => void;
+  leadsMap?: Record<string, string>;
+  coresMap?: Record<string, string>;
 }
 
 export function AgendaEventList({ date, events, onEdit, onDelete, usersMap, blocks = [], onDeleteBlock }: Props) {
