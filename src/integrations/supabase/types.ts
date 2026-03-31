@@ -25,6 +25,7 @@ export type Database = {
           id: string
           lead_id: string | null
           metadata: Json | null
+          reminder_sent: boolean | null
           start_at: string
           title: string
           updated_at: string | null
@@ -40,6 +41,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           metadata?: Json | null
+          reminder_sent?: boolean | null
           start_at: string
           title: string
           updated_at?: string | null
@@ -55,6 +57,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           metadata?: Json | null
+          reminder_sent?: boolean | null
           start_at?: string
           title?: string
           updated_at?: string | null
