@@ -179,7 +179,7 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
 
       {/* Time grid */}
       <ScrollArea className="flex-1 max-h-[600px]">
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] relative pt-2">
+        <div className="grid grid-cols-[60px_repeat(7,1fr)] relative pt-2 pr-3">
           {/* Hour labels */}
           <div className="relative" style={{ overflow: 'visible' }}>
             {HOURS.map((hour) => (
