@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 const HOUR_HEIGHT = 60;
 const START_HOUR = 1;
-const END_HOUR = 23;
+const END_HOUR = 24;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
 const EVENT_COLORS: Record<string, string> = {
