@@ -1,14 +1,16 @@
 import { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAgendaEvents, AgendaEvent } from '@/hooks/useAgendaEvents';
+import { useAgendaBlocks } from '@/hooks/useAgendaBlocks';
 import { useUsers } from '@/hooks/useUsers';
 import { useUserRole } from '@/hooks/useUserRole';
 import { AgendaCalendar } from '@/components/agenda/AgendaCalendar';
 import { AgendaEventList } from '@/components/agenda/AgendaEventList';
 import { AgendaEventDialog } from '@/components/agenda/AgendaEventDialog';
+import { AgendaBlockDialog } from '@/components/agenda/AgendaBlockDialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Ban } from 'lucide-react';
 import { addMonths, subMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -16,6 +18,7 @@ const Agenda = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<AgendaEvent | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterUser, setFilterUser] = useState<string>('all');
@@ -24,6 +27,7 @@ const Agenda = () => {
   const isAdmin = role === 'admin' || role === 'global';
   const { users } = useUsers();
   const { events, loading, createEvent, updateEvent, deleteEvent } = useAgendaEvents(currentMonth);
+  const { blocks, blocksByDate, createBlock, deleteBlock } = useAgendaBlocks(currentMonth);
 
   const usersMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -100,6 +104,10 @@ const Agenda = () => {
               </Select>
             )}
 
+            <Button variant="outline" onClick={() => setBlockDialogOpen(true)}>
+              <Ban className="h-4 w-4 mr-1" /> Bloquear dia
+            </Button>
+
             <Button onClick={handleNewEvent}>
               <Plus className="h-4 w-4 mr-1" /> Novo evento
             </Button>
@@ -126,6 +134,7 @@ const Agenda = () => {
             events={filteredEvents}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
+            blockedDays={blocksByDate}
           />
 
           <div className="bg-card border border-border rounded-lg p-4">
@@ -135,6 +144,8 @@ const Agenda = () => {
               onEdit={handleEdit}
               onDelete={handleDelete}
               usersMap={usersMap}
+              blocks={blocks}
+              onDeleteBlock={deleteBlock}
             />
           </div>
         </div>
@@ -148,6 +159,15 @@ const Agenda = () => {
         usersMap={usersMap}
         onSave={createEvent}
         onUpdate={updateEvent}
+        blockedDays={blocksByDate}
+      />
+
+      <AgendaBlockDialog
+        open={blockDialogOpen}
+        onOpenChange={setBlockDialogOpen}
+        defaultDate={selectedDate}
+        usersMap={usersMap}
+        onSave={createBlock}
       />
     </Layout>
   );
