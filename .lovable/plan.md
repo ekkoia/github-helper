@@ -1,32 +1,43 @@
 
 
-# Adicionar gráfico de Leads por Origem ao Dashboard
+# Click-to-WhatsApp nos leads
 
-## Situação atual
-O dashboard tem 4 gráficos (Volume de Negociações, Funil de Conversão, Total Investido por Faixa, Leads por Faixa de Investimento) mas nenhum mostra a **origem/fonte** dos leads. O campo `origem` já existe na tabela `leads` e o array `origens` também. A página Analytics está vazia.
+## O que será feito
 
-## Solução
+Adicionar um botão/ícone de WhatsApp clicável ao lado do telefone do lead em 3 locais do CRM. Ao clicar, abre o WhatsApp Web (ou app) com o número do lead preenchido, pronto para iniciar conversa.
 
-Adicionar um **5o gráfico** no `DashboardCharts.tsx` que mostra a distribuição de leads por origem, permitindo metrificar de onde os leads estão vindo.
+## Locais de implementação
 
-### Arquivo: `src/components/DashboardCharts.tsx`
+1. **Tabela de Leads** (`src/pages/LeadsTable.tsx`) — ícone de WhatsApp ao lado do telefone na coluna de contato
+2. **Modal de Detalhes** (`src/components/LeadDetailsModal.tsx`) — botão de WhatsApp ao lado do telefone
+3. **Kanban** (`src/pages/Kanban.tsx`) — ícone clicável ao lado do telefone no card
 
-1. **Novo `useMemo` para dados de origem** — agrupa `filteredLeads` pelo campo `origem`, mapeia os valores técnicos (ex: `instagram_ads`) para labels legíveis (ex: "Instagram Ads"), e conta a quantidade de cada.
+## Como funciona
 
-2. **Novo gráfico de barras horizontais** — "Leads por Origem", posicionado após os 4 gráficos existentes, com `col-span-1 lg:col-span-2` para ocupar a largura total. Usa as mesmas cores e estilos dos gráficos existentes.
+- Formata o telefone removendo caracteres não numéricos e adiciona o código do Brasil (`55`) se necessário
+- Gera o link `https://wa.me/55XXXXXXXXXXX` e abre em nova aba (`target="_blank"`)
+- Função utilitária compartilhada `getWhatsAppUrl(telefone)` em `src/lib/utils.ts`
 
-3. **Mapeamento de labels** — Reutiliza o mesmo mapeamento do `ORIGEM_OPTIONS` do `LeadForm.tsx`:
-   - `instagram_ads` → Instagram Ads
-   - `facebook_ads` → Facebook Ads
-   - `whatsapp` → WhatsApp
-   - `meta_form` → Formulário Meta
-   - `campanha_mensagem` → Campanha de Mensagem
-   - `indicacao` → Indicação
-   - `site` → Site/Landing Page
-   - Outros valores mostram o texto original
+## Detalhes técnicos
 
-O gráfico já será filtrado pelo mesmo seletor de período existente no dashboard (Hoje, Ontem, 7/15/30 dias, Personalizado).
+### `src/lib/utils.ts`
+Nova função:
+```typescript
+export function getWhatsAppUrl(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const number = digits.startsWith("55") ? digits : `55${digits}`;
+  return `https://wa.me/${number}`;
+}
+```
 
-### Resultado
-O usuário poderá ver quantos leads vieram de cada canal no período selecionado, possibilitando metrificar a performance de cada fonte de aquisição.
+### `src/pages/LeadsTable.tsx`
+Na célula do telefone (~linha 855), envolver o número num link e adicionar ícone verde de WhatsApp ao lado.
+
+### `src/components/LeadDetailsModal.tsx`
+Na seção de telefone (~linha 225), adicionar botão de WhatsApp ao lado do número.
+
+### `src/pages/Kanban.tsx`
+No card do lead (~linha 363), tornar o telefone clicável com ícone de WhatsApp.
+
+Ícone: usar o SVG do WhatsApp via `lucide-react` (`MessageCircle` estilizado em verde) ou um ícone SVG inline simples.
 
