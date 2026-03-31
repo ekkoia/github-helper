@@ -1,28 +1,52 @@
 
 
-# Corrigir fuso horário nos eventos da agenda
+# Lembretes automáticos para eventos da agenda
 
-## Problema
+## O que será feito
 
-Ao criar/editar um evento com horário 09:00, o Supabase recebe `2026-04-04T09:00:00` **sem timezone**. A coluna é `timestamptz`, então o Supabase interpreta como UTC. Ao exibir, o browser converte UTC → horário local (Brasil = UTC-3), mostrando 06:00 ao invés de 09:00. Na edição, o mesmo problema faz o horário parecer não mudar.
+Criar uma Edge Function `agenda-reminders` que roda via pg_cron a cada 5 minutos, verifica eventos da agenda que começam nos próximos 30 minutos e cria uma notificação para o assessor responsável. Controle de duplicação via campo `reminder_sent` na tabela `agenda_events`.
 
-## Solução
+## Alterações
 
-### `src/components/agenda/AgendaEventDialog.tsx`
+### 1. Migration SQL
 
-Ao montar `startAt` e `endAt` no `handleSubmit`, usar `new Date(...)` para construir a data local e enviar como ISO string (que inclui o offset do timezone automaticamente):
+- Adicionar coluna `reminder_sent boolean DEFAULT false` na tabela `agenda_events`
+- Criar índice em `(start_at, reminder_sent)` para queries eficientes
 
-```typescript
-// Antes (sem timezone — Supabase trata como UTC):
-const startAt = `${startDate}T${startTime}:00`;
+### 2. Nova Edge Function: `supabase/functions/agenda-reminders/index.ts`
 
-// Depois (com timezone local):
-const startAt = new Date(`${startDate}T${startTime}`).toISOString();
+- Busca eventos onde `reminder_sent = false` e `start_at` está entre agora e agora + 30 min
+- Para cada evento, insere uma notificação na tabela `notifications` com:
+  - `type: 'agenda_reminder'`
+  - `title: '🔔 Evento em breve: {título}'`
+  - `message: 'O evento "{título}" começa em X minutos.'`
+  - `metadata: { event_id, lead_id }`
+- Marca `reminder_sent = true` nos eventos processados
+- Usa `SUPABASE_SERVICE_ROLE_KEY` (já configurado)
+
+### 3. Cron job via SQL (insert tool, não migration)
+
+Agendar a Edge Function para rodar a cada 5 minutos:
+```sql
+SELECT cron.schedule('agenda-reminders', '*/5 * * * *', ...);
 ```
 
-Isso faz `09:00` no Brasil gerar `2026-04-04T12:00:00.000Z` (UTC), que ao ser lido de volta converte corretamente para 09:00 local.
+### 4. `src/components/NotificationsPopover.tsx`
 
-Mesma mudança para `endAt` e para o caso `allDay`.
+Adicionar ícone para o novo tipo `agenda_reminder`:
+```typescript
+case "agenda_reminder":
+  return <CalendarDays className="h-4 w-4 text-emerald-500" />;
+```
 
-### Apenas 1 arquivo alterado, ~4 linhas modificadas.
+Ao clicar na notificação de tipo `agenda_reminder`, navegar para `/agenda`.
+
+## Arquivos
+
+| Arquivo | Ação |
+|---------|------|
+| Migration SQL | Adicionar `reminder_sent` em `agenda_events` |
+| `supabase/functions/agenda-reminders/index.ts` | Criar |
+| SQL via insert tool | Criar cron job |
+| `src/components/NotificationsPopover.tsx` | Adicionar ícone + navegação |
 
