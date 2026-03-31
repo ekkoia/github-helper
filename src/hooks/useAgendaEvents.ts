@@ -123,8 +123,10 @@ export function useAgendaEvents(currentMonth: Date) {
 
   const createEvent = async (data: CreateEventData) => {
     if (!user) return;
+    const { metadata, ...rest } = data;
     const { error } = await supabase.from('agenda_events').insert({
-      ...data,
+      ...rest,
+      metadata: metadata || {},
       created_by: user.id,
     } as any);
     if (error) {
