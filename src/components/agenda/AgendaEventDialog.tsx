@@ -62,9 +62,9 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
     setSaving(true);
 
     const startAt = allDay
-      ? `${startDate}T00:00:00`
-      : `${startDate}T${startTime}:00`;
-    const endAt = allDay ? undefined : `${startDate}T${endTime}:00`;
+      ? new Date(`${startDate}T00:00`).toISOString()
+      : new Date(`${startDate}T${startTime}`).toISOString();
+    const endAt = allDay ? undefined : new Date(`${startDate}T${endTime}`).toISOString();
 
     const data: CreateEventData = {
       title: title.trim(),
