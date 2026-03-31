@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
+import { Bell } from 'lucide-react';
 import { format } from 'date-fns';
 import type { AgendaEvent, CreateEventData } from '@/hooks/useAgendaEvents';
 

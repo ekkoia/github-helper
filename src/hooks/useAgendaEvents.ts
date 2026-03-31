@@ -31,6 +31,7 @@ export interface CreateEventData {
   all_day?: boolean;
   lead_id?: string | null;
   user_id: string;
+  reminder_minutes?: number;
 }
 
 export function useAgendaEvents(currentMonth: Date) {
