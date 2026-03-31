@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Layers,
   MessageSquare,
+  MessageCircle,
   Save,
   Loader2,
 } from "lucide-react";
