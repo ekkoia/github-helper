@@ -361,6 +361,16 @@ const Kanban = () => {
                                   <div className="flex items-center gap-2">
                                     <Phone className="h-3.5 w-3.5" aria-hidden="true" />
                                     <span>{lead.telefone}</span>
+                                    <a
+                                      href={getWhatsAppUrl(lead.telefone)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-green-500 hover:text-green-600 transition-colors"
+                                      title="Abrir WhatsApp"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5" />
+                                    </a>
                                   </div>
                                 )}
                                 {lead.tipo_grao && (

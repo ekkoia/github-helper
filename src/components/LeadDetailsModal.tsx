@@ -225,6 +225,17 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                   <p className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground" />
                     {currentLead.telefone || "-"}
+                    {currentLead.telefone && (
+                      <a
+                        href={getWhatsAppUrl(currentLead.telefone)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-500 hover:text-green-600 transition-colors"
+                        title="Abrir WhatsApp"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </a>
+                    )}
                   </p>
                 </div>
                 {currentLead.protocolo_atendimento && (

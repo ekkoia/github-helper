@@ -852,7 +852,21 @@ const LeadsTable = () => {
                         <TableCell className="font-medium">{lead.nome_completo}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <div>{lead.telefone || "-"}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span>{lead.telefone || "-"}</span>
+                              {lead.telefone && (
+                                <a
+                                  href={getWhatsAppUrl(lead.telefone)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-green-500 hover:text-green-600 transition-colors"
+                                  title="Abrir WhatsApp"
+                                >
+                                  <MessageCircle className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                            </div>
                             <div className="text-muted-foreground text-xs truncate max-w-[150px]">
                               {lead.email || "-"}
                             </div>
