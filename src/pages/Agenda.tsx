@@ -91,6 +91,15 @@ const Agenda = () => {
 
   const handleNewEvent = () => {
     setEditingEvent(null);
+    setDefaultTime(null);
+    setDialogOpen(true);
+  };
+
+  const handleSlotClick = (date: Date, hour: number) => {
+    setCurrentDate(date);
+    setSelectedDate(date);
+    setDefaultTime(`${String(hour).padStart(2, '0')}:00`);
+    setEditingEvent(null);
     setDialogOpen(true);
   };
 
