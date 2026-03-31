@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { X, Pencil, Trash2, Clock, Bell, User, UserCircle, Filter } from 'lucide-react';
