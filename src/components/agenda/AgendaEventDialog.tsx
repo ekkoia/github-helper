@@ -142,7 +142,21 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
             </div>
           )}
 
-          {isAdmin && Object.keys(usersMap).length > 0 && (
+          <div>
+            <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Lembrete</Label>
+            <Select value={String(reminderMinutes)} onValueChange={(v) => setReminderMinutes(Number(v))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">Sem lembrete</SelectItem>
+                <SelectItem value="15">15 minutos antes</SelectItem>
+                <SelectItem value="30">30 minutos antes</SelectItem>
+                <SelectItem value="60">1 hora antes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
             <div>
               <Label>Assessor</Label>
               <Select value={userId} onValueChange={setUserId}>
