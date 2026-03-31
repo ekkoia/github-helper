@@ -23,6 +23,7 @@ interface Props {
   events: AgendaEvent[];
   blockedDays?: Record<string, AgendaBlock[]>;
   onEdit?: (event: AgendaEvent) => void;
+  onSlotClick?: (hour: number) => void;
 }
 
 function getEventPosition(event: AgendaEvent) {
