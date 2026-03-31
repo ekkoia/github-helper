@@ -18,6 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
+import { getWhatsAppUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit, AlertCircle, MessageCircle } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";

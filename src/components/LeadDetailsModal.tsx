@@ -26,6 +26,7 @@ import { AssignLeadDialog } from "./AssignLeadDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { toast } from "sonner";
+import { getWhatsAppUrl } from "@/lib/utils";
 
 const ORIGEM_LABELS: Record<string, string> = {
   instagram_ads: "Instagram Ads",
