@@ -201,6 +201,44 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
       .map(([name, value]) => ({ name, value }));
   }, [filteredLeads]);
 
+  // Mapeamento de origens para labels legíveis
+  const ORIGEM_LABELS: Record<string, string> = {
+    instagram_ads: "Instagram Ads",
+    facebook_ads: "Facebook Ads",
+    whatsapp: "WhatsApp",
+    meta_form: "Formulário Meta",
+    campanha_mensagem: "Campanha de Mensagem",
+    indicacao: "Indicação",
+    site: "Site/Landing Page",
+    outro: "Outro",
+  };
+
+  const ORIGEM_COLORS = [
+    "hsl(210, 90%, 55%)",  // Azul
+    "hsl(220, 80%, 50%)",  // Azul escuro
+    "hsl(142, 70%, 45%)",  // Verde
+    "hsl(280, 65%, 55%)",  // Roxo
+    "hsl(35, 95%, 55%)",   // Laranja
+    "hsl(350, 75%, 55%)",  // Vermelho
+    "hsl(180, 60%, 45%)",  // Teal
+    "hsl(45, 90%, 50%)",   // Amarelo
+  ];
+
+  // Dados para o gráfico de Leads por Origem
+  const origemData = useMemo(() => {
+    const origens: Record<string, number> = {};
+    
+    filteredLeads.forEach(lead => {
+      const origem = lead.origem || "Não informado";
+      const label = ORIGEM_LABELS[origem] || origem;
+      origens[label] = (origens[label] || 0) + 1;
+    });
+
+    return Object.entries(origens)
+      .map(([origem, count]) => ({ origem, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredLeads]);
+
   const handlePeriodChange = (value: string) => {
     setPeriod(value);
     if (value === "custom") {
