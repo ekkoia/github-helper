@@ -81,7 +81,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setEtapaFunil('');
     }
     setLeadSearch('');
-  }, [event, defaultDate, user, open]);
+  }, [event, defaultDate, user, open, defaultTime]);
 
   const filteredLeads = leads.filter(l =>
     !leadSearch || l.nome_completo.toLowerCase().includes(leadSearch.toLowerCase())

@@ -285,7 +285,10 @@ const Agenda = () => {
 
       <AgendaEventDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setDefaultTime(null);
+        }}
         event={editingEvent}
         defaultDate={viewMode === 'day' ? currentDate : selectedDate}
         usersMap={usersMap}
@@ -293,6 +296,7 @@ const Agenda = () => {
         onUpdate={updateEvent}
         blockedDays={blocksByDate}
         leads={leads}
+        defaultTime={defaultTime}
       />
 
       <AgendaBlockDialog
