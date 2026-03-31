@@ -121,7 +121,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
               <>
                 <div>
                   <Label>Início</Label>
-                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="dark:[color-scheme:dark]" />
                 </div>
               </>
             )}
