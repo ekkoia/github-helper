@@ -25,6 +25,25 @@ const tooltipStyle = {
   labelStyle: { color: "hsl(var(--popover-foreground))" },
 };
 
+const EtapasTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={tooltipStyle.contentStyle} className="p-3">
+      <span className="inline-flex items-center rounded-full bg-primary text-primary-foreground px-2.5 py-0.5 text-xs font-semibold mb-2">
+        {label}
+      </span>
+      <div className="mt-2 space-y-1">
+        {payload.filter((p: any) => p.value > 0).map((p: any) => (
+          <div key={p.name} className="flex items-center gap-2 text-sm" style={tooltipStyle.itemStyle}>
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.fill || p.color }} />
+            <span>{p.name}: <strong>{p.value}</strong></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 interface EquipeChartsProps {
   leads: any[];
   usersMap: Record<string, { user_id: string; nome_completo: string | null }>;
@@ -191,7 +210,7 @@ export const EquipeCharts = ({ leads, usersMap }: EquipeChartsProps) => {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="nome" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} interval={0} angle={-20} textAnchor="end" height={60} />
               <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-              <Tooltip {...tooltipStyle} />
+              <Tooltip content={<EtapasTooltip />} />
               {etapasPorAssessor.etapas.map((etapa, i) => (
                 <Bar key={etapa} dataKey={etapa} stackId="a" fill={coresMap[etapa] || COLORS[i % COLORS.length]} />
               ))}
