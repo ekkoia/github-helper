@@ -251,7 +251,7 @@ export const EquipeCharts = ({ leads, usersMap }: EquipeChartsProps) => {
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold text-foreground">Evolução do Pipeline</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">Leads criados nos últimos 30 dias</p>
+          <p className="text-sm text-muted-foreground mt-1">Leads criados no período selecionado</p>
         </CardHeader>
         <CardContent className="pt-0">
           <ResponsiveContainer width="100%" height={300}>
