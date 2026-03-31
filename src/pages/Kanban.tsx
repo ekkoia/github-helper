@@ -21,6 +21,13 @@ import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { getWhatsAppUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit, AlertCircle, MessageCircle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
