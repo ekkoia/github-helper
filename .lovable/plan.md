@@ -1,32 +1,22 @@
 
 
-# Corrigir ícones no dark mode + eventos não aparecendo na agenda
+# Mostrar eventos dos dias adjacentes visíveis no calendário
 
-## Problemas identificados
-
-### 1. Ícones de calendário/relógio nos inputs date/time
-Os inputs nativos `type="date"` e `type="time"` usam ícones do sistema que ficam escuros no dark mode, sem contraste.
-
-### 2. Evento criado mas não aparece no calendário
-A rede mostra que o POST retornou 201 (sucesso), mas nenhum GET subsequente foi disparado. Causa: a tabela `agenda_events` **não foi adicionada à publicação `supabase_realtime`**, então o Realtime não funciona. Além disso, o hook depende exclusivamente do Realtime para refetch — não chama `fetchEvents()` após CRUD manual.
+## Problema
+O calendário mostra dias de meses adjacentes (ex: 1-4 de abril quando vendo março), mas o hook só busca eventos entre `startOfMonth` e `endOfMonth` do mês atual. Eventos nesses dias de overflow não aparecem.
 
 ## Solução
 
-### Migration SQL
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE agenda_events;
+### `src/hooks/useAgendaEvents.ts`
+
+Alterar o cálculo do range de busca (linhas 45-46) para usar `startOfWeek(startOfMonth(...))` e `endOfWeek(endOfMonth(...))` — espelhando exatamente a lógica do calendário:
+
+```typescript
+const start = startOfWeek(startOfMonth(currentMonth), { locale: ptBR }).toISOString();
+const end = endOfWeek(endOfMonth(currentMonth), { locale: ptBR }).toISOString();
 ```
 
-### `src/hooks/useAgendaEvents.ts`
-Adicionar `await fetchEvents()` após cada operação CRUD bem-sucedida (createEvent, updateEvent, deleteEvent), como fallback caso o Realtime demore ou falhe.
+Adicionar imports de `startOfWeek`, `endOfWeek` e `ptBR` no hook.
 
-### `src/components/agenda/AgendaEventDialog.tsx`
-Adicionar CSS para os inputs date/time no dark mode usando a classe `dark:[color-scheme:dark]` no className dos `<Input type="date">` e `<Input type="time">`. Isso faz os ícones nativos do browser renderizarem em branco.
-
-## Arquivos alterados
-| Arquivo | Ação |
-|---------|------|
-| Migration SQL | Habilitar Realtime para `agenda_events` |
-| `src/hooks/useAgendaEvents.ts` | Adicionar `fetchEvents()` após CRUD |
-| `src/components/agenda/AgendaEventDialog.tsx` | Adicionar `dark:[color-scheme:dark]` nos inputs |
+Apenas 1 arquivo alterado, 3 linhas modificadas.
 
