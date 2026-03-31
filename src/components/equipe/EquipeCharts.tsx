@@ -159,18 +159,25 @@ export const EquipeCharts = ({ leads, usersMap }: EquipeChartsProps) => {
           <p className="text-sm text-muted-foreground mt-1">Distribuição de pipeline</p>
         </CardHeader>
         <CardContent className="pt-0">
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={350}>
             <BarChart data={etapasPorAssessor.data}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="nome" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} interval={0} angle={-20} textAnchor="end" height={60} />
               <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
               <Tooltip {...tooltipStyle} />
-              <Legend />
               {etapasPorAssessor.etapas.map((etapa, i) => (
                 <Bar key={etapa} dataKey={etapa} stackId="a" fill={coresMap[etapa] || COLORS[i % COLORS.length]} />
               ))}
             </BarChart>
           </ResponsiveContainer>
+          <div className="flex flex-wrap gap-2 mt-4">
+            {etapasPorAssessor.etapas.map((etapa, i) => (
+              <div key={etapa} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: coresMap[etapa] || COLORS[i % COLORS.length] }} />
+                {etapa}
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
