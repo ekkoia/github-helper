@@ -124,22 +124,42 @@ export const EquipeCharts = ({ leads, usersMap }: EquipeChartsProps) => {
     };
   }, [leads, assessorNames]);
 
-  // 3. Evolução Pipeline (Area - últimos 30 dias)
+  // 3. Evolução Pipeline (Area - período dinâmico)
   const evolucaoData = useMemo(() => {
-    const now = new Date();
-    const days = 30;
-    const assessorIds = Object.keys(assessorNames).slice(0, 5); // top 5
-    const dateMap: Record<string, Record<string, number>> = {};
+    if (leads.length === 0) return { data: [], names: [] };
 
-    for (let i = 0; i < days; i++) {
-      const d = format(subDays(now, days - i - 1), "dd/MM");
-      dateMap[d] = {};
-      assessorIds.forEach(id => { dateMap[d][assessorNames[id]] = 0; });
+    const assessorIds = Object.keys(assessorNames).slice(0, 5);
+    const dates = leads.map(l => new Date(l.data_criacao).getTime());
+    const startDate = new Date(Math.min(...dates));
+    const endDate = new Date();
+    const diffDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const useWeekly = diffDays > 90;
+
+    const dateMap: Record<string, Record<string, number>> = {};
+    const formatKey = (d: Date) => useWeekly
+      ? `S${format(d, "ww/yy")}`
+      : format(d, "dd/MM");
+
+    if (useWeekly) {
+      const weeks = new Set<string>();
+      for (let i = 0; i < diffDays; i++) {
+        weeks.add(formatKey(subDays(endDate, diffDays - i - 1)));
+      }
+      weeks.forEach(w => {
+        dateMap[w] = {};
+        assessorIds.forEach(id => { dateMap[w][assessorNames[id]] = 0; });
+      });
+    } else {
+      for (let i = 0; i < diffDays; i++) {
+        const d = formatKey(subDays(endDate, diffDays - i - 1));
+        dateMap[d] = {};
+        assessorIds.forEach(id => { dateMap[d][assessorNames[id]] = 0; });
+      }
     }
 
     leads.forEach(l => {
       if (!l.responsavel_id || !assessorIds.includes(l.responsavel_id)) return;
-      const d = format(new Date(l.data_criacao), "dd/MM");
+      const d = formatKey(new Date(l.data_criacao));
       const nome = assessorNames[l.responsavel_id];
       if (dateMap[d]) dateMap[d][nome] = (dateMap[d][nome] || 0) + 1;
     });
