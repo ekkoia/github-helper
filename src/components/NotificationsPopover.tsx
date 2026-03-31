@@ -22,6 +22,8 @@ const getNotificationIcon = (type: string) => {
       return <AlertCircle className="h-4 w-4 text-yellow-500" />;
     case "lead_recontato":
       return <Clock className="h-4 w-4 text-blue-500" />;
+    case "agenda_reminder":
+      return <CalendarDays className="h-4 w-4 text-emerald-500" />;
     default:
       return <Bell className="h-4 w-4 text-muted-foreground" />;
   }
