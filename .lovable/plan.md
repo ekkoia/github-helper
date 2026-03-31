@@ -1,53 +1,29 @@
 
 
-# Popover de detalhes do evento ao clicar (estilo Google Calendar)
+# Adicionar espaçamento no scrollbar da agenda (estilo Google Calendar)
 
-## O que será feito
+## Problema
 
-Ao clicar em um evento nas visualizações Semana, Dia ou Calendário Mensal, abrir um **popover flutuante** (não um dialog modal) posicionado próximo ao evento clicado, exibindo os detalhes do evento com ações rápidas (editar, excluir), similar ao Google Calendar.
+Na imagem de referência do Google Calendar, o scrollbar vertical tem um espaçamento/margem à direita do conteúdo, criando uma separação visual clara. Atualmente, o scrollbar da agenda fica colado ao conteúdo sem espaçamento.
 
 ## Alterações
 
-### 1. Novo componente: `src/components/agenda/AgendaEventPopover.tsx`
+### 1. `src/components/agenda/AgendaDayView.tsx`
+- Na `ScrollArea`, adicionar padding-right no container interno do grid para criar espaço entre o conteúdo e o scrollbar (ex: `pr-3`)
 
-Popover flutuante com:
-- **Header**: botões de ação (editar via lápis, excluir via lixeira, fechar via X) alinhados no topo direito
-- **Corpo**:
-  - Bolinha colorida (cor do tipo) + título do evento em destaque
-  - Data por extenso + horário (ex: "Terça-feira, 30 de dezembro de 2025 · 15:00 – 21:00")
-  - Descrição (se houver)
-  - Ícone sino + lembrete (ex: "30 minutos antes")
-  - Ícone lead + nome do lead vinculado (se houver)
-  - Ícone funil + etapa do funil com bolinha colorida (se houver)
-  - Ícone assessor + nome do assessor
-- Props: `event`, `anchorRect` (posição do click), `onClose`, `onEdit`, `onDelete`, `usersMap`, `leadsMap`, `coresMap`
-- Renderizado com `position: fixed` usando coordenadas do click, com lógica para não sair da tela
+### 2. `src/components/agenda/AgendaWeekView.tsx`
+- Mesmo ajuste: adicionar padding-right no container do grid dentro da `ScrollArea`
 
-### 2. `src/pages/Agenda.tsx`
-- Adicionar estado `popoverEvent: AgendaEvent | null` e `popoverAnchor: { x, y } | null`
-- Criar `handleEventClick(event, mouseEvent)` que salva o evento e as coordenadas do click
-- Fechar popover ao clicar fora, ao abrir dialog de edição, ou ao pressionar Escape
-- Botão "Editar" no popover → fecha popover, abre `AgendaEventDialog` com o evento
-- Botão "Excluir" no popover → confirma e exclui
+### 3. `src/components/ui/scroll-area.tsx` (opcional)
+- Aumentar a largura do scrollbar de `w-2.5` para `w-3` e adicionar margem lateral para dar mais respiro visual, similar ao Google Calendar
 
-### 3. `src/components/agenda/AgendaWeekView.tsx`
-- Adicionar prop `onEventClick?: (event: AgendaEvent, e: React.MouseEvent) => void`
-- No `onClick` dos cards de evento, chamar `onEventClick` ao invés de apenas `stopPropagation`
+## Detalhes técnicos
 
-### 4. `src/components/agenda/AgendaDayView.tsx`
-- Substituir chamada direta a `onEdit` por `onEventClick` (mesma assinatura com MouseEvent)
-- Manter `onEdit` como fallback se `onEventClick` não for fornecido
-
-### 5. `src/components/agenda/AgendaCalendar.tsx`
-- Adicionar prop `onEventClick` para capturar cliques em eventos dentro do calendário mensal
-
-## Arquivos
+- Adicionar `pr-3` ou `pr-4` na div do grid dentro de cada `ScrollArea` nas views Dia e Semana
+- Ajustar o `ScrollBar` para ter um pouco mais de padding (`p-[2px]`) e margem
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/agenda/AgendaEventPopover.tsx` | Criar |
-| `src/pages/Agenda.tsx` | Integrar popover + estado |
-| `src/components/agenda/AgendaWeekView.tsx` | Adicionar prop onEventClick |
-| `src/components/agenda/AgendaDayView.tsx` | Adicionar prop onEventClick |
-| `src/components/agenda/AgendaCalendar.tsx` | Adicionar prop onEventClick |
+| `src/components/agenda/AgendaDayView.tsx` | Adicionar padding-right no grid |
+| `src/components/agenda/AgendaWeekView.tsx` | Adicionar padding-right no grid |
 
