@@ -40,6 +40,7 @@ export function useAgendaEvents(currentMonth: Date) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { role } = useUserRole();
+  const { logActivity } = useActivityLog();
 
   const fetchEvents = useCallback(async () => {
     if (!user) return;
