@@ -28,6 +28,7 @@ interface Props {
   onSelectDate: (date: Date) => void;
   blockedDays?: Record<string, AgendaBlock[]>;
   onSlotClick?: (date: Date, hour: number) => void;
+  onEventClick?: (event: AgendaEvent, e: React.MouseEvent) => void;
 }
 
 function getEventPosition(event: AgendaEvent) {
