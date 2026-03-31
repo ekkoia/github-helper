@@ -210,7 +210,7 @@ export const EquipeCharts = ({ leads, usersMap }: EquipeChartsProps) => {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="nome" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} interval={0} angle={-20} textAnchor="end" height={60} />
               <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-              <Tooltip {...tooltipStyle} />
+              <Tooltip content={<EtapasTooltip />} />
               {etapasPorAssessor.etapas.map((etapa, i) => (
                 <Bar key={etapa} dataKey={etapa} stackId="a" fill={coresMap[etapa] || COLORS[i % COLORS.length]} />
               ))}
