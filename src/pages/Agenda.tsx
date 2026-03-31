@@ -253,6 +253,7 @@ const Agenda = () => {
               selectedDate={selectedDate}
               onSelectDate={handleSelectDate}
               blockedDays={blocksByDate}
+              onSlotClick={handleSlotClick}
             />
           )}
 
