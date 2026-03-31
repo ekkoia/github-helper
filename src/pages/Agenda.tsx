@@ -7,18 +7,27 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useFunilEtapas } from '@/hooks/useFunilEtapas';
 import { supabase } from '@/integrations/supabase/client';
 import { AgendaCalendar } from '@/components/agenda/AgendaCalendar';
+import { AgendaWeekView } from '@/components/agenda/AgendaWeekView';
+import { AgendaDayView } from '@/components/agenda/AgendaDayView';
 import { AgendaEventList } from '@/components/agenda/AgendaEventList';
 import { AgendaEventDialog } from '@/components/agenda/AgendaEventDialog';
 import { AgendaBlockDialog } from '@/components/agenda/AgendaBlockDialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, Ban } from 'lucide-react';
-import { addMonths, subMonths, format } from 'date-fns';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Ban, Calendar, CalendarRange, Clock } from 'lucide-react';
+import {
+  addMonths, subMonths, addWeeks, subWeeks, addDays, subDays,
+  format, startOfWeek, endOfWeek,
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+type ViewMode = 'month' | 'week' | 'day';
+
 const Agenda = () => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<AgendaEvent | null>(null);
@@ -28,11 +37,10 @@ const Agenda = () => {
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
   const { users } = useUsers();
-  const { events, loading, createEvent, updateEvent, deleteEvent } = useAgendaEvents(currentMonth);
-  const { blocks, blocksByDate, createBlock, deleteBlock } = useAgendaBlocks(currentMonth);
+  const { events, loading, createEvent, updateEvent, deleteEvent } = useAgendaEvents(currentDate);
+  const { blocks, blocksByDate, createBlock, deleteBlock } = useAgendaBlocks(currentDate);
   const { coresMap } = useFunilEtapas();
 
-  // Fetch leads for the dialog
   const [leads, setLeads] = useState<{ id: string; nome_completo: string }[]>([]);
   useEffect(() => {
     const fetchLeads = async () => {
@@ -46,7 +54,6 @@ const Agenda = () => {
     fetchLeads();
   }, []);
 
-  // Build leadsMap for event list display
   const leadsMap = useMemo(() => {
     const map: Record<string, string> = {};
     leads.forEach(l => { map[l.id] = l.nome_completo; });
@@ -84,6 +91,47 @@ const Agenda = () => {
   const handleNewEvent = () => {
     setEditingEvent(null);
     setDialogOpen(true);
+  };
+
+  // Navigation
+  const goBack = () => {
+    if (viewMode === 'month') setCurrentDate(m => subMonths(m, 1));
+    else if (viewMode === 'week') setCurrentDate(m => subWeeks(m, 1));
+    else setCurrentDate(m => subDays(m, 1));
+  };
+
+  const goForward = () => {
+    if (viewMode === 'month') setCurrentDate(m => addMonths(m, 1));
+    else if (viewMode === 'week') setCurrentDate(m => addWeeks(m, 1));
+    else setCurrentDate(m => addDays(m, 1));
+  };
+
+  const goToday = () => {
+    setCurrentDate(new Date());
+    setSelectedDate(new Date());
+  };
+
+  const navTitle = useMemo(() => {
+    if (viewMode === 'month') {
+      return format(currentDate, 'MMMM yyyy', { locale: ptBR });
+    }
+    if (viewMode === 'week') {
+      const ws = startOfWeek(currentDate, { locale: ptBR });
+      const we = endOfWeek(currentDate, { locale: ptBR });
+      return `${format(ws, 'd')}–${format(we, 'd MMM yyyy', { locale: ptBR })}`;
+    }
+    return format(currentDate, "d 'de' MMMM, EEEE", { locale: ptBR });
+  }, [currentDate, viewMode]);
+
+  const handleSelectDate = (date: Date) => {
+    setSelectedDate(date);
+    if (viewMode === 'month') {
+      setCurrentDate(date);
+      setViewMode('day');
+    } else if (viewMode === 'week') {
+      setCurrentDate(date);
+      setViewMode('day');
+    }
   };
 
   return (
@@ -138,32 +186,78 @@ const Agenda = () => {
           </div>
         </div>
 
-        {/* Month nav */}
-        <div className="flex items-center justify-between">
-          <Button variant="outline" size="icon" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <h2 className="text-lg font-semibold capitalize">
-            {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
-          </h2>
-          <Button variant="outline" size="icon" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+        {/* Navigation + View Toggle */}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={goBack}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={goToday}>
+              Hoje
+            </Button>
+            <Button variant="outline" size="icon" onClick={goForward}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <h2 className="text-lg font-semibold capitalize ml-2">
+              {navTitle}
+            </h2>
+          </div>
+
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={(v) => v && setViewMode(v as ViewMode)}
+            className="border border-border rounded-lg"
+          >
+            <ToggleGroupItem value="month" aria-label="Mês" className="px-3 gap-1">
+              <Calendar className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Mês</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="week" aria-label="Semana" className="px-3 gap-1">
+              <CalendarRange className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Semana</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="day" aria-label="Dia" className="px-3 gap-1">
+              <Clock className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Dia</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
-        {/* Calendar + side panel */}
+        {/* Calendar views + side panel */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-          <AgendaCalendar
-            currentMonth={currentMonth}
-            events={filteredEvents}
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-            blockedDays={blocksByDate}
-          />
+          {viewMode === 'month' && (
+            <AgendaCalendar
+              currentMonth={currentDate}
+              events={filteredEvents}
+              selectedDate={selectedDate}
+              onSelectDate={handleSelectDate}
+              blockedDays={blocksByDate}
+            />
+          )}
+
+          {viewMode === 'week' && (
+            <AgendaWeekView
+              currentDate={currentDate}
+              events={filteredEvents}
+              selectedDate={selectedDate}
+              onSelectDate={handleSelectDate}
+              blockedDays={blocksByDate}
+            />
+          )}
+
+          {viewMode === 'day' && (
+            <AgendaDayView
+              currentDate={currentDate}
+              events={filteredEvents}
+              blockedDays={blocksByDate}
+              onEdit={handleEdit}
+            />
+          )}
 
           <div className="bg-card border border-border rounded-lg p-4">
             <AgendaEventList
-              date={selectedDate}
+              date={viewMode === 'day' ? currentDate : selectedDate}
               events={filteredEvents}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -181,7 +275,7 @@ const Agenda = () => {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         event={editingEvent}
-        defaultDate={selectedDate}
+        defaultDate={viewMode === 'day' ? currentDate : selectedDate}
         usersMap={usersMap}
         onSave={createEvent}
         onUpdate={updateEvent}
@@ -192,7 +286,7 @@ const Agenda = () => {
       <AgendaBlockDialog
         open={blockDialogOpen}
         onOpenChange={setBlockDialogOpen}
-        defaultDate={selectedDate}
+        defaultDate={viewMode === 'day' ? currentDate : selectedDate}
         usersMap={usersMap}
         onSave={createBlock}
       />
