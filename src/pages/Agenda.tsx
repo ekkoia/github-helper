@@ -84,8 +84,16 @@ const Agenda = () => {
   }, [events, filterType, filterUser]);
 
   const handleEdit = (event: AgendaEvent) => {
+    setPopoverEvent(null);
+    setPopoverAnchor(null);
     setEditingEvent(event);
     setDialogOpen(true);
+  };
+
+  const handleEventClick = (event: AgendaEvent, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPopoverEvent(event);
+    setPopoverAnchor({ x: e.clientX, y: e.clientY });
   };
 
   const handleDelete = async (id: string) => {
