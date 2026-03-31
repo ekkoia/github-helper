@@ -1,4 +1,4 @@
-import { BarChart3, Users, TrendingUp, UserCog, User, Settings, LogOut, Activity } from "lucide-react";
+import { BarChart3, Users, TrendingUp, UserCog, User, Settings, LogOut, Activity, CalendarDays } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 const coreItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Leads", url: "/leads", icon: Users },
+  { title: "Agenda", url: "/agenda", icon: CalendarDays },
   { title: "Análises", url: "/analytics", icon: TrendingUp },
 ];
 

@@ -64,6 +64,26 @@ Deno.serve(async (req) => {
         await supabase.from("notifications").insert(notifications);
       }
 
+      // Create agenda events for 2h alerts
+      const agendaAlerts: any[] = [];
+      for (const lead of leadsNoContact) {
+        if (lead.responsavel_id) {
+          agendaAlerts.push({
+            title: `⚠️ Contatar lead: ${lead.nome_completo}`,
+            description: `Lead sem contato há mais de 2 horas.`,
+            event_type: "automation",
+            start_at: new Date().toISOString(),
+            all_day: false,
+            lead_id: lead.id,
+            user_id: lead.responsavel_id,
+            metadata: { type: "alerta_sem_contato", lead_id: lead.id },
+          });
+        }
+      }
+      if (agendaAlerts.length > 0) {
+        await supabase.from("agenda_events").insert(agendaAlerts);
+      }
+
       // Mark leads as alerted
       const leadIds = leadsNoContact.map((l: any) => l.id);
       await supabase
@@ -138,6 +158,26 @@ Deno.serve(async (req) => {
       }
       if (activities.length > 0) {
         await supabase.from("user_activities").insert(activities);
+      }
+
+      // Create agenda events for recontato
+      const agendaRecontato: any[] = [];
+      for (const lead of leadsRecontato) {
+        if (lead.responsavel_id) {
+          agendaRecontato.push({
+            title: `🔄 Recontatar: ${lead.nome_completo}`,
+            description: `Lead movido para recontato após 24h sem atualização.`,
+            event_type: "automation",
+            start_at: new Date().toISOString(),
+            all_day: false,
+            lead_id: lead.id,
+            user_id: lead.responsavel_id,
+            metadata: { type: "recontato_24h", lead_id: lead.id },
+          });
+        }
+      }
+      if (agendaRecontato.length > 0) {
+        await supabase.from("agenda_events").insert(agendaRecontato);
       }
 
       recontatoCount = leadsRecontato.length;
