@@ -152,19 +152,31 @@ const Kanban = () => {
     };
   }, []);
 
-  // Filtrar leads por busca global
+  // Filtrar leads por busca global e responsável
   const filteredLeads = useMemo(() => {
-    if (!searchTerm) return leads;
+    let result = leads;
 
-    const term = searchTerm.toLowerCase();
-    return leads.filter(
-      (lead) =>
-        lead.nome_completo?.toLowerCase().includes(term) ||
-        lead.email?.toLowerCase().includes(term) ||
-        lead.telefone?.includes(term) ||
-        lead.cidade?.toLowerCase().includes(term),
-    );
-  }, [leads, searchTerm]);
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(
+        (lead) =>
+          lead.nome_completo?.toLowerCase().includes(term) ||
+          lead.email?.toLowerCase().includes(term) ||
+          lead.telefone?.includes(term) ||
+          lead.cidade?.toLowerCase().includes(term),
+      );
+    }
+
+    if (filterResponsavel !== "all") {
+      if (filterResponsavel === "unassigned") {
+        result = result.filter((lead) => !lead.responsavel_id);
+      } else {
+        result = result.filter((lead) => lead.responsavel_id === filterResponsavel);
+      }
+    }
+
+    return result;
+  }, [leads, searchTerm, filterResponsavel]);
 
   const getLeadsByEtapa = (etapa: string) => {
     return filteredLeads.filter((lead) => lead.etapa_funil === etapa);
