@@ -157,6 +157,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
             </Select>
           </div>
 
+          {isAdmin && Object.keys(usersMap).length > 0 && (
             <div>
               <Label>Assessor</Label>
               <Select value={userId} onValueChange={setUserId}>
