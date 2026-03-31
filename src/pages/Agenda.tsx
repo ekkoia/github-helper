@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAgendaEvents, AgendaEvent } from '@/hooks/useAgendaEvents';
 import { useAgendaBlocks } from '@/hooks/useAgendaBlocks';
 import { useUsers } from '@/hooks/useUsers';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useFunilEtapas } from '@/hooks/useFunilEtapas';
+import { supabase } from '@/integrations/supabase/client';
 import { AgendaCalendar } from '@/components/agenda/AgendaCalendar';
 import { AgendaEventList } from '@/components/agenda/AgendaEventList';
 import { AgendaEventDialog } from '@/components/agenda/AgendaEventDialog';
