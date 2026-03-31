@@ -32,9 +32,10 @@ interface Props {
   onUpdate: (id: string, data: Partial<CreateEventData>) => Promise<boolean | undefined>;
   blockedDays?: Record<string, AgendaBlock[]>;
   leads?: LeadOption[];
+  defaultTime?: string | null;
 }
 
-export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate, blockedDays = {}, leads = [] }: Props) {
+export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, usersMap, onSave, onUpdate, blockedDays = {}, leads = [], defaultTime }: Props) {
   const { user } = useAuth();
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
@@ -69,8 +70,10 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setTitle('');
       setDescription('');
       setStartDate(defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
-      setStartTime('09:00');
-      setEndTime('10:00');
+      const st = defaultTime || '09:00';
+      setStartTime(st);
+      const nextHour = String(Math.min(parseInt(st.split(':')[0]) + 1, 23)).padStart(2, '0') + ':00';
+      setEndTime(nextHour);
       setAllDay(false);
       setUserId(user?.id || '');
       setReminderMinutes(30);
@@ -78,7 +81,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setEtapaFunil('');
     }
     setLeadSearch('');
-  }, [event, defaultDate, user, open]);
+  }, [event, defaultDate, user, open, defaultTime]);
 
   const filteredLeads = leads.filter(l =>
     !leadSearch || l.nome_completo.toLowerCase().includes(leadSearch.toLowerCase())

@@ -33,6 +33,7 @@ const Agenda = () => {
   const [editingEvent, setEditingEvent] = useState<AgendaEvent | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterUser, setFilterUser] = useState<string>('all');
+  const [defaultTime, setDefaultTime] = useState<string | null>(null);
 
   const { role } = useUserRole();
   const isAdmin = role === 'admin' || role === 'global';
@@ -89,6 +90,15 @@ const Agenda = () => {
   };
 
   const handleNewEvent = () => {
+    setEditingEvent(null);
+    setDefaultTime(null);
+    setDialogOpen(true);
+  };
+
+  const handleSlotClick = (date: Date, hour: number) => {
+    setCurrentDate(date);
+    setSelectedDate(date);
+    setDefaultTime(`${String(hour).padStart(2, '0')}:00`);
     setEditingEvent(null);
     setDialogOpen(true);
   };
@@ -243,6 +253,7 @@ const Agenda = () => {
               selectedDate={selectedDate}
               onSelectDate={handleSelectDate}
               blockedDays={blocksByDate}
+              onSlotClick={handleSlotClick}
             />
           )}
 
@@ -252,6 +263,7 @@ const Agenda = () => {
               events={filteredEvents}
               blockedDays={blocksByDate}
               onEdit={handleEdit}
+              onSlotClick={(hour) => handleSlotClick(currentDate, hour)}
             />
           )}
 
@@ -273,7 +285,10 @@ const Agenda = () => {
 
       <AgendaEventDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setDefaultTime(null);
+        }}
         event={editingEvent}
         defaultDate={viewMode === 'day' ? currentDate : selectedDate}
         usersMap={usersMap}
@@ -281,6 +296,7 @@ const Agenda = () => {
         onUpdate={updateEvent}
         blockedDays={blocksByDate}
         leads={leads}
+        defaultTime={defaultTime}
       />
 
       <AgendaBlockDialog
