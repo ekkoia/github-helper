@@ -47,7 +47,7 @@ function getEventPosition(event: AgendaEvent) {
   return { top: Math.max(0, top), height };
 }
 
-export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate, blockedDays = {}, onSlotClick }: Props) {
+export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate, blockedDays = {}, onSlotClick, onEventClick }: Props) {
   const days = useMemo(() => {
     const weekStart = startOfWeek(currentDate, { locale: ptBR });
     const weekEnd = endOfWeek(currentDate, { locale: ptBR });
