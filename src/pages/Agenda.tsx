@@ -19,7 +19,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronLeft, ChevronRight, Plus, CalendarDays, Ban, Calendar, CalendarRange, Clock } from 'lucide-react';
 import {
   addMonths, subMonths, addWeeks, subWeeks, addDays, subDays,
-  format, startOfWeek, endOfWeek,
+  format, startOfWeek, endOfWeek, parseISO, getHours, getMinutes,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -112,6 +112,33 @@ const Agenda = () => {
     setDefaultTime(`${String(hour).padStart(2, '0')}:00`);
     setEditingEvent(null);
     setDialogOpen(true);
+  };
+
+  const handleEventDrop = async (eventId: string, newDate: Date, newHour: number) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
+    const oldStart = parseISO(event.start_at);
+    const oldHour = getHours(oldStart);
+    const oldMinutes = getMinutes(oldStart);
+
+    // Calculate duration to preserve it
+    let durationMs = 60 * 60 * 1000; // default 1h
+    if (event.end_at) {
+      durationMs = parseISO(event.end_at).getTime() - oldStart.getTime();
+    }
+
+    // Build new start preserving minutes
+    const newStart = new Date(newDate);
+    newStart.setHours(newHour, oldMinutes, 0, 0);
+    const newEnd = new Date(newStart.getTime() + durationMs);
+
+    await updateEvent(eventId, {
+      start_at: newStart.toISOString(),
+      end_at: newEnd.toISOString(),
+      title: event.title,
+      user_id: event.user_id,
+    });
   };
 
   // Navigation
@@ -267,6 +294,7 @@ const Agenda = () => {
               blockedDays={blocksByDate}
               onSlotClick={handleSlotClick}
               onEventClick={handleEventClick}
+              onEventDrop={handleEventDrop}
             />
           )}
 
@@ -278,6 +306,7 @@ const Agenda = () => {
               onEdit={handleEdit}
               onSlotClick={(hour) => handleSlotClick(currentDate, hour)}
               onEventClick={handleEventClick}
+              onEventDrop={handleEventDrop}
             />
           )}
 
