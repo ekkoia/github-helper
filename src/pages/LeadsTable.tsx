@@ -550,7 +550,7 @@ const LeadsTable = () => {
       />
 
       {/* Busca Global */}
-      <GlobalSearch value={searchTerm} onChange={setSearchTerm} placeholder="Buscar por nome, email ou telefone..." />
+      <GlobalSearch value={searchTerm} onChange={setSearchTerm} placeholder="Buscar por nome, email, telefone ou notas..." />
 
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
