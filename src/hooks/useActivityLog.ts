@@ -21,7 +21,10 @@ export type ActivityType =
   | 'funnel_updated'
   | 'bulk_stage_change'
   | 'bulk_assign'
-  | 'bulk_delete';
+  | 'bulk_delete'
+  | 'agenda_created'
+  | 'agenda_updated'
+  | 'agenda_deleted';
 
 export const useActivityLog = () => {
   const { user } = useAuth();
