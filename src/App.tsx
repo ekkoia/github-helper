@@ -18,6 +18,7 @@ import Equipe from "./pages/Equipe";
 import Perfil from "./pages/Perfil";
 import Configuracoes from "./pages/Configuracoes";
 import Atividades from "./pages/Atividades";
+import Agenda from "./pages/Agenda";
 
 const queryClient = new QueryClient();
 
