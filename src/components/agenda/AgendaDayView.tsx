@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useCallback } from 'react';
 import { format, parseISO, getHours, getMinutes, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,7 @@ interface Props {
   onEdit?: (event: AgendaEvent) => void;
   onSlotClick?: (hour: number) => void;
   onEventClick?: (event: AgendaEvent, e: React.MouseEvent) => void;
+  onEventDrop?: (eventId: string, newDate: Date, newHour: number) => void;
 }
 
 function getEventPosition(event: AgendaEvent) {
@@ -43,9 +44,11 @@ function getEventPosition(event: AgendaEvent) {
   return { top: Math.max(0, top), height };
 }
 
-export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, onSlotClick, onEventClick }: Props) {
+export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, onSlotClick, onEventClick, onEventDrop }: Props) {
   const key = format(currentDate, 'yyyy-MM-dd');
   const dayBlocks = blockedDays[key] || [];
+  const [dragOverHour, setDragOverHour] = useState<number | null>(null);
+  const dragEventIdRef = useRef<string | null>(null);
 
   const allDayEvents = useMemo(
     () => events.filter(ev => ev.all_day && isSameDay(parseISO(ev.start_at), currentDate)),
@@ -56,6 +59,44 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, o
     () => events.filter(ev => !ev.all_day && isSameDay(parseISO(ev.start_at), currentDate)),
     [events, currentDate]
   );
+
+  const handleDragStart = useCallback((e: React.DragEvent, eventId: string) => {
+    dragEventIdRef.current = eventId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', eventId);
+    // Make the drag image semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5';
+    }
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1';
+    }
+    dragEventIdRef.current = null;
+    setDragOverHour(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, hour: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverHour(hour);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, hour: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverHour(null);
+    const eventId = e.dataTransfer.getData('text/plain') || dragEventIdRef.current;
+    if (eventId && onEventDrop) {
+      onEventDrop(eventId, currentDate, hour);
+    }
+  }, [currentDate, onEventDrop]);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverHour(null);
+  }, []);
 
   return (
     <div className="border border-border rounded-lg overflow-hidden flex flex-col">
@@ -104,9 +145,15 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, o
             {HOURS.map((hour) => (
               <div
                 key={hour}
-                className="border-t border-border cursor-pointer hover:bg-muted/30 transition-colors"
+                className={cn(
+                  'border-t border-border cursor-pointer hover:bg-muted/30 transition-colors',
+                  dragOverHour === hour && 'bg-primary/10 border-primary/30',
+                )}
                 style={{ height: HOUR_HEIGHT }}
                 onClick={() => onSlotClick?.(hour)}
+                onDragOver={(e) => handleDragOver(e, hour)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, hour)}
               />
             ))}
 
@@ -116,7 +163,7 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, o
                 return (
                   <div
                     key={block.id}
-                    className="absolute inset-x-0 bg-destructive/10 border-l-2 border-destructive/30 z-[1]"
+                    className="absolute inset-x-0 bg-destructive/10 border-l-2 border-destructive/30 z-[1] pointer-events-none"
                     style={{ top: 0, height: HOURS.length * HOUR_HEIGHT }}
                   />
                 );
@@ -129,7 +176,7 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, o
                 return (
                   <div
                     key={block.id}
-                    className="absolute inset-x-0 bg-destructive/10 border-l-2 border-destructive/30 z-[1]"
+                    className="absolute inset-x-0 bg-destructive/10 border-l-2 border-destructive/30 z-[1] pointer-events-none"
                     style={{ top: Math.max(0, top), height: Math.max(20, bottom - top) }}
                   >
                     <span className="text-[10px] text-destructive px-1">{block.reason || 'Indisponível'}</span>
@@ -145,8 +192,11 @@ export function AgendaDayView({ currentDate, events, blockedDays = {}, onEdit, o
               return (
                 <div
                   key={ev.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, ev.id)}
+                  onDragEnd={handleDragEnd}
                   className={cn(
-                    'absolute left-1 right-1 rounded px-2 py-1 text-white text-xs overflow-hidden z-[2] cursor-pointer hover:opacity-90',
+                    'absolute left-1 right-1 rounded px-2 py-1 text-white text-xs overflow-hidden z-[2] cursor-grab active:cursor-grabbing hover:opacity-90',
                     EVENT_COLORS[ev.event_type] || 'bg-muted-foreground',
                   )}
                   style={{ top: pos.top, height: pos.height, minHeight: 24 }}

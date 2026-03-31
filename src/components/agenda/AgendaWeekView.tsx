@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useCallback } from 'react';
 import {
   startOfWeek, endOfWeek, eachDayOfInterval, format, isSameDay, isToday,
   parseISO, getHours, getMinutes,
@@ -29,6 +29,7 @@ interface Props {
   blockedDays?: Record<string, AgendaBlock[]>;
   onSlotClick?: (date: Date, hour: number) => void;
   onEventClick?: (event: AgendaEvent, e: React.MouseEvent) => void;
+  onEventDrop?: (eventId: string, newDate: Date, newHour: number) => void;
 }
 
 function getEventPosition(event: AgendaEvent) {
@@ -47,7 +48,10 @@ function getEventPosition(event: AgendaEvent) {
   return { top: Math.max(0, top), height };
 }
 
-export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate, blockedDays = {}, onSlotClick, onEventClick }: Props) {
+export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate, blockedDays = {}, onSlotClick, onEventClick, onEventDrop }: Props) {
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+  const dragEventIdRef = useRef<string | null>(null);
+
   const days = useMemo(() => {
     const weekStart = startOfWeek(currentDate, { locale: ptBR });
     const weekEnd = endOfWeek(currentDate, { locale: ptBR });
@@ -79,6 +83,43 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
   }, [events]);
 
   const hasAnyAllDay = days.some(d => (allDayEvents[format(d, 'yyyy-MM-dd')] || []).length > 0);
+
+  const handleDragStart = useCallback((e: React.DragEvent, eventId: string) => {
+    dragEventIdRef.current = eventId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', eventId);
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5';
+    }
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1';
+    }
+    dragEventIdRef.current = null;
+    setDragOverSlot(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, slotKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSlot(slotKey);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, day: Date, hour: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverSlot(null);
+    const eventId = e.dataTransfer.getData('text/plain') || dragEventIdRef.current;
+    if (eventId && onEventDrop) {
+      onEventDrop(eventId, day, hour);
+    }
+  }, [onEventDrop]);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverSlot(null);
+  }, []);
 
   return (
     <div className="border border-border rounded-lg overflow-hidden flex flex-col">
@@ -170,14 +211,23 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
                 onClick={() => onSelectDate(day)}
               >
                 {/* Hour grid lines */}
-                {HOURS.map((hour) => (
-                  <div
-                    key={hour}
-                    className="border-t border-border cursor-pointer hover:bg-muted/30 transition-colors"
-                    style={{ height: HOUR_HEIGHT }}
-                    onClick={(e) => { e.stopPropagation(); onSlotClick?.(day, hour); }}
-                  />
-                ))}
+                {HOURS.map((hour) => {
+                  const slotKey = `${key}-${hour}`;
+                  return (
+                    <div
+                      key={hour}
+                      className={cn(
+                        'border-t border-border cursor-pointer hover:bg-muted/30 transition-colors',
+                        dragOverSlot === slotKey && 'bg-primary/10 border-primary/30',
+                      )}
+                      style={{ height: HOUR_HEIGHT }}
+                      onClick={(e) => { e.stopPropagation(); onSlotClick?.(day, hour); }}
+                      onDragOver={(e) => handleDragOver(e, slotKey)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, day, hour)}
+                    />
+                  );
+                })}
 
                 {/* Blocks */}
                 {dayBlocks.map((block) => {
@@ -185,7 +235,7 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
                     return (
                       <div
                         key={block.id}
-                        className="absolute inset-x-0 bg-destructive/10 border-l-2 border-destructive/30 z-[1]"
+                        className="absolute inset-x-0 bg-destructive/10 border-l-2 border-destructive/30 z-[1] pointer-events-none"
                         style={{ top: 0, height: HOURS.length * HOUR_HEIGHT }}
                       />
                     );
@@ -198,7 +248,7 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
                     return (
                       <div
                         key={block.id}
-                        className="absolute inset-x-0 bg-destructive/10 border-l-2 border-destructive/30 z-[1]"
+                        className="absolute inset-x-0 bg-destructive/10 border-l-2 border-destructive/30 z-[1] pointer-events-none"
                         style={{ top: Math.max(0, top), height: Math.max(20, bottom - top) }}
                       />
                     );
@@ -212,8 +262,11 @@ export function AgendaWeekView({ currentDate, events, selectedDate, onSelectDate
                   return (
                     <div
                       key={ev.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, ev.id)}
+                      onDragEnd={handleDragEnd}
                       className={cn(
-                        'absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-white text-[10px] leading-tight overflow-hidden z-[2] cursor-pointer hover:opacity-90',
+                        'absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-white text-[10px] leading-tight overflow-hidden z-[2] cursor-grab active:cursor-grabbing hover:opacity-90',
                         EVENT_COLORS[ev.event_type] || 'bg-muted-foreground',
                       )}
                       style={{ top: pos.top, height: pos.height, minHeight: 20 }}
