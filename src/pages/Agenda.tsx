@@ -19,7 +19,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronLeft, ChevronRight, Plus, CalendarDays, Ban, Calendar, CalendarRange, Clock } from 'lucide-react';
 import {
   addMonths, subMonths, addWeeks, subWeeks, addDays, subDays,
-  format, startOfWeek, endOfWeek,
+  format, startOfWeek, endOfWeek, parseISO, getHours, getMinutes,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
