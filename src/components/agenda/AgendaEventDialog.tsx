@@ -142,7 +142,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
             </div>
           )}
 
-          <div>
+          <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Lembrete</Label>
             <Select value={String(reminderMinutes)} onValueChange={(v) => setReminderMinutes(Number(v))}>
               <SelectTrigger>
