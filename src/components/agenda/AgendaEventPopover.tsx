@@ -30,6 +30,7 @@ interface Props {
 
 export function AgendaEventPopover({ event, anchor, onClose, onEdit, onDelete, usersMap, leadsMap, coresMap }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // Close on click outside
   useEffect(() => {
