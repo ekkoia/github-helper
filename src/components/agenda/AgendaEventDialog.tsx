@@ -48,6 +48,7 @@ export function AgendaEventDialog({ open, onOpenChange, event, defaultDate, user
       setEndTime(event.end_at ? format(new Date(event.end_at), 'HH:mm') : '10:00');
       setAllDay(event.all_day || false);
       setUserId(event.user_id);
+      setReminderMinutes((event as any).reminder_minutes ?? 30);
     } else {
       setTitle('');
       setDescription('');
