@@ -684,6 +684,17 @@ const LeadsTable = () => {
               </div>
             </PopoverContent>
           </Popover>
+          {isAdmin && (
+            <Button
+              onClick={() => setIsImportOpen(true)}
+              variant="outline"
+              className="gap-2"
+              aria-label="Importar leads via planilha"
+            >
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Importar</span>
+            </Button>
+          )}
           <Button
             onClick={() => {
               setEditingLead(null);
