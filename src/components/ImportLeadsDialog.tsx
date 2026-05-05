@@ -118,6 +118,24 @@ export const ImportLeadsDialog = ({ open, onOpenChange, onImported }: ImportLead
     return TARGET_FIELDS.filter((f) => f.required).every((f) => mapped.has(f.key as TargetField));
   }, [mapping]);
 
+  // Detect potentially malformed phone column (sample first 5 rows)
+  const phoneWarning = useMemo(() => {
+    if (!parsed) return null;
+    const phoneHeader = Object.entries(mapping).find(([, t]) => t === "telefone")?.[0];
+    if (!phoneHeader) return null;
+    const samples = parsed.rows.slice(0, 5).map((r) => String(r[phoneHeader] ?? ""));
+    const shortCount = samples.filter((s) => {
+      const digits = s.replace(/\D/g, "").replace(/^0+/, "");
+      const local = digits.startsWith("55") && digits.length >= 12 ? digits.slice(2) : digits;
+      return local.length > 0 && local.length < 10;
+    }).length;
+    if (shortCount >= Math.ceil(samples.length / 2)) {
+      return "Os telefones do arquivo parecem estar sem DDD ou foram lidos como número pelo Excel. Linhas inválidas serão bloqueadas. Reformate a coluna como Texto e inclua o DDD.";
+    }
+    return null;
+  }, [parsed, mapping]);
+
+
   const startImport = async () => {
     const toImport = validated.filter((r) => r.status !== "invalid");
     if (toImport.length === 0) {
