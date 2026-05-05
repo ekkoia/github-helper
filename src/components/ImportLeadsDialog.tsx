@@ -281,6 +281,12 @@ export const ImportLeadsDialog = ({ open, onOpenChange, onImported }: ImportLead
                 Mapeie os campos obrigatórios: Nome, Telefone e Email.
               </div>
             )}
+            {phoneWarning && (
+              <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded p-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{phoneWarning}</span>
+              </div>
+            )}
             <div className="flex justify-between gap-2">
               <Button variant="outline" onClick={() => setStep("upload")}>Voltar</Button>
               <Button onClick={validateAll} disabled={!requiredMapped}>
