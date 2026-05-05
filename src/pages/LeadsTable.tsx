@@ -45,6 +45,8 @@ import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fn
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { exportToCSV, exportToXLSX } from "@/lib/exportUtils";
+import { ImportLeadsDialog } from "@/components/ImportLeadsDialog";
+import { Upload } from "lucide-react";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -79,6 +81,7 @@ const LeadsTable = () => {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<any>(null);
   const [selectedLead, setSelectedLead] = useState<any>(null);
