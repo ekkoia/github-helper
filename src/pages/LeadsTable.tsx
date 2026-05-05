@@ -1088,6 +1088,12 @@ const LeadsTable = () => {
         </DialogContent>
       </Dialog>
 
+      <ImportLeadsDialog
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        onImported={fetchLeads}
+      />
+
       {/* Modal de Detalhes */}
       <LeadDetailsModal
         lead={selectedLead}
