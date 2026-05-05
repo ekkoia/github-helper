@@ -166,7 +166,10 @@ export function validateRow(
     if (target === "valor_produto") {
       data.valor_produto = parseValorInvestido(v);
     } else if (target === "telefone") {
-      data.telefone = String(v).trim();
+      const np = normalizePhone(v);
+      data.telefone = np.e164;
+      (data as any).__phone_valid = np.valid;
+      (data as any).__phone_raw = String(v);
     } else if (target === "email") {
       data.email = String(v).trim().toLowerCase();
     } else {
@@ -176,6 +179,9 @@ export function validateRow(
 
   if (!data.nome_completo) errors.push("Nome obrigatório");
   if (!data.telefone) errors.push("Telefone obrigatório");
+  if (data.telefone && (data as any).__phone_valid === false) {
+    errors.push(`Telefone incompleto/inválido: "${(data as any).__phone_raw}" (precisa de DDD + 8 ou 9 dígitos)`);
+  }
   if (!data.email) errors.push("Email obrigatório");
   if (data.email && !emailRe.test(data.email as string)) errors.push("Email inválido");
   if (data.etapa_funil && !validEtapas.includes(data.etapa_funil as string)) {
@@ -192,6 +198,10 @@ export function validateRow(
       status = "duplicate";
     }
   }
+
+  // Cleanup internal helpers
+  delete (data as any).__phone_valid;
+  delete (data as any).__phone_raw;
 
   return { index, data, status, errors, raw };
 }
