@@ -108,11 +108,15 @@ serve(async (req) => {
     for (const lead of leads) {
       try {
         const emailNorm = (lead.email || "").trim().toLowerCase();
-        const phoneNorm = (lead.telefone || "").trim();
-        const phoneDigits = phoneNorm.replace(/[^0-9]/g, "");
+        const phoneNp = normalizePhone(lead.telefone);
+        const phoneNorm = phoneNp.e164;
 
         if (!lead.nome_completo || !emailNorm || !phoneNorm) {
           results.push({ index: lead.index, status: "error", error: "Campos obrigatórios faltando" });
+          continue;
+        }
+        if (!phoneNp.valid) {
+          results.push({ index: lead.index, status: "error", error: `Telefone inválido: "${lead.telefone}"` });
           continue;
         }
 
