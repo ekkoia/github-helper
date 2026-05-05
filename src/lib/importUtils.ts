@@ -17,7 +17,10 @@ export const TARGET_FIELDS: ReadonlyArray<{ key: string; label: string; required
   { key: "nota_assessor", label: "Nota do Assessor" },
 ] as const;
 
-export type TargetField = (typeof TARGET_FIELDS)[number]["key"];
+export type TargetField =
+  | "nome_completo" | "telefone" | "email" | "perfil" | "intencao"
+  | "tipo_grao" | "volume" | "valor_produto" | "cidade" | "uf"
+  | "etapa_funil" | "origem" | "observacoes" | "nota_assessor";
 
 export type ColumnMapping = Record<string, TargetField | "ignore">;
 
