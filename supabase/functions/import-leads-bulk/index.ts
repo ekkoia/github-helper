@@ -24,6 +24,20 @@ interface IncomingLead {
   nota_assessor?: string;
 }
 
+function normalizePhone(value: any): { e164: string; valid: boolean } {
+  if (value === null || value === undefined) return { e164: "", valid: false };
+  let s = String(value).trim();
+  if (/e[+-]?\d+/i.test(s)) {
+    const n = Number(s);
+    if (!isNaN(n)) s = n.toFixed(0);
+  }
+  let digits = s.replace(/\D/g, "").replace(/^0+/, "");
+  let local = digits;
+  if (digits.length >= 12 && digits.startsWith("55")) local = digits.slice(2);
+  const valid = local.length === 10 || local.length === 11;
+  return { e164: valid ? `55${local}` : digits, valid };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -94,11 +108,15 @@ serve(async (req) => {
     for (const lead of leads) {
       try {
         const emailNorm = (lead.email || "").trim().toLowerCase();
-        const phoneNorm = (lead.telefone || "").trim();
-        const phoneDigits = phoneNorm.replace(/[^0-9]/g, "");
+        const phoneNp = normalizePhone(lead.telefone);
+        const phoneNorm = phoneNp.e164;
 
         if (!lead.nome_completo || !emailNorm || !phoneNorm) {
           results.push({ index: lead.index, status: "error", error: "Campos obrigatórios faltando" });
+          continue;
+        }
+        if (!phoneNp.valid) {
+          results.push({ index: lead.index, status: "error", error: `Telefone inválido: "${lead.telefone}"` });
           continue;
         }
 

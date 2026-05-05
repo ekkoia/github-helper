@@ -118,6 +118,24 @@ export const ImportLeadsDialog = ({ open, onOpenChange, onImported }: ImportLead
     return TARGET_FIELDS.filter((f) => f.required).every((f) => mapped.has(f.key as TargetField));
   }, [mapping]);
 
+  // Detect potentially malformed phone column (sample first 5 rows)
+  const phoneWarning = useMemo(() => {
+    if (!parsed) return null;
+    const phoneHeader = Object.entries(mapping).find(([, t]) => t === "telefone")?.[0];
+    if (!phoneHeader) return null;
+    const samples = parsed.rows.slice(0, 5).map((r) => String(r[phoneHeader] ?? ""));
+    const shortCount = samples.filter((s) => {
+      const digits = s.replace(/\D/g, "").replace(/^0+/, "");
+      const local = digits.startsWith("55") && digits.length >= 12 ? digits.slice(2) : digits;
+      return local.length > 0 && local.length < 10;
+    }).length;
+    if (shortCount >= Math.ceil(samples.length / 2)) {
+      return "Os telefones do arquivo parecem estar sem DDD ou foram lidos como número pelo Excel. Linhas inválidas serão bloqueadas. Reformate a coluna como Texto e inclua o DDD.";
+    }
+    return null;
+  }, [parsed, mapping]);
+
+
   const startImport = async () => {
     const toImport = validated.filter((r) => r.status !== "invalid");
     if (toImport.length === 0) {
@@ -261,6 +279,12 @@ export const ImportLeadsDialog = ({ open, onOpenChange, onImported }: ImportLead
               <div className="flex items-center gap-2 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4" />
                 Mapeie os campos obrigatórios: Nome, Telefone e Email.
+              </div>
+            )}
+            {phoneWarning && (
+              <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded p-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{phoneWarning}</span>
               </div>
             )}
             <div className="flex justify-between gap-2">

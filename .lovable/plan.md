@@ -1,57 +1,33 @@
-# Importação em massa de leads via CSV/XLSX
+## Correções na importação de leads (telefone)
 
-## Objetivo
-Permitir que admins importem múltiplos leads de uma só vez, fazendo upload de uma planilha (CSV ou XLSX), com mapeamento de colunas, validação, preview e deduplicação automática antes de gravar no banco.
+### 1. `src/lib/importUtils.ts`
+- Adicionar função `normalizePhone(value)`:
+  - Converter notação científica (`1.1e+10`) em string completa de dígitos.
+  - Remover tudo que não for dígito.
+  - Remover DDI `55` inicial se presente (para validar tamanho local).
+  - Retornar `{ digits, e164 }` onde `e164` adiciona `55` se faltar.
+- No `validateRow`, ao processar `telefone`:
+  - Aplicar `normalizePhone`.
+  - Se resultado tiver menos de 10 dígitos (DDD+8) → marcar como **inválido** com erro "Telefone incompleto (faltando DDD ou dígitos)".
+  - Se tiver 10 ou 11 dígitos → salvar versão com DDI 55 (formato `55DDDNUMERO`), padrão usado no banco.
+- No dedup, comparar usando a versão normalizada (com DDI).
+- Em `parseFile`, passar `raw: true` no `sheet_to_json` e converter manualmente para string, evitando que o Excel devolva números em notação científica/truncados. Para telefones, ler também `cellText` quando disponível.
 
-## Fluxo do usuário
+### 2. `downloadTemplate`
+- Trocar exemplo de telefone para `5511999999999` (com DDI).
+- Adicionar segunda linha de instrução comentando o formato esperado.
+- Forçar formato de texto (`z: "@"`) na coluna telefone para evitar que o Excel reconverta em número.
 
-1. Na página **Leads** (tabela), botão novo: **"Importar planilha"** (visível só para admins, ao lado do "Exportar")
-2. Modal abre em 4 etapas (wizard):
-   - **Etapa 1 — Upload:** arrastar/soltar CSV ou XLSX (até 5 MB / 5.000 linhas). Link para baixar template modelo.
-   - **Etapa 2 — Mapeamento:** sistema detecta colunas e sugere mapeamento automático (ex: "Nome" → `nome_completo`). Usuário ajusta se necessário via dropdowns.
-   - **Etapa 3 — Preview & Validação:** tabela mostra primeiras 50 linhas com badges de status (✓ válida, ⚠ duplicada, ✗ inválida). Resumo no topo: "X válidas, Y duplicadas (serão mescladas), Z inválidas (serão ignoradas)".
-   - **Etapa 4 — Confirmação:** progresso da importação em lotes de 100, com resultado final e link para baixar relatório de erros (CSV).
+### 3. `src/components/ImportLeadsDialog.tsx`
+- No passo "Mapeamento", após detectar a coluna mapeada como `telefone`, checar se a primeira linha tem menos de 10 dígitos e exibir aviso amarelo: "Os telefones do arquivo parecem estar sem DDD. Verifique o formato antes de continuar."
+- No preview, exibir o telefone já normalizado (com DDI 55) para deixar claro o que será salvo.
 
-## Campos suportados (mapeáveis)
-Obrigatórios: `nome_completo`, `telefone`, `email`
-Opcionais: `perfil`, `intencao`, `tipo_grao`, `volume`, `valor_produto` (aceita faixas como "Até R$10 mil"), `cidade`, `uf`, `etapa_funil`, `origem`, `observacoes`, `nota_assessor`
+### 4. `supabase/functions/import-leads-bulk/index.ts`
+- Aplicar a mesma normalização de telefone server-side antes do dedup/insert, para garantir consistência mesmo se o cliente enviar telefone fora do padrão.
+- Dedup `phone.eq.<normalizado>` usando o número com DDI.
 
-## Validações
-- **Cliente:** schema Zod (mesmas regras do `LeadForm` + `webhook-lead`): email válido, telefone só dígitos, `etapa_funil` deve existir em `funil_etapas`, `valor_produto` parseado via lógica do `parseValorInvestido` do webhook.
-- **Deduplicação:** antes de inserir, busca por `email` ou `telefone` normalizado. Se existir, faz **merge** (preenche só campos vazios + adiciona origem ao array `origens` + log em `observacoes`), igual ao `webhook-lead`.
-- **Auto-assignment:** o trigger `auto_assign_lead` já cuida da distribuição round-robin automaticamente ao inserir.
-
-## Permissões
-Apenas usuários com role `admin` ou `global` veem o botão e podem usar a funcionalidade (via `useUserRole`).
-
-## Arquitetura técnica
-
-### Frontend
-- **Lib:** `xlsx` (já instalada — usada em `exportUtils.ts`) para ler XLSX; CSV via parsing manual ou `xlsx` também (suporta CSV).
-- **Novo componente:** `src/components/ImportLeadsDialog.tsx` — wizard de 4 etapas usando `Dialog` + estado local.
-- **Novo util:** `src/lib/importUtils.ts` — funções: `parseFile(file)`, `autoMapColumns(headers)`, `validateRow(row, mapping, etapas)`, `downloadTemplate()`, `downloadErrorReport(errors)`.
-- **Integração:** botão adicionado em `src/pages/LeadsTable.tsx` (próximo aos botões Exportar/Novo Lead), gated por `isAdmin`.
-
-### Backend
-- **Nova edge function:** `supabase/functions/import-leads-bulk/index.ts`
-  - Recebe array de leads já validados (até 500 por requisição)
-  - Para cada lead: aplica mesma lógica de deduplicação do `webhook-lead` (busca por email/telefone, merge ou insert)
-  - Retorna por linha: `{ index, status: 'created'|'merged'|'error', lead_id?, error? }`
-  - Roda com `SUPABASE_SERVICE_ROLE_KEY` para bypass de RLS (admin-gated no front, mas valida JWT do chamador e checa `is_admin` antes de executar)
-- **Sem migrations necessárias** — usa tabela `leads` existente e triggers já configurados.
-
-## Arquivos
-
-| Arquivo | Ação |
-|---------|------|
-| `src/components/ImportLeadsDialog.tsx` | Criar (wizard de upload/mapeamento/preview) |
-| `src/lib/importUtils.ts` | Criar (parsing, validação, template) |
-| `src/pages/LeadsTable.tsx` | Editar (adicionar botão "Importar planilha" para admins) |
-| `supabase/functions/import-leads-bulk/index.ts` | Criar (processamento server-side em lote) |
-| `supabase/config.toml` | Editar (registrar função, `verify_jwt = true`) |
-
-## Limites e proteções
-- Máx 5.000 linhas por arquivo, 5 MB
-- Processamento em lotes de 100 no backend (evita timeout)
-- Toast de progresso em tempo real
-- Relatório de erros baixável em CSV ao final
+### Comportamento final
+- Telefones com menos de 10 dígitos: **bloqueados como inválidos** (vão para o relatório de erros).
+- Telefones com 10/11 dígitos: salvos como `55DDDNUMERO`.
+- Telefones já com 12/13 dígitos começando em 55: mantidos.
+- Notação científica do Excel: convertida corretamente.

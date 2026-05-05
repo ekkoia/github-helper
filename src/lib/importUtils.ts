@@ -112,6 +112,43 @@ export function parseValorInvestido(value: any): number | null {
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Normalize a phone value coming from a spreadsheet.
+ * Handles scientific notation (e.g. "1.1e+10"), masks, spaces and DDI.
+ * Returns digits only and an E.164-style version with DDI 55 (Brazil).
+ */
+export function normalizePhone(value: any): { digits: string; e164: string; valid: boolean } {
+  if (value === null || value === undefined) return { digits: "", e164: "", valid: false };
+  let s = String(value).trim();
+
+  // Expand scientific notation like "1.1e+10" or "5.511999999999e+12"
+  if (/e[+-]?\d+/i.test(s)) {
+    const n = Number(s);
+    if (!isNaN(n)) {
+      // Use toFixed(0) to avoid further scientific notation
+      s = n.toFixed(0);
+    }
+  }
+
+  // Keep only digits
+  let digits = s.replace(/\D/g, "");
+
+  // Strip leading zeros (e.g. "011..." -> "11...")
+  digits = digits.replace(/^0+/, "");
+
+  // If it already starts with 55 and has 12-13 digits, treat as full E.164
+  let local = digits;
+  if (digits.length >= 12 && digits.startsWith("55")) {
+    local = digits.slice(2);
+  }
+
+  // Local must be 10 (fixed) or 11 (mobile) digits = DDD + 8/9
+  const valid = local.length === 10 || local.length === 11;
+  const e164 = valid ? `55${local}` : digits;
+
+  return { digits: valid ? local : digits, e164, valid };
+}
+
 export function validateRow(
   raw: Record<string, any>,
   mapping: ColumnMapping,
@@ -129,7 +166,10 @@ export function validateRow(
     if (target === "valor_produto") {
       data.valor_produto = parseValorInvestido(v);
     } else if (target === "telefone") {
-      data.telefone = String(v).trim();
+      const np = normalizePhone(v);
+      data.telefone = np.e164;
+      (data as any).__phone_valid = np.valid;
+      (data as any).__phone_raw = String(v);
     } else if (target === "email") {
       data.email = String(v).trim().toLowerCase();
     } else {
@@ -139,6 +179,9 @@ export function validateRow(
 
   if (!data.nome_completo) errors.push("Nome obrigatório");
   if (!data.telefone) errors.push("Telefone obrigatório");
+  if (data.telefone && (data as any).__phone_valid === false) {
+    errors.push(`Telefone incompleto/inválido: "${(data as any).__phone_raw}" (precisa de DDD + 8 ou 9 dígitos)`);
+  }
   if (!data.email) errors.push("Email obrigatório");
   if (data.email && !emailRe.test(data.email as string)) errors.push("Email inválido");
   if (data.etapa_funil && !validEtapas.includes(data.etapa_funil as string)) {
@@ -156,6 +199,10 @@ export function validateRow(
     }
   }
 
+  // Cleanup internal helpers
+  delete (data as any).__phone_valid;
+  delete (data as any).__phone_raw;
+
   return { index, data, status, errors, raw };
 }
 
@@ -163,7 +210,7 @@ export function downloadTemplate() {
   const headers = TARGET_FIELDS.map((f) => f.label);
   const example = [
     "João da Silva",
-    "11999999999",
+    "5511999999999",
     "joao@example.com",
     "Produtor",
     "Vender",
@@ -177,10 +224,30 @@ export function downloadTemplate() {
     "Cliente indicado por parceiro",
     "",
   ];
+  const instructions = [
+    "Formatos esperados: Telefone com DDI+DDD (ex: 5511999999999) ou DDD+número (11999999999).",
+    "Não use células do tipo Número para Telefone (formate como Texto para preservar zeros).",
+  ];
   const ws = XLSX.utils.aoa_to_sheet([headers, example]);
   ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length, 18) }));
+
+  // Force the Telefone column (index 1) to be text-formatted
+  const phoneColLetter = XLSX.utils.encode_col(1);
+  for (let r = 1; r <= 100; r++) {
+    const addr = `${phoneColLetter}${r + 1}`;
+    if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+    ws[addr].z = "@";
+    ws[addr].t = "s";
+  }
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Template");
+
+  // Add an instructions sheet
+  const wsInfo = XLSX.utils.aoa_to_sheet([["Instruções"], ...instructions.map((i) => [i])]);
+  wsInfo["!cols"] = [{ wch: 100 }];
+  XLSX.utils.book_append_sheet(wb, wsInfo, "Instruções");
+
   XLSX.writeFile(wb, "template_importacao_leads.xlsx");
 }
 
