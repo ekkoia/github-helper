@@ -115,7 +115,7 @@ export const ImportLeadsDialog = ({ open, onOpenChange, onImported }: ImportLead
 
   const requiredMapped = useMemo(() => {
     const mapped = new Set(Object.values(mapping));
-    return TARGET_FIELDS.filter((f) => f.required).every((f) => mapped.has(f.key));
+    return TARGET_FIELDS.filter((f) => f.required).every((f) => mapped.has(f.key as TargetField));
   }, [mapping]);
 
   const startImport = async () => {
