@@ -112,6 +112,43 @@ export function parseValorInvestido(value: any): number | null {
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Normalize a phone value coming from a spreadsheet.
+ * Handles scientific notation (e.g. "1.1e+10"), masks, spaces and DDI.
+ * Returns digits only and an E.164-style version with DDI 55 (Brazil).
+ */
+export function normalizePhone(value: any): { digits: string; e164: string; valid: boolean } {
+  if (value === null || value === undefined) return { digits: "", e164: "", valid: false };
+  let s = String(value).trim();
+
+  // Expand scientific notation like "1.1e+10" or "5.511999999999e+12"
+  if (/e[+-]?\d+/i.test(s)) {
+    const n = Number(s);
+    if (!isNaN(n)) {
+      // Use toFixed(0) to avoid further scientific notation
+      s = n.toFixed(0);
+    }
+  }
+
+  // Keep only digits
+  let digits = s.replace(/\D/g, "");
+
+  // Strip leading zeros (e.g. "011..." -> "11...")
+  digits = digits.replace(/^0+/, "");
+
+  // If it already starts with 55 and has 12-13 digits, treat as full E.164
+  let local = digits;
+  if (digits.length >= 12 && digits.startsWith("55")) {
+    local = digits.slice(2);
+  }
+
+  // Local must be 10 (fixed) or 11 (mobile) digits = DDD + 8/9
+  const valid = local.length === 10 || local.length === 11;
+  const e164 = valid ? `55${local}` : digits;
+
+  return { digits: valid ? local : digits, e164, valid };
+}
+
 export function validateRow(
   raw: Record<string, any>,
   mapping: ColumnMapping,
