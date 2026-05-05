@@ -68,9 +68,9 @@ export function autoMapColumns(headers: string[]): ColumnMapping {
     const nh = norm(h);
     let matched: TargetField | "ignore" = "ignore";
     for (const field of TARGET_FIELDS) {
-      const aliases = HEADER_ALIASES[field.key] || [];
+      const aliases = HEADER_ALIASES[field.key as TargetField] || [];
       if (aliases.some((a) => norm(a) === nh) || norm(field.key) === nh || norm(field.label) === nh) {
-        matched = field.key;
+        matched = field.key as TargetField;
         break;
       }
     }
