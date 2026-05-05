@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 
-export const TARGET_FIELDS = [
+export const TARGET_FIELDS: ReadonlyArray<{ key: string; label: string; required?: boolean }> = [
   { key: "nome_completo", label: "Nome Completo", required: true },
   { key: "telefone", label: "Telefone", required: true },
   { key: "email", label: "Email", required: true },
