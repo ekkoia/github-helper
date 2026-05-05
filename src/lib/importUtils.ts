@@ -210,7 +210,7 @@ export function downloadTemplate() {
   const headers = TARGET_FIELDS.map((f) => f.label);
   const example = [
     "João da Silva",
-    "11999999999",
+    "5511999999999",
     "joao@example.com",
     "Produtor",
     "Vender",
@@ -224,10 +224,30 @@ export function downloadTemplate() {
     "Cliente indicado por parceiro",
     "",
   ];
+  const instructions = [
+    "Formatos esperados: Telefone com DDI+DDD (ex: 5511999999999) ou DDD+número (11999999999).",
+    "Não use células do tipo Número para Telefone (formate como Texto para preservar zeros).",
+  ];
   const ws = XLSX.utils.aoa_to_sheet([headers, example]);
   ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length, 18) }));
+
+  // Force the Telefone column (index 1) to be text-formatted
+  const phoneColLetter = XLSX.utils.encode_col(1);
+  for (let r = 1; r <= 100; r++) {
+    const addr = `${phoneColLetter}${r + 1}`;
+    if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+    ws[addr].z = "@";
+    ws[addr].t = "s";
+  }
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Template");
+
+  // Add an instructions sheet
+  const wsInfo = XLSX.utils.aoa_to_sheet([["Instruções"], ...instructions.map((i) => [i])]);
+  wsInfo["!cols"] = [{ wch: 100 }];
+  XLSX.utils.book_append_sheet(wb, wsInfo, "Instruções");
+
   XLSX.writeFile(wb, "template_importacao_leads.xlsx");
 }
 
