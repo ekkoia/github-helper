@@ -30,6 +30,7 @@ const ORIGEM_OPTIONS = [
   { value: "campanha_mensagem", label: "Campanha de Mensagem" },
   { value: "indicacao", label: "Indicação" },
   { value: "site", label: "Site/Landing Page" },
+  { value: "importacao_planilha", label: "Importação" },
   { value: "outro", label: "Outro" },
 ];
 
