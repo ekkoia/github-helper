@@ -18,6 +18,9 @@ import {
   MessageCircle,
   Save,
   Loader2,
+  History,
+  RefreshCw,
+  Bot,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";

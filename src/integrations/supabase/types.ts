@@ -909,6 +909,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_lead_interactions: {
+        Args: { _lead_id: string }
+        Returns: {
+          content: string
+          occurred_at: string
+          ord: number
+          role: string
+          source: string
+        }[]
+      }
       get_proximo_assessor: {
         Args: { faixa_investimento: string }
         Returns: number
