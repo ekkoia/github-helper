@@ -450,6 +450,72 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
               </div>
             </div>
 
+            <Separator />
+
+            {/* Interações (WhatsApp / IA) */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  Interações
+                  {interactions.length > 0 && (
+                    <Badge variant="secondary" className="ml-1">{interactions.length}</Badge>
+                  )}
+                </h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => currentLead?.id && fetchInteractions(currentLead.id)}
+                  disabled={loadingInteractions}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingInteractions ? "animate-spin" : ""}`} />
+                  Atualizar
+                </Button>
+              </div>
+              {loadingInteractions ? (
+                <div className="flex items-center justify-center py-6 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...
+                </div>
+              ) : interactions.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic bg-muted p-4 rounded-lg">
+                  Nenhuma interação registrada para este lead.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 bg-muted/40 p-3 rounded-lg">
+                  {interactions.map((it, idx) => {
+                    const isUser = it.role === "user";
+                    return (
+                      <div
+                        key={`${it.source}-${it.ord}-${idx}`}
+                        className={`flex ${isUser ? "justify-start" : "justify-end"}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-lg px-3 py-2 text-sm shadow-sm ${
+                            isUser ? "bg-background border" : "bg-primary text-primary-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide mb-1 opacity-70">
+                            {isUser ? <MessageCircle className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
+                            <span>{isUser ? "Lead" : "IA/Bot"}</span>
+                            <span>·</span>
+                            <span>{it.source === "n8n" ? "n8n" : "WhatsApp"}</span>
+                            {it.occurred_at && (
+                              <>
+                                <span>·</span>
+                                <span>{new Date(it.occurred_at).toLocaleString("pt-BR")}</span>
+                              </>
+                            )}
+                          </div>
+                          <p className="whitespace-pre-wrap break-words">{it.content}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {(currentLead.observacoes || isFormulario02) && (
               <>
                 <Separator />
