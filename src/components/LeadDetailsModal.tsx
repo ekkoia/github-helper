@@ -18,6 +18,9 @@ import {
   MessageCircle,
   Save,
   Loader2,
+  History,
+  RefreshCw,
+  Bot,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
@@ -60,6 +63,22 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   const [notaAssessor, setNotaAssessor] = useState("");
   const [isSavingNota, setIsSavingNota] = useState(false);
   const [notaDirty, setNotaDirty] = useState(false);
+  const [interactions, setInteractions] = useState<Array<{ source: string; role: string; content: string; occurred_at: string | null; ord: number }>>([]);
+  const [loadingInteractions, setLoadingInteractions] = useState(false);
+
+  const fetchInteractions = async (leadId: string) => {
+    setLoadingInteractions(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("get_lead_interactions", { _lead_id: leadId });
+      if (error) throw error;
+      setInteractions(data || []);
+    } catch (err) {
+      console.error("Erro ao buscar interações:", err);
+      setInteractions([]);
+    } finally {
+      setLoadingInteractions(false);
+    }
+  };
 
   // Verificar se é formulário 02
   const isFormulario02 = currentLead?.observacoes?.includes("02 - Formulário FeeAgro");
@@ -70,7 +89,12 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
     setConcordaEmprestimo(null);
     setNotaAssessor((lead as any)?.nota_assessor || "");
     setNotaDirty(false);
-  }, [lead]);
+    if (lead?.id && isOpen) {
+      fetchInteractions(lead.id);
+    } else {
+      setInteractions([]);
+    }
+  }, [lead, isOpen]);
 
   // Buscar resposta de concordância para formulário 02
   useEffect(() => {
@@ -424,6 +448,72 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                   Salvar Nota
                 </Button>
               </div>
+            </div>
+
+            <Separator />
+
+            {/* Interações (WhatsApp / IA) */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  Interações
+                  {interactions.length > 0 && (
+                    <Badge variant="secondary" className="ml-1">{interactions.length}</Badge>
+                  )}
+                </h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => currentLead?.id && fetchInteractions(currentLead.id)}
+                  disabled={loadingInteractions}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingInteractions ? "animate-spin" : ""}`} />
+                  Atualizar
+                </Button>
+              </div>
+              {loadingInteractions ? (
+                <div className="flex items-center justify-center py-6 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...
+                </div>
+              ) : interactions.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic bg-muted p-4 rounded-lg">
+                  Nenhuma interação registrada para este lead.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 bg-muted/40 p-3 rounded-lg">
+                  {interactions.map((it, idx) => {
+                    const isUser = it.role === "user";
+                    return (
+                      <div
+                        key={`${it.source}-${it.ord}-${idx}`}
+                        className={`flex ${isUser ? "justify-start" : "justify-end"}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-lg px-3 py-2 text-sm shadow-sm ${
+                            isUser ? "bg-background border" : "bg-primary text-primary-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide mb-1 opacity-70">
+                            {isUser ? <MessageCircle className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
+                            <span>{isUser ? "Lead" : "IA/Bot"}</span>
+                            <span>·</span>
+                            <span>{it.source === "n8n" ? "n8n" : "WhatsApp"}</span>
+                            {it.occurred_at && (
+                              <>
+                                <span>·</span>
+                                <span>{new Date(it.occurred_at).toLocaleString("pt-BR")}</span>
+                              </>
+                            )}
+                          </div>
+                          <p className="whitespace-pre-wrap break-words">{it.content}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {(currentLead.observacoes || isFormulario02) && (
