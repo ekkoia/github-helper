@@ -89,7 +89,12 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
     setConcordaEmprestimo(null);
     setNotaAssessor((lead as any)?.nota_assessor || "");
     setNotaDirty(false);
-  }, [lead]);
+    if (lead?.id && isOpen) {
+      fetchInteractions(lead.id);
+    } else {
+      setInteractions([]);
+    }
+  }, [lead, isOpen]);
 
   // Buscar resposta de concordância para formulário 02
   useEffect(() => {
