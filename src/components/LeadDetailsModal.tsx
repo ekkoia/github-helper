@@ -63,6 +63,22 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
   const [notaAssessor, setNotaAssessor] = useState("");
   const [isSavingNota, setIsSavingNota] = useState(false);
   const [notaDirty, setNotaDirty] = useState(false);
+  const [interactions, setInteractions] = useState<Array<{ source: string; role: string; content: string; occurred_at: string | null; ord: number }>>([]);
+  const [loadingInteractions, setLoadingInteractions] = useState(false);
+
+  const fetchInteractions = async (leadId: string) => {
+    setLoadingInteractions(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("get_lead_interactions", { _lead_id: leadId });
+      if (error) throw error;
+      setInteractions(data || []);
+    } catch (err) {
+      console.error("Erro ao buscar interações:", err);
+      setInteractions([]);
+    } finally {
+      setLoadingInteractions(false);
+    }
+  };
 
   // Verificar se é formulário 02
   const isFormulario02 = currentLead?.observacoes?.includes("02 - Formulário FeeAgro");
