@@ -1,34 +1,62 @@
-## Problema
+## Objetivo
 
-Lead `Bruno Velloso` (`bruvelloso@gmail.com`) já existia desde 23/01/2026 sem `responsavel_id`, porque na época não havia `auto_assign_config` configurada para a faixa `ate_10k` (só foi configurada em 02/03/2026). A nova submissão Meta de hoje passou por `ON CONFLICT DO UPDATE` do `sync_meta_lead_to_crm` — esse caminho **não re-executa** o trigger `auto_assign_lead` (que é `BEFORE INSERT`), então o lead seguiu órfão.
+1. Garantir que leads que chegaram via WhatsApp (existem em `chat_messages`) mas nunca viraram "Lead novo!" apareçam no /leads numa etapa específica, sem consumir fila de assessor.
+2. Adicionar uma seção "Interações" no modal de detalhes do lead, unificando `chat_messages` + `n8n_chat_histories` numa timeline cronológica, com botão "Atualizar".
 
-Bug estrutural: **toda vez que um lead Meta antigo sem `responsavel_id` recebe nova submissão, ele continua sem dono**, mesmo já existindo fila configurada.
+## Diagnóstico
 
-## Solução
+- 284 telefones distintos em `chat_messages`. Cerca de 1.505 mensagens sem lead correspondente em `leads` (telefone normalizado).
+- `n8n_chat_histories.session_id` = telefone (formato `+55...`), mesmo formato usado por `chat_messages.phone`.
+- Hoje, conversas WhatsApp só viram lead via `webhook-lead` quando a IA qualifica; se o usuário não responde / não qualifica, fica invisível no CRM.
 
-### 1. Atualizar `sync_meta_lead_to_crm` para reatribuir no merge
+## Mudanças
 
-Refatorar o trigger para que, no bloco `ON CONFLICT ... DO UPDATE`, quando `leads.responsavel_id IS NULL`, ele consuma o round-robin da faixa correspondente e preencha `responsavel_id`:
+### 1. Nova etapa do funil
 
-- Extrair lógica de seleção do próximo assessor para uma função SQL `pick_next_assessor(faixa text) returns uuid`, que avança o `auto_assign_state.last_assigned_order`.
-- Refatorar `auto_assign_lead` para usar `pick_next_assessor`.
-- No `sync_meta_lead_to_crm`, dentro do `DO UPDATE`, calcular faixa pelo `valor_produto` final e setar `responsavel_id = COALESCE(leads.responsavel_id, pick_next_assessor(faixa))`.
-- Se a fila estiver vazia para a faixa, `responsavel_id` permanece NULL (comportamento atual).
+Inserir em `funil_etapas`:
+- nome: `Lead WhatsApp (não qualificado)`
+- ordem: 13
+- cor: cinza (`#9ca3af`)
+- ativo: true
 
-### 2. Backfill pontual do lead Bruno Velloso
+### 2. Backfill dos leads órfãos do WhatsApp
 
-- Atribuir o lead `832d135e-d9fe-4720-b7e0-0ba828c45d70` ao próximo assessor da fila `ate_10k` (via `pick_next_assessor('ate_10k')`).
-- **Manter** a etapa atual (`Lead NÃO qualificado (motivos pré definidos)`) — não alterar.
-- **Não** rodar backfill em massa nos demais leads Meta órfãos.
+Para cada telefone em `chat_messages` sem lead correspondente:
+- INSERT em `leads` com:
+  - `nome_completo` = primeiro `nomewpp` não nulo (ou "Lead WhatsApp")
+  - `telefone` = phone
+  - `origem` = `whatsapp`, `origens` = `["whatsapp"]`
+  - `etapa_funil` = `Lead WhatsApp (não qualificado)`
+  - `responsavel_id` = NULL (só admin vê — comportamento atual já está correto via RLS)
+  - `data_criacao` = MIN(created_at) do chat
+  - `observacoes` = `[Importado de chat_messages]`
 
-## Arquivos / objetos afetados
+### 3. Trigger automático para futuros chats
 
-- Nova função `public.pick_next_assessor(text) returns uuid`.
-- Recriar `public.auto_assign_lead` para reusar `pick_next_assessor`.
-- Recriar `public.sync_meta_lead_to_crm` adicionando reatribuição no merge.
-- 1 UPDATE pontual no lead Bruno Velloso (apenas `responsavel_id`).
+Trigger `AFTER INSERT` em `chat_messages`:
+- Se `phone` não casa com nenhum lead, cria um novo lead com etapa `Lead WhatsApp (não qualificado)`, sem responsável.
+- Se já existe, não faz nada (a qualificação posterior via `webhook-lead` continua atualizando normalmente).
+- Ajustar `auto_assign_lead` para não distribuir leads dessa etapa (early return se `etapa_funil = 'Lead WhatsApp (não qualificado)'`), garantindo que fiquem sem responsável.
 
-## Validação pós-aplicação
+### 4. Seção "Interações" no `LeadDetailsModal.tsx`
 
-- Conferir `SELECT responsavel_id FROM leads WHERE id = '832d135e-...'` → não nulo.
-- Conferir `auto_assign_state` da faixa `ate_10k` avançou em 1.
+Nova seção entre "Nota do Assessor" e "Observações":
+- Fetch quando o modal abre (e ao clicar "Atualizar"):
+  - `chat_messages` filtrado por `phone` normalizado = telefone do lead
+  - `n8n_chat_histories` filtrado por `session_id` normalizado = telefone do lead
+- Unificar e ordenar (chat_messages por `created_at`; n8n por `id` como fallback).
+- Render: timeline com bolha à esquerda (mensagem do usuário) / direita (IA/bot), com timestamp e fonte.
+- Estado vazio: "Nenhuma interação registrada".
+- Botão "Atualizar" no header da seção.
+
+## Detalhes técnicos
+
+- Normalização de telefone: `regexp_replace(telefone, '[^0-9]', '', 'g')` (já usado em `auto_assign_lead`).
+- A busca client-side pode usar `.ilike` no telefone limpo via RPC, ou simplesmente buscar todos `chat_messages` onde phone contém os últimos 10 dígitos do lead. Vou criar uma RPC `get_lead_interactions(_lead_id uuid)` que retorna timeline já unificada e ordenada.
+- Não mexer em telas que não foram solicitadas (Kanban, Dashboard, filtros, etc.).
+
+## Não incluído
+
+- Não vou refazer a lógica de qualificação do `webhook-lead`.
+- Não vou mexer em outros leads órfãos (Meta, etc.) — escopo é só WhatsApp.
+- Sem realtime — apenas refetch manual via botão "Atualizar".
