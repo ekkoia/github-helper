@@ -199,9 +199,19 @@ const Usuarios = () => {
           body: { userId: deleteUserId }
         });
 
+        // Mesmo com erro HTTP, o body costuma vir em data ou em error.context
         if (error) {
-          console.error("Erro ao chamar função de exclusão:", error);
-          throw error;
+          let serverMsg = error.message;
+          try {
+            const ctx: any = (error as any).context;
+            if (ctx && typeof ctx.json === 'function') {
+              const body = await ctx.json();
+              if (body?.error) serverMsg = body.error;
+            } else if (data?.error) {
+              serverMsg = data.error;
+            }
+          } catch {}
+          throw new Error(serverMsg);
         }
 
         if (data?.error) {

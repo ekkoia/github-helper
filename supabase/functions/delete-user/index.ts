@@ -44,15 +44,25 @@ Deno.serve(async (req) => {
     }
 
     const requestingUserId = claimsData.claims.sub as string;
+    console.log(`[delete-user] requested by: ${requestingUserId}`);
 
     // Check if requesting user has admin or global role
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", requestingUserId)
-      .single();
+      .in("role", ["admin", "global"])
+      .maybeSingle();
 
-    if (roleError || !roleData || (roleData.role !== "admin" && roleData.role !== "global")) {
+    if (roleError) {
+      console.error("[delete-user] role lookup error:", roleError);
+      return new Response(
+        JSON.stringify({ error: `Role lookup failed: ${roleError.message}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!roleData) {
       return new Response(
         JSON.stringify({ error: "Permission denied. Only admins can delete users." }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -60,6 +70,7 @@ Deno.serve(async (req) => {
     }
 
     const { userId } = await req.json();
+    console.log(`[delete-user] target userId: ${userId}`);
 
     if (!userId) {
       return new Response(
@@ -71,21 +82,23 @@ Deno.serve(async (req) => {
     // Prevent self-deletion
     if (userId === requestingUserId) {
       return new Response(
-        JSON.stringify({ error: "You cannot delete yourself" }),
+        JSON.stringify({ error: "Você não pode excluir a si mesmo" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Delete the user from auth.users (CASCADE will handle related tables)
+    // Delete the user from auth.users (CASCADE/SET NULL will handle related tables)
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {
-      console.error("Error deleting user:", deleteError);
+      console.error("[delete-user] auth.admin.deleteUser error:", deleteError);
       return new Response(
-        JSON.stringify({ error: deleteError.message }),
+        JSON.stringify({ error: deleteError.message, code: (deleteError as any).code }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log(`[delete-user] successfully deleted ${userId}`);
 
     return new Response(
       JSON.stringify({ success: true, message: "User deleted successfully" }),
