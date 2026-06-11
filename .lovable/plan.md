@@ -1,58 +1,29 @@
-## Causa raiz do erro
+## Objetivo
+Ocultar do frontend todos os leads com `created_time_brasil` anterior a **02/06/2026**. Nada será apagado do banco; apenas filtro visual.
 
-Os logs da edge function `delete-user` mostram:
+## Abordagem
+Aplicar o corte na fonte única de leitura de leads: a função `fetchAllLeads()` em `src/lib/supabaseUtils.ts`. Assim todas as páginas que consomem leads (Dashboard, Leads/Tabela, Kanban, Equipe, Atividades, Analytics) herdam o filtro sem precisar tocar em nenhuma lógica de UI, métricas ou ordenação.
 
+### Mudança
+Em `fetchAllLeads()`, após o fetch paginado, filtrar:
+
+```ts
+const CUTOFF = "2026-06-02";
+return allData.filter(l => {
+  const d = (l.created_time_brasil ?? l.data_criacao ?? "").toString().substring(0, 10);
+  return d >= CUTOFF;
+});
 ```
-AuthApiError: Database error deleting user (status 500, code: unexpected_failure)
-```
 
-Isso acontece porque duas tabelas têm foreign keys para `auth.users` **sem** `ON DELETE CASCADE` ou `ON DELETE SET NULL`:
+- Usa `created_time_brasil` (padrão do projeto para timezone BR), com fallback para `data_criacao` se vazio.
+- Comparação por string `YYYY-MM-DD` (segura e sem timezone).
+- Leads sem nenhuma data são descartados (provavelmente lixo antigo).
 
-| Tabela | Coluna | FK atual |
-|---|---|---|
-| `leads` | `responsavel_id` | sem cascade |
-| `pending_invites` | `invited_by` | sem cascade |
+### O que NÃO será alterado
+- Nenhuma alteração no banco / RLS / edge functions.
+- Nenhuma mudança em lógica de métricas, distribuição, kanban, automações ou webhooks.
+- `webhook-lead` e demais integrações continuam inserindo normalmente; novos leads aparecem.
+- Componentes que consultam `leadsNativo_feeagro` diretamente (ex.: filtro de campanhas em `FiltersSidebar`) ficam como estão — são apenas listas auxiliares, não exibem leads.
 
-Quando a Kemyli tentou excluir o **Bruno Velloso**, ele tinha leads atribuídos como responsável — o Postgres bloqueou a deleção do `auth.users`, retornando erro 500. Por isso o erro aparece com qualquer usuário que já tenha leads ou tenha enviado convites.
-
-As demais FKs (`profiles`, `user_roles`, `user_preferences`, `user_activities`, `user_callix_mapping`) já estão com `ON DELETE CASCADE`, então estão OK.
-
-## O que vou corrigir
-
-### 1. Migration: ajustar as 2 FKs problemáticas para `ON DELETE SET NULL`
-
-- `leads.responsavel_id` → ao excluir usuário, os leads ficam **sem responsável** (admin continua vendo, comportamento já desejado da regra de visibilidade).
-- `pending_invites.invited_by` → o convite continua, mas perde o registro de quem convidou.
-
-Por que `SET NULL` e não `CASCADE`: deletar um usuário **não pode apagar leads** do sistema. Eles voltam ao pool "sem responsável" e podem ser reatribuídos.
-
-### 2. Hardening da edge function `delete-user`
-
-- Trocar `.single()` por `.maybeSingle()` no fetch de `user_roles` (evita 403 silencioso se houver 0 ou 2+ linhas)
-- Adicionar logs detalhados (quem chamou, alvo, etapa que falhou)
-- Retornar a mensagem real do Postgres no body, em vez de só "Database error"
-
-### 3. Frontend (`Usuarios.tsx`)
-
-- Mostrar no toast a mensagem real vinda do server (`data?.error` ou `error.context?.body`) em vez do genérico "Edge Function returned a non-2xx status code"
-
-## Verificação geral do backend (resumo)
-
-Revisei o restante do schema/edge functions e estes são os únicos pontos críticos relacionados à exclusão. Outros achados menores (não bloqueantes, **fora deste escopo** — me avise se quer corrigir também):
-
-- `delete-user-by-email` tem o mesmo `.single()` em `user_roles` (mesmo risco)
-- Algumas funções SQL não têm `SET search_path` (já são linter warnings antigos)
-
-## Detalhes técnicos da migration
-
-```sql
-ALTER TABLE public.leads
-  DROP CONSTRAINT leads_responsavel_id_fkey,
-  ADD  CONSTRAINT leads_responsavel_id_fkey
-       FOREIGN KEY (responsavel_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-ALTER TABLE public.pending_invites
-  DROP CONSTRAINT pending_invites_invited_by_fkey,
-  ADD  CONSTRAINT pending_invites_invited_by_fkey
-       FOREIGN KEY (invited_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-```
+## Arquivo afetado
+- `src/lib/supabaseUtils.ts` (uma única função)
