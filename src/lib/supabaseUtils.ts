@@ -19,5 +19,10 @@ export async function fetchAllLeads() {
     from += pageSize;
   }
 
-  return allData;
+  const CUTOFF = "2026-06-02";
+  return allData.filter((l) => {
+    const d = (l.created_time_brasil ?? l.data_criacao ?? "").toString().substring(0, 10);
+    return d >= CUTOFF;
+  });
 }
+
