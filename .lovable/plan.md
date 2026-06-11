@@ -1,62 +1,58 @@
-## Objetivo
+## Causa raiz do erro
 
-1. Garantir que leads que chegaram via WhatsApp (existem em `chat_messages`) mas nunca viraram "Lead novo!" apareçam no /leads numa etapa específica, sem consumir fila de assessor.
-2. Adicionar uma seção "Interações" no modal de detalhes do lead, unificando `chat_messages` + `n8n_chat_histories` numa timeline cronológica, com botão "Atualizar".
+Os logs da edge function `delete-user` mostram:
 
-## Diagnóstico
+```
+AuthApiError: Database error deleting user (status 500, code: unexpected_failure)
+```
 
-- 284 telefones distintos em `chat_messages`. Cerca de 1.505 mensagens sem lead correspondente em `leads` (telefone normalizado).
-- `n8n_chat_histories.session_id` = telefone (formato `+55...`), mesmo formato usado por `chat_messages.phone`.
-- Hoje, conversas WhatsApp só viram lead via `webhook-lead` quando a IA qualifica; se o usuário não responde / não qualifica, fica invisível no CRM.
+Isso acontece porque duas tabelas têm foreign keys para `auth.users` **sem** `ON DELETE CASCADE` ou `ON DELETE SET NULL`:
 
-## Mudanças
+| Tabela | Coluna | FK atual |
+|---|---|---|
+| `leads` | `responsavel_id` | sem cascade |
+| `pending_invites` | `invited_by` | sem cascade |
 
-### 1. Nova etapa do funil
+Quando a Kemyli tentou excluir o **Bruno Velloso**, ele tinha leads atribuídos como responsável — o Postgres bloqueou a deleção do `auth.users`, retornando erro 500. Por isso o erro aparece com qualquer usuário que já tenha leads ou tenha enviado convites.
 
-Inserir em `funil_etapas`:
-- nome: `Lead WhatsApp (não qualificado)`
-- ordem: 13
-- cor: cinza (`#9ca3af`)
-- ativo: true
+As demais FKs (`profiles`, `user_roles`, `user_preferences`, `user_activities`, `user_callix_mapping`) já estão com `ON DELETE CASCADE`, então estão OK.
 
-### 2. Backfill dos leads órfãos do WhatsApp
+## O que vou corrigir
 
-Para cada telefone em `chat_messages` sem lead correspondente:
-- INSERT em `leads` com:
-  - `nome_completo` = primeiro `nomewpp` não nulo (ou "Lead WhatsApp")
-  - `telefone` = phone
-  - `origem` = `whatsapp`, `origens` = `["whatsapp"]`
-  - `etapa_funil` = `Lead WhatsApp (não qualificado)`
-  - `responsavel_id` = NULL (só admin vê — comportamento atual já está correto via RLS)
-  - `data_criacao` = MIN(created_at) do chat
-  - `observacoes` = `[Importado de chat_messages]`
+### 1. Migration: ajustar as 2 FKs problemáticas para `ON DELETE SET NULL`
 
-### 3. Trigger automático para futuros chats
+- `leads.responsavel_id` → ao excluir usuário, os leads ficam **sem responsável** (admin continua vendo, comportamento já desejado da regra de visibilidade).
+- `pending_invites.invited_by` → o convite continua, mas perde o registro de quem convidou.
 
-Trigger `AFTER INSERT` em `chat_messages`:
-- Se `phone` não casa com nenhum lead, cria um novo lead com etapa `Lead WhatsApp (não qualificado)`, sem responsável.
-- Se já existe, não faz nada (a qualificação posterior via `webhook-lead` continua atualizando normalmente).
-- Ajustar `auto_assign_lead` para não distribuir leads dessa etapa (early return se `etapa_funil = 'Lead WhatsApp (não qualificado)'`), garantindo que fiquem sem responsável.
+Por que `SET NULL` e não `CASCADE`: deletar um usuário **não pode apagar leads** do sistema. Eles voltam ao pool "sem responsável" e podem ser reatribuídos.
 
-### 4. Seção "Interações" no `LeadDetailsModal.tsx`
+### 2. Hardening da edge function `delete-user`
 
-Nova seção entre "Nota do Assessor" e "Observações":
-- Fetch quando o modal abre (e ao clicar "Atualizar"):
-  - `chat_messages` filtrado por `phone` normalizado = telefone do lead
-  - `n8n_chat_histories` filtrado por `session_id` normalizado = telefone do lead
-- Unificar e ordenar (chat_messages por `created_at`; n8n por `id` como fallback).
-- Render: timeline com bolha à esquerda (mensagem do usuário) / direita (IA/bot), com timestamp e fonte.
-- Estado vazio: "Nenhuma interação registrada".
-- Botão "Atualizar" no header da seção.
+- Trocar `.single()` por `.maybeSingle()` no fetch de `user_roles` (evita 403 silencioso se houver 0 ou 2+ linhas)
+- Adicionar logs detalhados (quem chamou, alvo, etapa que falhou)
+- Retornar a mensagem real do Postgres no body, em vez de só "Database error"
 
-## Detalhes técnicos
+### 3. Frontend (`Usuarios.tsx`)
 
-- Normalização de telefone: `regexp_replace(telefone, '[^0-9]', '', 'g')` (já usado em `auto_assign_lead`).
-- A busca client-side pode usar `.ilike` no telefone limpo via RPC, ou simplesmente buscar todos `chat_messages` onde phone contém os últimos 10 dígitos do lead. Vou criar uma RPC `get_lead_interactions(_lead_id uuid)` que retorna timeline já unificada e ordenada.
-- Não mexer em telas que não foram solicitadas (Kanban, Dashboard, filtros, etc.).
+- Mostrar no toast a mensagem real vinda do server (`data?.error` ou `error.context?.body`) em vez do genérico "Edge Function returned a non-2xx status code"
 
-## Não incluído
+## Verificação geral do backend (resumo)
 
-- Não vou refazer a lógica de qualificação do `webhook-lead`.
-- Não vou mexer em outros leads órfãos (Meta, etc.) — escopo é só WhatsApp.
-- Sem realtime — apenas refetch manual via botão "Atualizar".
+Revisei o restante do schema/edge functions e estes são os únicos pontos críticos relacionados à exclusão. Outros achados menores (não bloqueantes, **fora deste escopo** — me avise se quer corrigir também):
+
+- `delete-user-by-email` tem o mesmo `.single()` em `user_roles` (mesmo risco)
+- Algumas funções SQL não têm `SET search_path` (já são linter warnings antigos)
+
+## Detalhes técnicos da migration
+
+```sql
+ALTER TABLE public.leads
+  DROP CONSTRAINT leads_responsavel_id_fkey,
+  ADD  CONSTRAINT leads_responsavel_id_fkey
+       FOREIGN KEY (responsavel_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+ALTER TABLE public.pending_invites
+  DROP CONSTRAINT pending_invites_invited_by_fkey,
+  ADD  CONSTRAINT pending_invites_invited_by_fkey
+       FOREIGN KEY (invited_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+```
