@@ -67,11 +67,8 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   // Normaliza número BR: garante DDI 55 + 9º dígito em celulares
   const cleanPhone = (() => {
     const raw = contactPhone.replace(/\D/g, "");
-    const withoutDDI = raw.startsWith("55") ? raw.slice(2) : raw;
-    const ddd = withoutDDI.slice(0, 2);
-    const num = withoutDDI.slice(2);
-    const normalized = num.length === 8 ? `${ddd}9${num}` : `${ddd}${num}`;
-    return `55${normalized}`;
+    // Garante DDI 55 mas não altera o número — a Meta resolve o formato
+    return raw.startsWith("55") ? raw : `55${raw}`;
   })();
   const { user } = useAuth();
   const [message, setMessage] = useState("");
