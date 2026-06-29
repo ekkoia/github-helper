@@ -2,8 +2,6 @@ import React from "react";
 import { Conversation } from "@/hooks/useConversations";
 import { MessageCircle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { format, isToday, isYesterday } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { useState } from "react";
 
 interface ConversationListProps {
@@ -15,9 +13,11 @@ interface ConversationListProps {
 
 const formatTime = (dateStr: string) => {
   const date = new Date(dateStr);
-  if (isToday(date)) return format(date, "HH:mm");
-  if (isYesterday(date)) return "Ontem";
-  return format(date, "dd/MM", { locale: ptBR });
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+  if (diffDays === 1) return "Ontem";
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
 };
 
 const getInitials = (name: string) =>

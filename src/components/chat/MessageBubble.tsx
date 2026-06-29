@@ -2,8 +2,6 @@ import React from "react";
 import { FileText, Download } from "lucide-react";
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { ChatMessage } from "@/hooks/useChatMessages";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -12,7 +10,11 @@ interface MessageBubbleProps {
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isOutbound = !!message.bot_message;
   const text = message.user_message || message.bot_message || "";
-  const time = format(new Date(message.created_at), "HH:mm", { locale: ptBR });
+  const time = new Date(message.created_at).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
 
   const renderMedia = () => {
     if (!message.media_type || !message.media_url) return null;
