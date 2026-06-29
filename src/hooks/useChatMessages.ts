@@ -42,7 +42,7 @@ export const useChatMessages = (phone: string | null) => {
     }
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar mensagens:", error); }
-    setMessages(data || []);
+    setMessages((data || []).filter((m: any) => m.user_message || m.bot_message || m.media_url));
     setLoading(false);
   }, [phone, user?.id, isAdmin]);
 
