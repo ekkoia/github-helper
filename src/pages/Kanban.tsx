@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { getWhatsAppUrl } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit, AlertCircle, MessageCircle } from "lucide-react";
 import {
@@ -38,6 +39,7 @@ const Kanban = () => {
   const { etapasNomes, coresMap, isLoading: isLoadingEtapas } = useFunilEtapas();
   const { isAdmin } = useUserRole();
   const { usersMap } = useUsers();
+  const navigate = useNavigate();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -415,16 +417,18 @@ const Kanban = () => {
                                   <div className="flex items-center gap-2">
                                     <Phone className="h-3.5 w-3.5" aria-hidden="true" />
                                     <span>{lead.telefone}</span>
-                                    <a
-                                      href={getWhatsAppUrl(lead.telefone)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const digits = lead.telefone.replace(/\D/g, "");
+                                        const phone = digits.startsWith("55") ? digits : `55${digits}`;
+                                        navigate(`/chat?phone=${phone}&name=${encodeURIComponent(lead.nome_completo)}`);
+                                      }}
                                       className="text-green-500 hover:text-green-600 transition-colors"
-                                      title="Abrir WhatsApp"
+                                      title="Abrir chat WhatsApp"
                                     >
                                       <MessageCircle className="h-3.5 w-3.5" />
-                                    </a>
+                                    </button>
                                   </div>
                                 )}
                                 {lead.tipo_grao && (

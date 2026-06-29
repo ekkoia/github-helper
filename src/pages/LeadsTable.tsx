@@ -57,6 +57,7 @@ import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 const ITEMS_PER_PAGE = 20;
@@ -78,6 +79,7 @@ const LeadsTable = () => {
   const { isAdmin } = useUserRole();
   const { usersMap, users } = useUsers();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -870,16 +872,18 @@ const LeadsTable = () => {
                             <div className="flex items-center gap-1.5">
                               <span>{lead.telefone || "-"}</span>
                               {lead.telefone && (
-                                <a
-                                  href={getWhatsAppUrl(lead.telefone)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const digits = lead.telefone.replace(/\D/g, "");
+                                    const phone = digits.startsWith("55") ? digits : `55${digits}`;
+                                    navigate(`/chat?phone=${phone}&name=${encodeURIComponent(lead.nome_completo)}`);
+                                  }}
                                   className="text-green-500 hover:text-green-600 transition-colors"
-                                  title="Abrir WhatsApp"
+                                  title="Abrir chat WhatsApp"
                                 >
                                   <MessageCircle className="h-3.5 w-3.5" />
-                                </a>
+                                </button>
                               )}
                             </div>
                             <div className="text-muted-foreground text-xs truncate max-w-[150px]">

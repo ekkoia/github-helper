@@ -1,10 +1,11 @@
 import { Layout } from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Sliders, Plus, Users } from "lucide-react";
+import { Settings, Sliders, Plus, Users, MessageCircle } from "lucide-react";
 import { PreferenciasSection } from "@/components/configuracoes/PreferenciasSection";
 import { FunilSection } from "@/components/configuracoes/FunilSection";
 import { CamposCustomizadosSection } from "@/components/configuracoes/CamposCustomizadosSection";
 import { DistribuicaoSection } from "@/components/configuracoes/DistribuicaoSection";
+import { WhatsAppMetaSection } from "@/components/configuracoes/WhatsAppMetaSection";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const Configuracoes = () => {
@@ -45,6 +46,10 @@ const Configuracoes = () => {
                   </TabsTrigger>
                 </>
               )}
+              <TabsTrigger value="whatsapp" className="gap-2">
+                <MessageCircle className="h-4 w-4 hidden md:inline" />
+                WhatsApp Meta
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -76,6 +81,11 @@ const Configuracoes = () => {
             </>
           )}
         </Tabs>
+        <TabsContent value="whatsapp">
+          <div className="max-w-3xl mx-auto">
+            <WhatsAppMetaSection />
+          </div>
+        </TabsContent>
       </div>
     </Layout>
   );
