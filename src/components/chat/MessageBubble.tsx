@@ -58,8 +58,8 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
       }`}>
         {isSent && <MediaContent message={message} isSent={isSent} />}
         {displayText && <p className="whitespace-pre-wrap break-words leading-relaxed">{displayText}</p>}
-        {!displayText && !isSent && <MediaContent message={message} isSent={isSent} />}
-        {!displayText && placeholder && (
+        {!isSent && <MediaContent message={message} isSent={isSent} />}
+        {!displayText && !message.media_url && placeholder && (
           <p className="text-xs opacity-60">{placeholder}</p>
         )}
         <div className={`flex justify-end mt-0.5 ${isSent ? "text-white/60" : "text-muted-foreground"}`}>
