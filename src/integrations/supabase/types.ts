@@ -192,10 +192,19 @@ export type Database = {
           created_at: string | null
           etapa_atendimento: string | null
           id: number
+          media_filename: string | null
+          media_mime_type: string | null
+          media_type: string | null
+          media_url: string | null
+          message_direction: string | null
           message_type: string | null
+          meta_account_id: string | null
+          meta_message_id: string | null
           nomewpp: string | null
           phone: string | null
+          user_id: string | null
           user_message: string | null
+          whatsapp_instance_name: string | null
         }
         Insert: {
           active?: boolean | null
@@ -204,10 +213,19 @@ export type Database = {
           created_at?: string | null
           etapa_atendimento?: string | null
           id?: number
+          media_filename?: string | null
+          media_mime_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_direction?: string | null
           message_type?: string | null
+          meta_account_id?: string | null
+          meta_message_id?: string | null
           nomewpp?: string | null
           phone?: string | null
+          user_id?: string | null
           user_message?: string | null
+          whatsapp_instance_name?: string | null
         }
         Update: {
           active?: boolean | null
@@ -216,12 +234,29 @@ export type Database = {
           created_at?: string | null
           etapa_atendimento?: string | null
           id?: number
+          media_filename?: string | null
+          media_mime_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_direction?: string | null
           message_type?: string | null
+          meta_account_id?: string | null
+          meta_message_id?: string | null
           nomewpp?: string | null
           phone?: string | null
+          user_id?: string | null
           user_message?: string | null
+          whatsapp_instance_name?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_meta_account_id_fkey"
+            columns: ["meta_account_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_meta_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       chats: {
         Row: {
@@ -901,6 +936,131 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_meta_accounts: {
+        Row: {
+          access_token: string
+          account_name: string | null
+          api_version: string
+          connection_type: string
+          created_at: string | null
+          id: string
+          phone_number_id: string
+          updated_at: string | null
+          user_id: string
+          waba_id: string
+        }
+        Insert: {
+          access_token: string
+          account_name?: string | null
+          api_version?: string
+          connection_type?: string
+          created_at?: string | null
+          id?: string
+          phone_number_id: string
+          updated_at?: string | null
+          user_id: string
+          waba_id: string
+        }
+        Update: {
+          access_token?: string
+          account_name?: string | null
+          api_version?: string
+          connection_type?: string
+          created_at?: string | null
+          id?: string
+          phone_number_id?: string
+          updated_at?: string | null
+          user_id?: string
+          waba_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_meta_templates: {
+        Row: {
+          account_id: string
+          body: string | null
+          buttons: Json | null
+          category: string | null
+          created_at: string | null
+          footer: string | null
+          header_content: string | null
+          header_type: string | null
+          id: string
+          language: string
+          name: string
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+          variables_example: Json | null
+        }
+        Insert: {
+          account_id: string
+          body?: string | null
+          buttons?: Json | null
+          category?: string | null
+          created_at?: string | null
+          footer?: string | null
+          header_content?: string | null
+          header_type?: string | null
+          id?: string
+          language?: string
+          name: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          variables_example?: Json | null
+        }
+        Update: {
+          account_id?: string
+          body?: string | null
+          buttons?: Json | null
+          category?: string | null
+          created_at?: string | null
+          footer?: string | null
+          header_content?: string | null
+          header_type?: string | null
+          id?: string
+          language?: string
+          name?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          variables_example?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_meta_templates_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_meta_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_webhook_events: {
+        Row: {
+          created_at: string | null
+          event_type: string | null
+          id: string
+          payload: Json
+          phone_number_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_type?: string | null
+          id?: string
+          payload: Json
+          phone_number_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json
+          phone_number_id?: string | null
         }
         Relationships: []
       }
