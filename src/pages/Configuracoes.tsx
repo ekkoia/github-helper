@@ -80,12 +80,13 @@ const Configuracoes = () => {
               </TabsContent>
             </>
           )}
+
+          <TabsContent value="whatsapp">
+            <div className="max-w-3xl mx-auto">
+              <WhatsAppMetaSection />
+            </div>
+          </TabsContent>
         </Tabs>
-        <TabsContent value="whatsapp">
-          <div className="max-w-3xl mx-auto">
-            <WhatsAppMetaSection />
-          </div>
-        </TabsContent>
       </div>
     </Layout>
   );
