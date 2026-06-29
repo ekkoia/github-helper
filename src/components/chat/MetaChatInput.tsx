@@ -64,6 +64,15 @@ const ENCODER_WORKER_URL = "https://omilhfohvstqsonhyuxp.supabase.co/storage/v1/
 const MetaChatInput: React.FC<MetaChatInputProps> = ({
   contactPhone, contactName, metaAccount, onMessageSent,
 }) => {
+  // Normaliza número BR: garante DDI 55 + 9º dígito em celulares
+  const cleanPhone = (() => {
+    const raw = contactPhone.replace(/\D/g, "");
+    const withoutDDI = raw.startsWith("55") ? raw.slice(2) : raw;
+    const ddd = withoutDDI.slice(0, 2);
+    const num = withoutDDI.slice(2);
+    const normalized = num.length === 8 ? `${ddd}9${num}` : `${ddd}${num}`;
+    return `55${normalized}`;
+  })();
   const { user } = useAuth();
   const [message, setMessage] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
@@ -98,7 +107,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         setTemplates(tpls || []);
 
         // Verificar janela de 24h
-        const cleanPhone = contactPhone.replace(/\D/g, "");
+
         const { data: lastMsg } = await (supabase as any)
           .from("chat_messages")
           .select("created_at")
@@ -219,7 +228,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     if (!hasText && !hasFile) return;
     setSending(true);
     try {
-      const cleanPhone = contactPhone.replace(/\D/g, "");
+
 
       if (hasFile && attachedFile) {
         const mediaId = await uploadMediaToMeta(attachedFile);
@@ -296,7 +305,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     try {
       const filename = `audio_${Date.now()}.ogg`;
       const file = new File([recordedBlob], filename, { type: "audio/ogg" });
-      const cleanPhone = contactPhone.replace(/\D/g, "");
+
 
       // Upload via edge function (proxy CORS)
       const proxyForm = new FormData();
@@ -349,7 +358,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     if (!template) return;
     setSending(true);
     try {
-      const cleanPhone = contactPhone.replace(/\D/g, "");
+
       const res = await fetch(
         `https://graph.facebook.com/${metaAccount.api_version}/${metaAccount.phone_number_id}/messages`,
         {
