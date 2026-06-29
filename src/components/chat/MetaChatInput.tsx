@@ -147,30 +147,24 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   const startRecording = async () => {
     try {
-      if (!(window as any).Recorder) {
-        await new Promise<void>((resolve, reject) => {
-          const s = document.createElement("script");
-          s.src = "/recorder.min.js";
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error("Falha ao carregar recorder"));
-          document.head.appendChild(s);
-        });
-      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new (window as any).Recorder({
-        encoderPath: ENCODER_WORKER_URL,
-        encoderApplication: 2048,
-        encoderSampleRate: 16000,
-        numberOfChannels: 1,
-        streamPages: false,
-      });
-      recorder.ondataavailable = (arrayBuffer: ArrayBuffer) => {
-        const blob = new Blob([arrayBuffer], { type: "audio/ogg" });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+        ? "audio/ogg;codecs=opus"
+        : "audio/webm";
+
+      const chunks: BlobPart[] = [];
+      const recorder = new MediaRecorder(stream, { mimeType });
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType });
         if (recordedUrl) URL.revokeObjectURL(recordedUrl);
         setRecordedBlob(blob);
         setRecordedUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach(t => t.stop());
       };
-      await recorder.start(stream);
+      recorder.start();
       recorderRef.current = recorder;
       setIsRecording(true);
       setRecordingSeconds(0);
@@ -329,7 +323,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         user_id: user.id, phone: cleanPhone, nomewpp: contactName,
         bot_message: "[audio]", whatsapp_instance_name: "meta_official",
         message_type: "audio", message_direction: "outbound", media_type: "audio", media_url: persistentUrl,
-        media_mime_type: "audio/ogg", media_filename: filename,
+        media_mime_type: recordedBlob.type, media_filename: filename,
         meta_account_id: metaAccount.id, created_at: new Date().toISOString(),
       });
 
