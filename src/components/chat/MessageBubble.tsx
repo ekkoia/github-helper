@@ -8,7 +8,7 @@ interface MessageBubbleProps {
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
-  const isOutbound = !!message.bot_message;
+  const isOutbound = message.message_direction === 'outbound';
   const text = message.user_message || message.bot_message || "";
   const time = new Date(message.created_at).toLocaleTimeString("pt-BR", {
     hour: "2-digit",

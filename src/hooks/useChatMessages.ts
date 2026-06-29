@@ -10,6 +10,7 @@ export interface ChatMessage {
   user_message: string | null;
   bot_message: string | null;
   message_type: string | null;
+  message_direction: string | null;
   media_type: string | null;
   media_url: string | null;
   media_mime_type: string | null;
@@ -31,7 +32,7 @@ export const useChatMessages = (phone: string | null) => {
 
     let query = (supabase as any)
       .from("chat_messages")
-      .select("id, phone, nomewpp, user_message, bot_message, message_type, media_type, media_url, media_mime_type, media_filename, created_at")
+      .select("id, phone, nomewpp, user_message, bot_message, message_type, message_direction, media_type, media_url, media_mime_type, media_filename, created_at")
       .eq("whatsapp_instance_name", "meta_official")
       .like("phone", `%${cleanPhone.slice(-8)}`)
       .order("created_at", { ascending: true });
