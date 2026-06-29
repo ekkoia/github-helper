@@ -58,8 +58,29 @@ export const useConversations = () => {
           lastTime: msg.created_at,
           unread: !!msg.user_message,
           userId: msg.user_id,
-          assessorName: profileMap.get(msg.user_id) || null,
+          assessorName: null, // preenchido abaixo
         });
+      }
+    }
+
+    // Só mostra assessor se ele enviou pelo menos uma mensagem outbound pelo CRM
+    // Busca mensagens outbound por phone agrupadas por user_id
+    const phones = Array.from(map.keys());
+    if (phones.length > 0 && isAdmin) {
+      const { data: outboundMsgs } = await (supabase as any)
+        .from("chat_messages")
+        .select("phone, user_id")
+        .eq("whatsapp_instance_name", "meta_official")
+        .eq("message_direction", "outbound")
+        .not("meta_account_id", "is", null)
+        .not("user_id", "is", null);
+
+      for (const msg of outboundMsgs || []) {
+        const normalizedPhone = msg.phone.replace(/\D/g, "");
+        const conv = map.get(normalizedPhone);
+        if (conv && msg.user_id && profileMap.has(msg.user_id)) {
+          conv.assessorName = profileMap.get(msg.user_id) || null;
+        }
       }
     }
 
