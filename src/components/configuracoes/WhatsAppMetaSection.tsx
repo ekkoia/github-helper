@@ -24,7 +24,7 @@ export const WhatsAppMetaSection = () => {
 
   useEffect(() => {
     if (!user?.id) return;
-    const fetch = async () => {
+    const fetchAccount = async () => {
       const { data } = await (supabase as any)
         .from("whatsapp_meta_accounts")
         .select("account_name, waba_id, phone_number_id, access_token, api_version")
@@ -42,14 +42,31 @@ export const WhatsAppMetaSection = () => {
       }
       setLoading(false);
     };
-    fetch();
+    fetchAccount();
   }, [user?.id]);
 
-  const handleSync = async () => {
-    if (!hasAccount) {
-      toast.error("Salve a configuração antes de sincronizar");
+  const handleSave = async () => {
+    if (!user?.id) return;
+    if (!form.waba_id || !form.phone_number_id || !form.access_token) {
+      toast.error("Preencha WABA ID, Phone Number ID e Access Token");
       return;
     }
+    setSaving(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("whatsapp_meta_accounts")
+        .upsert({ user_id: user.id, ...form }, { onConflict: "user_id" });
+      if (error) throw error;
+      setHasAccount(true);
+      toast.success("Conta Meta salva com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + (err.message || ""));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSyncTemplates = async () => {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke("sync-meta-templates");
@@ -63,30 +80,6 @@ export const WhatsAppMetaSection = () => {
     }
   };
 
-  const handleSave = async () => {
-    if (!user?.id) return;
-    if (!form.waba_id || !form.phone_number_id || !form.access_token) {
-      toast.error("Preencha WABA ID, Phone Number ID e Access Token");
-      return;
-    }
-    setSaving(true);
-    try {
-      const { error } = await (supabase as any)
-        .from("whatsapp_meta_accounts")
-        .upsert(
-          { user_id: user.id, ...form },
-          { onConflict: "user_id" }
-        );
-      if (error) throw error;
-      setHasAccount(true);
-      toast.success("Conta Meta salva com sucesso!");
-    } catch (err: any) {
-      toast.error("Erro ao salvar: " + (err.message || ""));
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -97,12 +90,7 @@ export const WhatsAppMetaSection = () => {
 
   return (
     <div className="space-y-6">
-      {/* Status */}
-      <div className={`flex items-center gap-3 p-4 rounded-lg border ${
-        hasAccount
-          ? "bg-green-500/5 border-green-500/20"
-          : "bg-muted/30 border-border"
-      }`}>
+      <div className={`flex items-center gap-3 p-4 rounded-lg border ${hasAccount ? "bg-green-500/5 border-green-500/20" : "bg-muted/30 border-border"}`}>
         {hasAccount ? (
           <>
             <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
@@ -122,7 +110,6 @@ export const WhatsAppMetaSection = () => {
         )}
       </div>
 
-      {/* Formulário */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <MessageCircle className="h-4 w-4 text-green-500" />
@@ -131,65 +118,40 @@ export const WhatsAppMetaSection = () => {
 
         <div className="space-y-1">
           <Label htmlFor="account_name">Nome da conta</Label>
-          <Input
-            id="account_name"
-            placeholder="Ex: Feeagro WhatsApp"
-            value={form.account_name}
-            onChange={(e) => setForm((f) => ({ ...f, account_name: e.target.value }))}
-          />
+          <Input id="account_name" placeholder="Ex: Feeagro WhatsApp" value={form.account_name} onChange={(e) => setForm((f) => ({ ...f, account_name: e.target.value }))} />
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="waba_id">WABA ID <span className="text-destructive">*</span></Label>
-          <Input
-            id="waba_id"
-            placeholder="Ex: 123456789012345"
-            value={form.waba_id}
-            onChange={(e) => setForm((f) => ({ ...f, waba_id: e.target.value }))}
-          />
+          <Input id="waba_id" placeholder="Ex: 123456789012345" value={form.waba_id} onChange={(e) => setForm((f) => ({ ...f, waba_id: e.target.value }))} />
           <p className="text-xs text-muted-foreground">WhatsApp Business Account ID — encontrado no Meta Business Manager</p>
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="phone_number_id">Phone Number ID <span className="text-destructive">*</span></Label>
-          <Input
-            id="phone_number_id"
-            placeholder="Ex: 987654321098765"
-            value={form.phone_number_id}
-            onChange={(e) => setForm((f) => ({ ...f, phone_number_id: e.target.value }))}
-          />
+          <Input id="phone_number_id" placeholder="Ex: 987654321098765" value={form.phone_number_id} onChange={(e) => setForm((f) => ({ ...f, phone_number_id: e.target.value }))} />
           <p className="text-xs text-muted-foreground">ID do número no Meta Developer Portal → WhatsApp → API Setup</p>
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="access_token">Access Token <span className="text-destructive">*</span></Label>
-          <Textarea
-            id="access_token"
-            placeholder="EAAxxxx..."
-            value={form.access_token}
-            onChange={(e) => setForm((f) => ({ ...f, access_token: e.target.value }))}
-            className="min-h-[80px] font-mono text-xs"
-          />
+          <Textarea id="access_token" placeholder="EAAxxxx..." value={form.access_token} onChange={(e) => setForm((f) => ({ ...f, access_token: e.target.value }))} className="min-h-[80px] font-mono text-xs" />
           <p className="text-xs text-muted-foreground">System User Token permanente com permissões whatsapp_business_messaging</p>
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="api_version">Versão da API</Label>
-          <Input
-            id="api_version"
-            value={form.api_version}
-            onChange={(e) => setForm((f) => ({ ...f, api_version: e.target.value }))}
-            className="w-32"
-          />
+          <Input id="api_version" value={form.api_version} onChange={(e) => setForm((f) => ({ ...f, api_version: e.target.value }))} className="w-32" />
         </div>
 
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex items-center gap-3 pt-2">
           <Button onClick={handleSave} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? "Salvando..." : hasAccount ? "Atualizar configuração" : "Salvar configuração"}
           </Button>
+
           {hasAccount && (
-            <Button onClick={handleSync} disabled={syncing} variant="outline" className="gap-2">
+            <Button onClick={handleSyncTemplates} disabled={syncing} variant="outline" className="gap-2">
               <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
               {syncing ? "Sincronizando..." : "Sincronizar templates"}
             </Button>
