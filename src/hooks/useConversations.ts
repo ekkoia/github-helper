@@ -34,14 +34,15 @@ export const useConversations = () => {
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar conversas:", error); return; }
 
-    // Agrupar por phone, pegar a mais recente
+    // Agrupar por phone normalizado (sem +, só dígitos)
     const map = new Map<string, Conversation>();
     for (const msg of data || []) {
-      if (!map.has(msg.phone)) {
+      const normalizedPhone = msg.phone.replace(/\D/g, "");
+      if (!map.has(normalizedPhone)) {
         const lastMessage = msg.user_message || msg.bot_message || "";
-        map.set(msg.phone, {
-          phone: msg.phone,
-          name: msg.nomewpp || msg.phone,
+        map.set(normalizedPhone, {
+          phone: normalizedPhone,
+          name: msg.nomewpp || normalizedPhone,
           lastMessage,
           lastTime: msg.created_at,
           unread: !!msg.user_message,
