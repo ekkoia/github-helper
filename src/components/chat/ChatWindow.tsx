@@ -1,9 +1,12 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useMetaAccount } from "@/hooks/useMetaAccount";
 import MessageBubble from "./MessageBubble";
 import MetaChatInput from "./MetaChatInput";
-import { AlertCircle, MessageCircle } from "lucide-react";
+import { AlertCircle, MessageCircle, BotOff, Bot } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface ChatWindowProps {
   phone: string;
@@ -14,11 +17,44 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name }) => {
   const { messages, loading, refetch } = useChatMessages(phone);
   const { account, loading: loadingAccount } = useMetaAccount();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [iaStatus, setIaStatus] = useState<string | null>(null);
+  const [loadingIA, setLoadingIA] = useState(false);
 
-  // Scroll para o final quando chegam novas mensagens
+  const phoneKey = `${phone.replace(/\D/g, "")}@s.whatsapp.net`;
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Busca status da IA
+  useEffect(() => {
+    const fetchIA = async () => {
+      const { data } = await (supabase as any)
+        .from("dados_cliente")
+        .select("atendimento_ia")
+        .eq("telefone", phoneKey)
+        .maybeSingle();
+      setIaStatus(data?.atendimento_ia || null);
+    };
+    fetchIA();
+  }, [phoneKey]);
+
+  const toggleIA = async () => {
+    setLoadingIA(true);
+    const newStatus = iaStatus === "pause" ? "reativada" : "pause";
+    const { error } = await (supabase as any)
+      .from("dados_cliente")
+      .update({ atendimento_ia: newStatus })
+      .eq("telefone", phoneKey);
+
+    if (error) {
+      toast.error("Erro ao atualizar status da IA");
+    } else {
+      setIaStatus(newStatus);
+      toast.success(newStatus === "pause" ? "IA pausada" : "IA reativada");
+    }
+    setLoadingIA(false);
+  };
 
   if (loadingAccount) {
     return (
@@ -40,17 +76,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name }) => {
     );
   }
 
+  const isPaused = iaStatus === "pause";
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header do contato */}
+      {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-3 bg-card">
         <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm flex-shrink-0">
           {name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="font-medium text-sm text-foreground truncate">{name}</p>
           <p className="text-xs text-muted-foreground">{phone}</p>
         </div>
+        {/* Botão Pausar/Reativar IA */}
+        <Button
+          variant={isPaused ? "outline" : "destructive"}
+          size="sm"
+          onClick={toggleIA}
+          disabled={loadingIA}
+          className="gap-1.5 text-xs flex-shrink-0"
+        >
+          {isPaused ? (
+            <><Bot className="h-3.5 w-3.5" /> Reativar IA</>
+          ) : (
+            <><BotOff className="h-3.5 w-3.5" /> Pausar IA</>
+          )}
+        </Button>
       </div>
 
       {/* Mensagens */}
@@ -65,9 +117,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name }) => {
             <p className="text-sm">Nenhuma mensagem ainda</p>
           </div>
         ) : (
-          messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))
+          messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
         )}
         <div ref={bottomRef} />
       </div>
