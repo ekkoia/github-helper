@@ -73,25 +73,27 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const time = TIME(message.created_at);
 
+  // Se tem os dois (formato legado n8n): renderiza dois balões sempre
+  if (message.user_message && message.bot_message) {
+    return (
+      <>
+        <Bubble text={message.user_message} isSent={false} time={time} message={message} />
+        <Bubble text={message.bot_message} isSent={true} time={time} message={message} />
+      </>
+    );
+  }
+
   // Formato novo: message_direction define o lado
   if (message.message_direction) {
-    const isSent = message.message_direction === "outbound";
+    const isSent = message.message_direction.trim() === "outbound";
     const text = isSent ? message.bot_message : message.user_message;
     return <Bubble text={text} isSent={isSent} time={time} message={message} />;
   }
 
-  // Formato legado do n8n: uma linha com user_message + bot_message
-  // Renderiza os dois balões: lead (esquerda) depois IA (direita)
-  return (
-    <>
-      {message.user_message && (
-        <Bubble text={message.user_message} isSent={false} time={time} message={message} />
-      )}
-      {message.bot_message && (
-        <Bubble text={message.bot_message} isSent={true} time={time} message={message} />
-      )}
-    </>
-  );
+  // Fallback
+  const isSent = !!message.bot_message && !message.user_message;
+  const text = message.user_message || message.bot_message;
+  return <Bubble text={text} isSent={isSent} time={time} message={message} />;
 };
 
 export default MessageBubble;
