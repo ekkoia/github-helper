@@ -53,7 +53,7 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
     <div className={`flex ${isSent ? "justify-end" : "justify-start"} mb-1`}>
       <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
         isSent
-          ? "bg-primary text-primary-foreground rounded-br-sm"
+          ? "bg-emerald-700 text-white rounded-br-sm"
           : "bg-card border border-border text-foreground rounded-bl-sm"
       }`}>
         {isSent && <MediaContent message={message} isSent={isSent} />}
@@ -62,7 +62,7 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
         {!displayText && placeholder && (
           <p className="text-xs opacity-60">{placeholder}</p>
         )}
-        <div className={`flex justify-end mt-0.5 ${isSent ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+        <div className={`flex justify-end mt-0.5 ${isSent ? "text-white/60" : "text-muted-foreground"}`}>
           <span className="text-[10px]">{time}</span>
         </div>
       </div>
