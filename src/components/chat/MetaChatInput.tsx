@@ -235,30 +235,23 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     if (!hasText && !hasFile) return;
     setSending(true);
     try {
-
-
       if (hasFile && attachedFile) {
         const mediaId = await uploadMediaToMeta(attachedFile);
         if (!mediaId) { setSending(false); return; }
 
         const mediaType = getMediaType(attachedFile.type);
-        const mediaPayload: any = { id: mediaId };
-        if (hasText) mediaPayload.caption = message.trim();
-        if (mediaType === "document") mediaPayload.filename = attachedFile.name;
 
-        const res = await fetch(
-          `https://graph.facebook.com/${metaAccount.api_version}/${metaAccount.phone_number_id}/messages`,
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${metaAccount.access_token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messaging_product: "whatsapp", to: cleanPhone,
-              type: mediaType, [mediaType]: mediaPayload,
-            }),
+        const { data: json, error } = await supabase.functions.invoke("send-whatsapp-message", {
+          body: {
+            to: cleanPhone,
+            type: mediaType,
+            media_id: mediaId,
+            media_type: mediaType,
+            caption: hasText ? message.trim() : undefined,
+            filename: mediaType === "document" ? attachedFile.name : undefined,
           }
-        );
-        const json = await res.json();
-        if (json.error) { toast.error(`Erro: ${json.error.message}`); setSending(false); return; }
+        });
+        if (error || json?.error) { toast.error(`Erro: ${json?.error || error?.message}`); setSending(false); return; }
 
         const persistentUrl = await saveToStorage(attachedFile, user.id);
 
@@ -274,19 +267,10 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         toast.success("Mídia enviada!");
         setMessage(""); setAttachedFile(null);
       } else {
-        const res = await fetch(
-          `https://graph.facebook.com/${metaAccount.api_version}/${metaAccount.phone_number_id}/messages`,
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${metaAccount.access_token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messaging_product: "whatsapp", to: cleanPhone,
-              type: "text", text: { body: message.trim() },
-            }),
-          }
-        );
-        const json = await res.json();
-        if (json.error) { toast.error(`Erro: ${json.error.message}`); setSending(false); return; }
+        const { data: json, error } = await supabase.functions.invoke("send-whatsapp-message", {
+          body: { to: cleanPhone, type: "text", text: message.trim() }
+        });
+        if (error || json?.error) { toast.error(`Erro: ${json?.error || error?.message}`); setSending(false); return; }
 
         await (supabase as any).from("chat_messages").insert({
           user_id: user.id, phone: cleanPhone, nomewpp: contactName,
@@ -365,20 +349,15 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     if (!template) return;
     setSending(true);
     try {
-
-      const res = await fetch(
-        `https://graph.facebook.com/${metaAccount.api_version}/${metaAccount.phone_number_id}/messages`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${metaAccount.access_token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messaging_product: "whatsapp", to: cleanPhone,
-            type: "template", template: { name: template.name, language: { code: template.language || "pt_BR" } },
-          }),
+      const { data: json, error } = await supabase.functions.invoke("send-whatsapp-message", {
+        body: {
+          to: cleanPhone,
+          type: "template",
+          template_name: template.name,
+          template_language: template.language || "pt_BR",
         }
-      );
-      const json = await res.json();
-      if (json.error) { toast.error(`Erro: ${json.error.message}`); return; }
+      });
+      if (error || json?.error) { toast.error(`Erro: ${json?.error || error?.message}`); return; }
 
       await (supabase as any).from("chat_messages").insert({
         user_id: user.id, phone: cleanPhone, nomewpp: contactName,
