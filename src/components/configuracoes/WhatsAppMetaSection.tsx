@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { MessageCircle, CheckCircle2, AlertCircle, Save } from "lucide-react";
+import { MessageCircle, CheckCircle2, AlertCircle, Save, RefreshCw } from "lucide-react";
 
 export const WhatsAppMetaSection = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [hasAccount, setHasAccount] = useState(false);
   const [form, setForm] = useState({
     account_name: "",
@@ -43,6 +44,24 @@ export const WhatsAppMetaSection = () => {
     };
     fetch();
   }, [user?.id]);
+
+  const handleSync = async () => {
+    if (!hasAccount) {
+      toast.error("Salve a configuração antes de sincronizar");
+      return;
+    }
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-meta-templates");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`${data.synced} templates sincronizados com sucesso!`);
+    } catch (err: any) {
+      toast.error("Erro ao sincronizar: " + (err.message || ""));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -164,10 +183,18 @@ export const WhatsAppMetaSection = () => {
           />
         </div>
 
-        <Button onClick={handleSave} disabled={saving} className="gap-2">
-          <Save className="h-4 w-4" />
-          {saving ? "Salvando..." : hasAccount ? "Atualizar configuração" : "Salvar configuração"}
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={handleSave} disabled={saving} className="gap-2">
+            <Save className="h-4 w-4" />
+            {saving ? "Salvando..." : hasAccount ? "Atualizar configuração" : "Salvar configuração"}
+          </Button>
+          {hasAccount && (
+            <Button onClick={handleSync} disabled={syncing} variant="outline" className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Sincronizando..." : "Sincronizar templates"}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
