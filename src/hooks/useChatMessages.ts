@@ -40,7 +40,6 @@ export const useChatMessages = (phone: string | null) => {
     if (!isAdmin) {
       query = query.eq("user_id", user.id);
     }
-
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar mensagens:", error); }
     setMessages(data || []);
