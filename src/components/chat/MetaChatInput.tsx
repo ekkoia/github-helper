@@ -258,7 +258,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         await (supabase as any).from("chat_messages").insert({
           user_id: user.id, phone: cleanPhone, nomewpp: contactName,
           bot_message: hasText ? message.trim() : `[${mediaType}] ${attachedFile.name}`,
-          whatsapp_instance_name: "meta_official", message_type: "outbound",
+          whatsapp_instance_name: "meta_official", message_type: "text", message_direction: "outbound",
           media_type: mediaType, media_url: persistentUrl,
           media_mime_type: attachedFile.type, media_filename: attachedFile.name,
           meta_account_id: metaAccount.id, created_at: new Date().toISOString(),
@@ -284,7 +284,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         await (supabase as any).from("chat_messages").insert({
           user_id: user.id, phone: cleanPhone, nomewpp: contactName,
           bot_message: message.trim(), whatsapp_instance_name: "meta_official",
-          message_type: "outbound", meta_account_id: metaAccount.id,
+          message_type: "text", message_direction: "outbound", meta_account_id: metaAccount.id,
           created_at: new Date().toISOString(),
         });
 
@@ -337,7 +337,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
       await (supabase as any).from("chat_messages").insert({
         user_id: user.id, phone: cleanPhone, nomewpp: contactName,
         bot_message: "[audio]", whatsapp_instance_name: "meta_official",
-        message_type: "outbound", media_type: "audio", media_url: persistentUrl,
+        message_type: "audio", message_direction: "outbound", media_type: "audio", media_url: persistentUrl,
         media_mime_type: "audio/ogg", media_filename: filename,
         meta_account_id: metaAccount.id, created_at: new Date().toISOString(),
       });
@@ -376,7 +376,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
       await (supabase as any).from("chat_messages").insert({
         user_id: user.id, phone: cleanPhone, nomewpp: contactName,
         bot_message: template.body || `[Template] ${template.name}`,
-        whatsapp_instance_name: "meta_official", message_type: "outbound",
+        whatsapp_instance_name: "meta_official", message_type: "text", message_direction: "outbound",
         meta_account_id: metaAccount.id, created_at: new Date().toISOString(),
       });
 
