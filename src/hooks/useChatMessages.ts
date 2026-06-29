@@ -66,10 +66,14 @@ export const useChatMessages = (phone: string | null) => {
         (payload: any) => {
           const msg = payload.new;
           const cleanPhone = phone.replace(/\D/g, "");
+          const msgPhone = (msg.phone || "").replace(/\D/g, "");
           if (msg.whatsapp_instance_name !== "meta_official") return;
-          if (!msg.phone?.includes(cleanPhone.slice(-8))) return;
+          if (!msgPhone.includes(cleanPhone.slice(-8)) && !cleanPhone.includes(msgPhone.slice(-8))) return;
           if (!isAdmin && msg.user_id !== user.id) return;
-          setMessages((prev) => [...prev, msg]);
+          setMessages((prev) => {
+            if (prev.find(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
         }
       )
       .subscribe();
