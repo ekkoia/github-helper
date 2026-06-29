@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useMetaAccount } from "@/hooks/useMetaAccount";
+import { useUserRole } from "@/hooks/useUserRole";
 import MessageBubble from "./MessageBubble";
 import MetaChatInput from "./MetaChatInput";
 import { AlertCircle, MessageCircle, BotOff, Bot } from "lucide-react";
@@ -11,11 +12,13 @@ import { toast } from "sonner";
 interface ChatWindowProps {
   phone: string;
   name: string;
+  assessorName?: string | null;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) => {
   const { messages, loading, refetch } = useChatMessages(phone);
   const { account, loading: loadingAccount } = useMetaAccount();
+  const { isAdmin } = useUserRole();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [iaStatus, setIaStatus] = useState<string | null>(null);
   const [loadingIA, setLoadingIA] = useState(false);
@@ -86,6 +89,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name }) => {
           {name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
+          {isAdmin && assessorName && (
+            <p className="text-[10px] text-emerald-500 font-medium">↳ {assessorName}</p>
+          )}
           <p className="font-medium text-sm text-foreground truncate">{name}</p>
           <p className="text-xs text-muted-foreground">{phone}</p>
         </div>

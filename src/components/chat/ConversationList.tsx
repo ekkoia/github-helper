@@ -3,12 +3,13 @@ import { Conversation } from "@/hooks/useConversations";
 import { MessageCircle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface ConversationListProps {
   conversations: Conversation[];
   loading: boolean;
   selectedPhone: string | null;
-  onSelect: (phone: string, name: string) => void;
+  onSelect: (phone: string, name: string, assessorName?: string | null) => void;
 }
 
 const formatTime = (dateStr: string) => {
@@ -27,6 +28,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
   conversations, loading, selectedPhone, onSelect,
 }) => {
   const [search, setSearch] = useState("");
+  const { isAdmin } = useUserRole();
 
   const filtered = conversations.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -67,7 +69,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
           filtered.map((conv) => (
             <button
               key={conv.phone}
-              onClick={() => onSelect(conv.phone, conv.name)}
+              onClick={() => onSelect(conv.phone, conv.name, conv.assessorName)}
               className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left border-b border-border/50 ${
                 selectedPhone === conv.phone ? "bg-muted/70" : ""
               }`}
@@ -78,6 +80,12 @@ const ConversationList: React.FC<ConversationListProps> = ({
               </div>
               {/* Info */}
               <div className="flex-1 min-w-0">
+                {/* Nome do assessor (só para admin/global) */}
+                {isAdmin && conv.assessorName && (
+                  <p className="text-[10px] text-emerald-500 font-medium truncate flex items-center gap-1">
+                    ↳ {conv.assessorName}
+                  </p>
+                )}
                 <div className="flex items-center justify-between gap-1">
                   <span className="font-medium text-sm text-foreground truncate">{conv.name}</span>
                   <span className="text-[10px] text-muted-foreground flex-shrink-0">{formatTime(conv.lastTime)}</span>

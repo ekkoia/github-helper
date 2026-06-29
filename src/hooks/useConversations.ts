@@ -10,6 +10,7 @@ export interface Conversation {
   lastTime: string;
   unread: boolean;
   userId: string;
+  assessorName: string | null;
 }
 
 export const useConversations = () => {
@@ -34,7 +35,17 @@ export const useConversations = () => {
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar conversas:", error); return; }
 
-    // Agrupar por phone normalizado (sem +, só dígitos)
+    // Busca nomes dos assessores
+    const { data: profiles } = await (supabase as any)
+      .from("profiles")
+      .select("user_id, nome_completo");
+
+    const profileMap = new Map<string, string>();
+    for (const p of profiles || []) {
+      profileMap.set(p.user_id, p.nome_completo);
+    }
+
+    // Agrupar por phone normalizado
     const map = new Map<string, Conversation>();
     for (const msg of data || []) {
       const normalizedPhone = msg.phone.replace(/\D/g, "");
@@ -47,6 +58,7 @@ export const useConversations = () => {
           lastTime: msg.created_at,
           unread: !!msg.user_message,
           userId: msg.user_id,
+          assessorName: profileMap.get(msg.user_id) || null,
         });
       }
     }

@@ -9,21 +9,23 @@ export const ChatPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [selectedName, setSelectedName] = useState<string>("");
+  const [selectedAssessor, setSelectedAssessor] = useState<string | null>(null);
   const { conversations, loading } = useConversations();
 
-  // Abrir conversa direto se vier de Leads/Kanban via URL
   useEffect(() => {
     const phone = searchParams.get("phone");
     const name = searchParams.get("name");
     if (phone) {
       setSelectedPhone(phone);
       setSelectedName(name || phone);
+      setSelectedAssessor(null);
     }
   }, [searchParams]);
 
-  const handleSelect = (phone: string, name: string) => {
+  const handleSelect = (phone: string, name: string, assessorName?: string | null) => {
     setSelectedPhone(phone);
     setSelectedName(name);
+    setSelectedAssessor(assessorName || null);
   };
 
   return (
@@ -38,10 +40,9 @@ export const ChatPage: React.FC = () => {
         />
       </div>
 
-      {/* Coluna direita — janela de chat */}
       <div className="flex-1 flex flex-col min-w-0">
         {selectedPhone ? (
-          <ChatWindow phone={selectedPhone} name={selectedName} />
+          <ChatWindow phone={selectedPhone} name={selectedName} assessorName={selectedAssessor} />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 text-muted-foreground">
             <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
