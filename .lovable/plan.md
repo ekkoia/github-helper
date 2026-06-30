@@ -1,39 +1,28 @@
-## Objetivo
-Corrigir o fluxo do convite para que, ao clicar em "Criar Minha Senha" no email, o usuário sempre caia em `/set-password` — e nunca direto no sistema sem ter definido a senha.
+# Conta Meta WhatsApp compartilhada
 
-## Causa raiz
-1. O Supabase só respeita o `redirect_to` do link de convite se a URL estiver em **Allowed Redirect URLs**. Caso contrário, faz fallback para a **Site URL** (a home), e o `ProtectedRoute` deixa entrar porque a sessão já foi criada.
-2. Não existe nenhuma proteção no frontend que force convidados sem senha definida a ir para `/set-password`.
+## Objetivo
+Uma única conta Meta (configurada por um admin global) passa a ser usada por todos os usuários do sistema. Usuários comuns e admins não precisam mais configurar a própria conta.
 
 ## Mudanças
 
-### 1. Ação manual no Supabase (fora do código — eu te aviso passo a passo)
-- Em **Authentication → URL Configuration → Redirect URLs**, adicionar:
-  - `https://crm.imaculada.online/set-password`
-  - `https://crm.imaculada.online/**` (curinga, recomendado)
-  - Domínios de preview Lovable se forem usados para testar convites.
+### 1. `src/hooks/useMetaAccount.ts`
+Em vez de buscar `whatsapp_meta_accounts` filtrando por `user_id` do usuário logado, buscar a conta compartilhada — a primeira/única linha da tabela (ordenada por `created_at` ascendente, `limit(1)`). Todos os usuários passam a receber a mesma conta.
 
-Isso por si só já resolve o redirecionamento direto.
+### 2. `src/components/configuracoes/WhatsAppMetaSection.tsx`
+- Buscar e salvar a conta compartilhada (sem filtrar por `user_id`; usar a linha existente se houver, senão criar uma nova vinculada ao `user_id` do global admin atual).
+- Renderizar o formulário completo apenas para **global admin** (`isGlobal`). Para os demais (user/admin), mostrar somente um card informativo: "Conta Meta compartilhada — configurada pela administração" + nome da conta conectada, sem campos editáveis nem botões.
 
-### 2. Backup no código: detectar "convite consumido sem perfil" e forçar `/set-password`
-Como o `invite-user` cria um `pending_invites` ANTES do `generateLink`, o trigger `handle_new_user` NÃO cria o profile do convidado. Ou seja: **um usuário com sessão ativa mas sem `profiles` é, com alta probabilidade, um convidado que ainda não definiu senha**.
+### 3. RLS de `whatsapp_meta_accounts` (migration)
+Atualmente as policies provavelmente restringem leitura/escrita ao próprio `user_id`. Ajustar para:
+- `SELECT`: qualquer usuário autenticado (todos precisam ler a conta para enviar mensagens via `ChatWindow`/`MetaChatInput`).
+- `INSERT` / `UPDATE` / `DELETE`: somente role `global` (via `has_role(auth.uid(), 'global')`).
 
-Vou aproveitar isso para criar um guard:
+Confirmo as policies atuais antes de escrever a migration.
 
-- **`src/components/ProtectedRoute.tsx`**: após confirmar `user`, fazer uma checagem rápida em `profiles` por `user_id`. Se não existir profile → `navigate('/set-password', { replace: true })`.
-- **`src/pages/SetPassword.tsx`**: após salvar a senha com sucesso, garantir que o profile seja criado a partir do `pending_invites` (já existe trigger; só validar) antes de mandar para `/dashboard`. Sem mudanças de lógica além disso.
+## Não muda
+- Schema da tabela (mantém `user_id` apenas como "quem cadastrou").
+- Edge functions que já leem a conta via service_role.
+- `whatsapp_meta_templates` (continuam vinculados à conta).
 
-### 3. Pequeno ajuste no `invite-user` (opcional, sem alterar comportamento)
-Garantir que o `redirectTo` passado ao `generateLink` sempre use o domínio de produção (`https://crm.imaculada.online/set-password`) — já está assim via `SITE_URL`. Apenas validar o secret.
-
-## O que NÃO será alterado
-- Lógica do `pending_invites`, do trigger `handle_new_user`, das edge functions `invite-user` / `send-invite-email` e do email HTML.
-- Rotas, RLS, filtros de leads, ou qualquer outra parte do sistema.
-
-## Como vamos validar
-1. Você adiciona a Redirect URL no Supabase.
-2. Eu publico as mudanças de código (guard no `ProtectedRoute`).
-3. Você envia um convite de teste para um email novo → o link deve abrir `/set-password` com o card "Crie sua senha".
-4. Mesmo que alguém clique num link antigo que caia na home, o guard joga para `/set-password`.
-
-Posso seguir?
+## Observação
+Se hoje existirem múltiplas linhas em `whatsapp_meta_accounts` (uma por usuário), depois desta mudança apenas a primeira será usada. Posso opcionalmente apagar as duplicadas — me avisa se quer que eu faça isso ou se prefere manter como histórico.
