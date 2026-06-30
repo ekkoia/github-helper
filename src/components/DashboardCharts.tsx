@@ -8,7 +8,6 @@ import { CalendarIcon } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { getTopoDaFaixa } from "@/lib/investmentUtils";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 
 import { 

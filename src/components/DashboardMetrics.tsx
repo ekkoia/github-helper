@@ -6,35 +6,42 @@ interface DashboardMetricsProps {
   leads: any[];
 }
 
+// Valor representativo por faixa (ponto médio conservador)
+const FAIXA_VALOR: Record<string, number> = {
+  ate_500:   300,
+  "500_5k":  2750,
+  "5k_20k":  12500,
+  acima_20k: 30000,
+};
+
+const getValorEstimado = (lead: any): number => {
+  // Prioridade: valor real declarado > faixa > nada
+  if (lead.investimento_real && lead.investimento_real > 0) {
+    return parseFloat(lead.investimento_real);
+  }
+  if (lead.faixa_investimento && FAIXA_VALOR[lead.faixa_investimento]) {
+    return FAIXA_VALOR[lead.faixa_investimento];
+  }
+  return 0;
+};
+
 export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
-  // Ticket Médio (Investimento Médio por Lead)
+  // Ticket Médio (Investimento Médio por Lead qualificado)
   const ticketMedio = useMemo(() => {
-    const leadsComValor = leads.filter(lead => lead.valor_produto);
+    const leadsComValor = leads.filter(lead => getValorEstimado(lead) > 0);
     if (leadsComValor.length === 0) return 0;
-    
-    const soma = leadsComValor.reduce((acc, lead) => {
-      const valor = parseFloat(lead.valor_produto) || 0;
-      return acc + valor;
-    }, 0);
-    
+    const soma = leadsComValor.reduce((acc, lead) => acc + getValorEstimado(lead), 0);
     return soma / leadsComValor.length;
   }, [leads]);
 
-  // Lead mais valioso (baseado apenas no valor_produto)
+  // Lead mais valioso
   const leadMaisValioso = useMemo(() => {
-    const leadsComValor = leads.filter(lead => lead.valor_produto);
+    const leadsComValor = leads.filter(lead => getValorEstimado(lead) > 0);
     if (leadsComValor.length === 0) return { nome: "N/A", valor: 0 };
-    
-    const maisValioso = leadsComValor.reduce((max, lead) => {
-      const valor = parseFloat(lead.valor_produto) || 0;
-      const maxValor = parseFloat(max.valor_produto) || 0;
-      return valor > maxValor ? lead : max;
-    }, leadsComValor[0]);
-    
-    return {
-      nome: maisValioso.nome_completo,
-      valor: parseFloat(maisValioso.valor_produto) || 0
-    };
+    const maisValioso = leadsComValor.reduce((max, lead) =>
+      getValorEstimado(lead) > getValorEstimado(max) ? lead : max
+    , leadsComValor[0]);
+    return { nome: maisValioso.nome_completo, valor: getValorEstimado(maisValioso) };
   }, [leads]);
 
   // Leads Este Mês

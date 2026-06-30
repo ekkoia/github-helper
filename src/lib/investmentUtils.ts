@@ -1,16 +1,38 @@
 /**
  * Converte o valor salvo para o topo da faixa de investimento correspondente.
- * 
- * | Valor Salvo  | Faixa                     | Retorno     |
- * |--------------|---------------------------|-------------|
- * | ≤ R$10.000   | até R$10 mil              | R$ 10.000   |
- * | ≤ R$50.000   | de R$10 mil a R$50 mil    | R$ 50.000   |
- * | ≤ R$150.000  | de R$50 mil a R$150 mil   | R$ 150.000  |
- * | > R$150.000  | acima de R$150 mil        | valor real  |
+ * Faixas vigentes (mínimo R$100):
+ *
+ * | Valor Real    | Faixa         | Topo usado  |
+ * |---------------|---------------|-------------|
+ * | ≤ R$500       | ate_500       | R$ 500      |
+ * | ≤ R$5.000     | 500_5k        | R$ 5.000    |
+ * | ≤ R$20.000    | 5k_20k        | R$ 20.000   |
+ * | > R$20.000    | acima_20k     | R$ 50.000 (estimativa conservadora) |
  */
 export const getTopoDaFaixa = (valor: number): number => {
-  if (valor <= 10000) return 10000;
-  if (valor <= 50000) return 50000;
-  if (valor <= 150000) return 150000;
-  return valor; // Acima de 150k, mantém o valor real
+  if (valor <= 500)   return 500;
+  if (valor <= 5000)  return 5000;
+  if (valor <= 20000) return 20000;
+  return 50000; // estimativa conservadora para "acima de R$20 mil"
+};
+
+/**
+ * Retorna o valor estimado (ponto médio conservador) de um lead
+ * com base em faixa_investimento ou investimento_real.
+ */
+export const FAIXA_VALOR: Record<string, number> = {
+  ate_500:   300,
+  "500_5k":  2750,
+  "5k_20k":  12500,
+  acima_20k: 30000,
+};
+
+export const getValorEstimadoLead = (lead: any): number => {
+  if (lead.investimento_real && Number(lead.investimento_real) > 0) {
+    return Number(lead.investimento_real);
+  }
+  if (lead.faixa_investimento && FAIXA_VALOR[lead.faixa_investimento]) {
+    return FAIXA_VALOR[lead.faixa_investimento];
+  }
+  return 0;
 };
