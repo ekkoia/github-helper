@@ -11,6 +11,8 @@ export interface Lead {
   nota_assessor: string | null;
   origem: string | null;
   data_criacao: string | null;
+  faixa_investimento: string | null;
+  investimento_real: number | null;
 }
 
 export interface FunilEtapa {

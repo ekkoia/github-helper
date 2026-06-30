@@ -196,6 +196,38 @@ const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
         </div>
       </div>
 
+      {/* Faixa de investimento */}
+      <div className="p-4 border-b border-border space-y-2">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          💰 Faixa de investimento
+        </p>
+        <select
+          className="w-full text-xs bg-background border border-border rounded-md px-2 py-1.5 text-foreground"
+          value={lead.faixa_investimento || ""}
+          onChange={async (e) => {
+            const ok = await updateLead({ faixa_investimento: e.target.value || null });
+            if (ok) {
+              toast.success("Faixa atualizada");
+              await logActivity("lead_updated", `Atualizou faixa de investimento do lead "${lead.nome_completo || phone}"`, {
+                lead_id: lead.id, lead_nome: lead.nome_completo,
+                faixa: e.target.value, origem: "chat",
+              });
+            } else toast.error("Erro ao atualizar faixa");
+          }}
+        >
+          <option value="">Selecionar faixa...</option>
+          <option value="ate_500">Até R$500</option>
+          <option value="500_5k">R$500 a R$5 mil</option>
+          <option value="5k_20k">R$5 mil a R$20 mil</option>
+          <option value="acima_20k">Acima de R$20 mil</option>
+        </select>
+        {lead.investimento_real && (
+          <p className="text-[10px] text-muted-foreground">
+            Valor informado: R${Number(lead.investimento_real).toLocaleString("pt-BR")}
+          </p>
+        )}
+      </div>
+
       {/* Atribuído a */}
       <div className="p-4 border-b border-border space-y-2">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">

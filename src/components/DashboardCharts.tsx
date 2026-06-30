@@ -154,51 +154,66 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
       .sort((a, b) => b.count - a.count);
   }, [filteredLeads]);
 
-  // Dados para Total Investido por Faixa (usando topo da faixa)
+  // Mapeamento de faixas para labels e valores representativos
+  const FAIXA_LABEL: Record<string, string> = {
+    "ate_500":   "Até R$500",
+    "500_5k":    "R$500 a R$5 mil",
+    "5k_20k":    "R$5 mil a R$20 mil",
+    "acima_20k": "Acima de R$20 mil",
+  };
+  const FAIXA_TOPO: Record<string, number> = {
+    "ate_500":   500,
+    "500_5k":    5000,
+    "5k_20k":    20000,
+    "acima_20k": 50000, // estimativa conservadora para "acima de R$20 mil"
+  };
+  const FAIXA_ORDER = ["ate_500", "500_5k", "5k_20k", "acima_20k"];
+
+  // Dados para Total Estimado por Faixa
   const totalPorFaixaData = useMemo(() => {
-    const faixas: Record<string, number> = {
-      "até R$10 mil": 0,
-      "de R$10 mil a R$50 mil": 0,
-      "de R$50 mil a R$100 mil": 0,
-      "acima de R$100 mil": 0
-    };
-    
+    const faixas: Record<string, number> = { ate_500: 0, "500_5k": 0, "5k_20k": 0, acima_20k: 0 };
+
     filteredLeads.forEach(lead => {
-      const valorOriginal = parseFloat(lead.valor_produto) || 0;
-      const valorTopo = getTopoDaFaixa(valorOriginal);
-      
-      if (valorOriginal <= 10000) faixas["até R$10 mil"] += valorTopo;
-      else if (valorOriginal <= 50000) faixas["de R$10 mil a R$50 mil"] += valorTopo;
-      else if (valorOriginal <= 100000) faixas["de R$50 mil a R$100 mil"] += valorTopo;
-      else faixas["acima de R$100 mil"] += valorTopo;
+      const faixa = (lead as any).faixa_investimento;
+      if (faixa && faixas[faixa] !== undefined) {
+        faixas[faixa] += FAIXA_TOPO[faixa];
+      } else {
+        // Fallback para investimento_real ou valor_produto
+        const valor = parseFloat((lead as any).investimento_real) || parseFloat(lead.valor_produto) || 0;
+        if (valor <= 0) return;
+        if (valor <= 500)   faixas["ate_500"]   += 500;
+        else if (valor <= 5000)  faixas["500_5k"]  += 5000;
+        else if (valor <= 20000) faixas["5k_20k"]  += 20000;
+        else                     faixas["acima_20k"] += 50000;
+      }
     });
 
-    return Object.entries(faixas)
-      .filter(([_, value]) => value > 0)
-      .map(([name, value]) => ({ name, value }));
+    return FAIXA_ORDER
+      .filter(k => faixas[k] > 0)
+      .map(k => ({ name: FAIXA_LABEL[k], value: faixas[k] }));
   }, [filteredLeads]);
 
-  // Dados para distribuição por faixa de investimento
+  // Dados para distribuição de leads por faixa de investimento
   const investimentoData = useMemo(() => {
-    const faixas: Record<string, number> = {
-      "até R$10 mil": 0,
-      "de R$10 mil a R$50 mil": 0,
-      "de R$50 mil a R$100 mil": 0,
-      "acima de R$100 mil": 0
-    };
-    
+    const faixas: Record<string, number> = { ate_500: 0, "500_5k": 0, "5k_20k": 0, acima_20k: 0 };
+
     filteredLeads.forEach(lead => {
-      const valor = parseFloat(lead.valor_produto) || 0;
-      
-      if (valor <= 10000) faixas["até R$10 mil"]++;
-      else if (valor <= 50000) faixas["de R$10 mil a R$50 mil"]++;
-      else if (valor <= 100000) faixas["de R$50 mil a R$100 mil"]++;
-      else if (valor > 100000) faixas["acima de R$100 mil"]++;
+      const faixa = (lead as any).faixa_investimento;
+      if (faixa && faixas[faixa] !== undefined) {
+        faixas[faixa]++;
+      } else {
+        const valor = parseFloat((lead as any).investimento_real) || parseFloat(lead.valor_produto) || 0;
+        if (valor <= 0) return;
+        if (valor <= 500)        faixas["ate_500"]++;
+        else if (valor <= 5000)  faixas["500_5k"]++;
+        else if (valor <= 20000) faixas["5k_20k"]++;
+        else                     faixas["acima_20k"]++;
+      }
     });
 
-    return Object.entries(faixas)
-      .filter(([_, value]) => value > 0)
-      .map(([name, value]) => ({ name, value }));
+    return FAIXA_ORDER
+      .filter(k => faixas[k] > 0)
+      .map(k => ({ name: FAIXA_LABEL[k], value: faixas[k] }));
   }, [filteredLeads]);
 
   // Mapeamento de origens para labels legíveis
