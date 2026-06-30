@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useLeadByPhone } from "@/hooks/useLeadByPhone";
 import { useUsers } from "@/hooks/useUsers";
+import { useActivityLog } from "@/hooks/useActivityLog";
+import { useNotifications } from "@/hooks/useNotifications";
 import { User, Mail, Phone, Tag, UserCheck, StickyNote, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,12 +13,25 @@ interface LeadInfoPanelProps {
 const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
   const { lead, etapas, loading, updateLead, updateEtapa } = useLeadByPhone(phone);
   const { users, usersMap } = useUsers();
+  const { logActivity } = useActivityLog();
+  const { createNotification } = useNotifications();
   const [noteValue, setNoteValue] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
 
   React.useEffect(() => {
     setNoteValue(lead?.nota_assessor || "");
+  }, [lead?.id]);
+
+  React.useEffect(() => {
+    if (lead?.id) {
+      logActivity("lead_viewed", `Visualizou detalhes do lead "${lead.nome_completo || phone}"`, {
+        lead_id: lead.id,
+        lead_nome: lead.nome_completo,
+        origem: "chat",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead?.id]);
 
   if (loading) {
@@ -42,23 +57,83 @@ const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
   const responsavel = lead.responsavel_id ? usersMap[lead.responsavel_id] : null;
 
   const handleEtapaChange = async (etapaNome: string) => {
+    const etapaAnterior = lead.etapa_funil;
     const ok = await updateEtapa(etapaNome);
-    if (ok) toast.success("Etapa atualizada");
-    else toast.error("Erro ao atualizar etapa");
+    if (!ok) { toast.error("Erro ao atualizar etapa"); return; }
+
+    await logActivity(
+      "lead_stage_changed",
+      `Moveu "${lead.nome_completo || phone}" de "${etapaAnterior || "Sem etapa"}" para "${etapaNome}"`,
+      {
+        lead_id: lead.id,
+        lead_nome: lead.nome_completo,
+        etapa_anterior: etapaAnterior,
+        etapa_nova: etapaNome,
+        origem: "chat",
+      },
+    );
+
+    if (etapaNome === "Ganho") {
+      await logActivity("lead_won", `Marcou o lead "${lead.nome_completo || phone}" como Ganho`, {
+        lead_id: lead.id, lead_nome: lead.nome_completo, etapa_anterior: etapaAnterior, origem: "chat",
+      });
+    } else if (etapaNome === "Perdido") {
+      await logActivity("lead_lost", `Marcou o lead "${lead.nome_completo || phone}" como Perdido`, {
+        lead_id: lead.id, lead_nome: lead.nome_completo, etapa_anterior: etapaAnterior, origem: "chat",
+      });
+    }
+
+    toast.success("Etapa atualizada");
   };
 
   const handleAtribuirChange = async (userId: string) => {
     const ok = await updateLead({ responsavel_id: userId || null });
-    if (ok) toast.success(userId ? "Lead atribuído" : "Atribuição removida");
-    else toast.error("Erro ao atribuir lead");
+    if (!ok) { toast.error("Erro ao atribuir lead"); return; }
+
+    if (userId) {
+      const userName = usersMap[userId]?.nome_completo || usersMap[userId]?.email || "Usuário";
+      try {
+        await createNotification(
+          userId,
+          "Lead atribuído a você",
+          `O lead "${lead.nome_completo || phone}" foi atribuído a você.`,
+          "lead_assigned",
+          { lead_id: lead.id, lead_nome: lead.nome_completo }
+        );
+      } catch (notifError) {
+        console.error("Erro ao criar notificação:", notifError);
+      }
+
+      await logActivity(
+        "lead_stage_changed",
+        `Atribuiu o lead "${lead.nome_completo || phone}" para ${userName}`,
+        { lead_id: lead.id, lead_nome: lead.nome_completo, responsavel_id: userId, responsavel_nome: userName, origem: "chat" }
+      );
+      toast.success("Lead atribuído");
+    } else {
+      await logActivity(
+        "lead_stage_changed",
+        `Removeu a atribuição do lead "${lead.nome_completo || phone}"`,
+        { lead_id: lead.id, lead_nome: lead.nome_completo, origem: "chat" }
+      );
+      toast.success("Atribuição removida");
+    }
   };
 
   const handleSaveNote = async () => {
     setSavingNote(true);
     const ok = await updateLead({ nota_assessor: noteValue });
     setSavingNote(false);
-    if (ok) toast.success("Nota salva");
-    else toast.error("Erro ao salvar nota");
+    if (!ok) { toast.error("Erro ao salvar nota"); return; }
+
+    await logActivity("lead_notes_added", `Adicionou nota do assessor ao lead "${lead.nome_completo || phone}"`, {
+      lead_id: lead.id,
+      lead_nome: lead.nome_completo,
+      tipo: "nota_assessor",
+      origem: "chat",
+    });
+
+    toast.success("Nota salva");
   };
 
   return (
