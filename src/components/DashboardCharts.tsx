@@ -177,8 +177,8 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
       if (faixa && faixas[faixa] !== undefined) {
         faixas[faixa] += FAIXA_TOPO[faixa];
       } else {
-        // Fallback para investimento_real ou valor_produto
-        const valor = parseFloat((lead as any).investimento_real) || parseFloat(lead.valor_produto) || 0;
+        // Fallback para investimento_real apenas (valor_produto é campo do modelo antigo)
+        const valor = parseFloat((lead as any).investimento_real) || 0;
         if (valor <= 0) return;
         if (valor <= 500)   faixas["ate_500"]   += 500;
         else if (valor <= 5000)  faixas["500_5k"]  += 5000;
@@ -201,7 +201,7 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
       if (faixa && faixas[faixa] !== undefined) {
         faixas[faixa]++;
       } else {
-        const valor = parseFloat((lead as any).investimento_real) || parseFloat(lead.valor_produto) || 0;
+        const valor = parseFloat((lead as any).investimento_real) || 0;
         if (valor <= 0) return;
         if (valor <= 500)        faixas["ate_500"]++;
         else if (valor <= 5000)  faixas["500_5k"]++;
