@@ -21,10 +21,12 @@ export const useMetaAccount = () => {
 
     const fetch = async () => {
       setLoading(true);
+      // Conta Meta compartilhada: usa a primeira (e única) configurada por um global admin.
       const { data } = await (supabase as any)
         .from("whatsapp_meta_accounts")
         .select("id, phone_number_id, access_token, api_version, waba_id, account_name")
-        .eq("user_id", user.id)
+        .order("created_at", { ascending: true })
+        .limit(1)
         .maybeSingle();
       setAccount(data || null);
       setLoading(false);
