@@ -85,7 +85,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-3 bg-card">
-        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm flex-shrink-0">
+        <div className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
           {name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">

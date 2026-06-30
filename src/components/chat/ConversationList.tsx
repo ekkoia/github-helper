@@ -75,7 +75,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
               }`}
             >
               {/* Avatar */}
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary font-semibold text-sm">
+              <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center flex-shrink-0 text-white font-semibold text-sm">
                 {getInitials(conv.name)}
               </div>
               {/* Info */}
