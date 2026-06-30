@@ -4,7 +4,8 @@ import { useMetaAccount } from "@/hooks/useMetaAccount";
 import { useUserRole } from "@/hooks/useUserRole";
 import MessageBubble from "./MessageBubble";
 import MetaChatInput from "./MetaChatInput";
-import { AlertCircle, MessageCircle, BotOff, Bot } from "lucide-react";
+import LeadInfoPanel from "./LeadInfoPanel";
+import { AlertCircle, MessageCircle, BotOff, Bot, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
   const bottomRef = useRef<HTMLDivElement>(null);
   const [iaStatus, setIaStatus] = useState<string | null>(null);
   const [loadingIA, setLoadingIA] = useState(false);
+  const [showLeadPanel, setShowLeadPanel] = useState(true);
 
   const phoneKey = `${phone.replace(/\D/g, "")}@s.whatsapp.net`;
 
@@ -82,61 +84,76 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
   const isPaused = iaStatus === "pause";
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-3 bg-card">
-        <div className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-          {name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
+    <div className="flex h-full">
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-border flex items-center gap-3 bg-card">
+          <div className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+            {name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            {isAdmin && assessorName && (
+              <p className="text-[10px] text-emerald-500 font-medium">↳ {assessorName}</p>
+            )}
+            <p className="font-medium text-sm text-foreground truncate">{name}</p>
+            <p className="text-xs text-muted-foreground">{phone}</p>
+          </div>
+          {/* Botão Pausar/Reativar IA */}
+          <Button
+            variant={isPaused ? "outline" : "destructive"}
+            size="sm"
+            onClick={toggleIA}
+            disabled={loadingIA}
+            className="gap-1.5 text-xs flex-shrink-0"
+          >
+            {isPaused ? (
+              <><Bot className="h-3.5 w-3.5" /> Reativar IA</>
+            ) : (
+              <><BotOff className="h-3.5 w-3.5" /> Pausar IA</>
+            )}
+          </Button>
+          {/* Toggle painel do lead */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowLeadPanel((v) => !v)}
+            className="flex-shrink-0 h-8 w-8"
+            title={showLeadPanel ? "Ocultar painel do lead" : "Mostrar painel do lead"}
+          >
+            {showLeadPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+          </Button>
         </div>
-        <div className="min-w-0 flex-1">
-          {isAdmin && assessorName && (
-            <p className="text-[10px] text-emerald-500 font-medium">↳ {assessorName}</p>
-          )}
-          <p className="font-medium text-sm text-foreground truncate">{name}</p>
-          <p className="text-xs text-muted-foreground">{phone}</p>
-        </div>
-        {/* Botão Pausar/Reativar IA */}
-        <Button
-          variant={isPaused ? "outline" : "destructive"}
-          size="sm"
-          onClick={toggleIA}
-          disabled={loadingIA}
-          className="gap-1.5 text-xs flex-shrink-0"
-        >
-          {isPaused ? (
-            <><Bot className="h-3.5 w-3.5" /> Reativar IA</>
+
+        {/* Mensagens */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-muted/10">
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-2">
+              <MessageCircle className="h-8 w-8 opacity-30" />
+              <p className="text-sm">Nenhuma mensagem ainda</p>
+            </div>
           ) : (
-            <><BotOff className="h-3.5 w-3.5" /> Pausar IA</>
+            messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
           )}
-        </Button>
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="px-4 pb-4">
+          <MetaChatInput
+            contactPhone={phone}
+            contactName={name}
+            metaAccount={account}
+            onMessageSent={refetch}
+          />
+        </div>
       </div>
 
-      {/* Mensagens */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-muted/10">
-        {loading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-2">
-            <MessageCircle className="h-8 w-8 opacity-30" />
-            <p className="text-sm">Nenhuma mensagem ainda</p>
-          </div>
-        ) : (
-          messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div className="px-4 pb-4">
-        <MetaChatInput
-          contactPhone={phone}
-          contactName={name}
-          metaAccount={account}
-          onMessageSent={refetch}
-        />
-      </div>
+      {/* Painel lateral do lead */}
+      {showLeadPanel && <LeadInfoPanel phone={phone} />}
     </div>
   );
 };
