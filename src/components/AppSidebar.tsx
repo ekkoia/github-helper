@@ -80,14 +80,16 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-border">
       <SidebarHeader className="h-16 flex items-center justify-center border-b border-border bg-white dark:bg-transparent">
-        <picture>
-          <source srcSet={logoArvoraDark} media="(prefers-color-scheme: dark)" />
-          <img 
-            src={logoArvoraLight}
-            alt="Arvora" 
-            className="h-9 w-auto object-contain"
-          />
-        </picture>
+        <img 
+          src={logoArvoraLight}
+          alt="Arvora" 
+          className="h-9 w-auto object-contain block dark:hidden"
+        />
+        <img 
+          src={logoArvoraDark}
+          alt="Arvora" 
+          className="h-9 w-auto object-contain hidden dark:block"
+        />
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-4">
