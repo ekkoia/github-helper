@@ -113,13 +113,16 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           .eq("status", "approved");
         setTemplates(tpls || []);
 
-        // Verificar janela de 24h
-
+        // Verificar janela de 24h — APENAS mensagens recebidas pelo número
+        // comercial configurado no CRM (meta_account_id), nunca pela IA/Chatwoot.
+        // Conversas conduzidas pela IA têm meta_account_id NULL e não contam
+        // para a janela do número comercial, que é outro número na Meta.
         const { data: lastMsg } = await (supabase as any)
           .from("chat_messages")
           .select("created_at")
           .eq("whatsapp_instance_name", "meta_official")
-          .not("user_message", "is", null)
+          .eq("message_direction", "inbound")
+          .eq("meta_account_id", metaAccount.id)
           .like("phone", `%${cleanPhone.slice(-8)}`)
           .order("created_at", { ascending: false })
           .limit(1);
@@ -127,6 +130,9 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         if (lastMsg && lastMsg.length > 0) {
           const lastTime = new Date(lastMsg[0].created_at).getTime();
           setIsWithin24h(Date.now() - lastTime < 24 * 60 * 60 * 1000);
+        } else {
+          // Nunca houve mensagem inbound pelo número comercial -> fora da janela
+          setIsWithin24h(false);
         }
       } catch (err) {
         console.error("Erro ao inicializar MetaChatInput:", err);
