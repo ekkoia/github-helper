@@ -1,19 +1,21 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { MessageCircle, CheckCircle2, AlertCircle, Save, RefreshCw } from "lucide-react";
+import { MessageCircle, CheckCircle2, AlertCircle, Save, RefreshCw, Lock } from "lucide-react";
 
 export const WhatsAppMetaSection = () => {
   const { user } = useAuth();
+  const { isGlobal, loading: loadingRole } = useUserRole();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [hasAccount, setHasAccount] = useState(false);
+  const [accountId, setAccountId] = useState<string | null>(null);
   const [form, setForm] = useState({
     account_name: "",
     waba_id: "",
@@ -23,15 +25,15 @@ export const WhatsAppMetaSection = () => {
   });
 
   useEffect(() => {
-    if (!user?.id) return;
     const fetchAccount = async () => {
       const { data } = await (supabase as any)
         .from("whatsapp_meta_accounts")
-        .select("account_name, waba_id, phone_number_id, access_token, api_version")
-        .eq("user_id", user.id)
+        .select("id, account_name, waba_id, phone_number_id, access_token, api_version")
+        .order("created_at", { ascending: true })
+        .limit(1)
         .maybeSingle();
       if (data) {
-        setHasAccount(true);
+        setAccountId(data.id);
         setForm({
           account_name: data.account_name || "",
           waba_id: data.waba_id || "",
@@ -43,7 +45,9 @@ export const WhatsAppMetaSection = () => {
       setLoading(false);
     };
     fetchAccount();
-  }, [user?.id]);
+  }, []);
+
+  const hasAccount = !!accountId;
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -53,11 +57,21 @@ export const WhatsAppMetaSection = () => {
     }
     setSaving(true);
     try {
-      const { error } = await (supabase as any)
-        .from("whatsapp_meta_accounts")
-        .upsert({ user_id: user.id, ...form }, { onConflict: "user_id" });
-      if (error) throw error;
-      setHasAccount(true);
+      if (accountId) {
+        const { error } = await (supabase as any)
+          .from("whatsapp_meta_accounts")
+          .update(form)
+          .eq("id", accountId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await (supabase as any)
+          .from("whatsapp_meta_accounts")
+          .insert({ user_id: user.id, ...form })
+          .select("id")
+          .single();
+        if (error) throw error;
+        setAccountId(data.id);
+      }
       toast.success("Conta Meta salva com sucesso!");
     } catch (err: any) {
       toast.error("Erro ao salvar: " + (err.message || ""));
@@ -80,10 +94,43 @@ export const WhatsAppMetaSection = () => {
     }
   };
 
-  if (loading) {
+  if (loading || loadingRole) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  // Usuários comuns e admins: somente visualização do status da conta compartilhada.
+  if (!isGlobal) {
+    return (
+      <div className="space-y-4">
+        <div className={`flex items-center gap-3 p-4 rounded-lg border ${hasAccount ? "bg-green-500/5 border-green-500/20" : "bg-muted/30 border-border"}`}>
+          {hasAccount ? (
+            <>
+              <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Conta Meta compartilhada conectada</p>
+                <p className="text-xs text-muted-foreground">{form.account_name || form.phone_number_id}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Nenhuma conta Meta configurada</p>
+                <p className="text-xs text-muted-foreground">Solicite ao administrador global a configuração da conta.</p>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex items-start gap-2 p-3 rounded-md bg-muted/30 border border-border text-xs text-muted-foreground">
+          <Lock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+          <p>
+            A conta do WhatsApp comercial é compartilhada entre todos os usuários e gerenciada apenas pelo administrador global. Você não precisa configurar nada — basta usar o chat normalmente.
+          </p>
+        </div>
       </div>
     );
   }
@@ -95,7 +142,7 @@ export const WhatsAppMetaSection = () => {
           <>
             <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-foreground">Conta conectada</p>
+              <p className="text-sm font-medium text-foreground">Conta conectada (compartilhada com todos os usuários)</p>
               <p className="text-xs text-muted-foreground">{form.account_name || form.phone_number_id}</p>
             </div>
           </>
@@ -104,7 +151,7 @@ export const WhatsAppMetaSection = () => {
             <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
             <div>
               <p className="text-sm font-medium text-foreground">Nenhuma conta configurada</p>
-              <p className="text-xs text-muted-foreground">Preencha os campos abaixo para conectar</p>
+              <p className="text-xs text-muted-foreground">Preencha os campos abaixo para conectar — será usada por toda a equipe</p>
             </div>
           </>
         )}
