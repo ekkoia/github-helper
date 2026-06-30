@@ -4,6 +4,8 @@ import { useLocation } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import logoFeeagro from "@/assets/logo-feeagro.png";
+import logoArvoraDark from "@/assets/logo-arvora-dark.png";
+import logoArvoraLight from "@/assets/logo-arvora-light.png";
 import { toast } from "sonner";
 import {
   Sidebar,
@@ -77,12 +79,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="border-r border-border">
-      <SidebarHeader className="bg-primary h-16 flex items-center justify-center border-b border-border">
-        <img 
-          src={logoFeeagro} 
-          alt="Feeagro" 
-          className="h-10 w-auto object-contain"
-        />
+      <SidebarHeader className="h-16 flex items-center justify-center border-b border-border bg-white dark:bg-transparent">
+        <picture>
+          <source srcSet={logoArvoraDark} media="(prefers-color-scheme: dark)" />
+          <img 
+            src={logoArvoraLight}
+            alt="Arvora" 
+            className="h-9 w-auto object-contain"
+          />
+        </picture>
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-4">
