@@ -459,7 +459,14 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
             <p className="text-sm text-muted-foreground mt-1">Valor total em cada faixa de investimento</p>
           </CardHeader>
           <CardContent className="pt-0">
-            <ResponsiveContainer width="100%" height={300}>
+            {totalPorFaixaData.length === 0 ? (
+              <div className="h-[300px] flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <span className="text-3xl">📊</span>
+                <p className="text-sm font-medium">Sem dados de investimento ainda</p>
+                <p className="text-xs text-center max-w-[200px]">Qualifique os leads pelo chat para preencher este gráfico</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
                   data={totalPorFaixaData}
@@ -518,6 +525,7 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
                 />
               </PieChart>
             </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -528,7 +536,14 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
             <p className="text-sm text-muted-foreground mt-1">Distribuição por valor pretendido</p>
           </CardHeader>
           <CardContent className="pt-0">
-            <ResponsiveContainer width="100%" height={300}>
+            {investimentoData.length === 0 ? (
+              <div className="h-[300px] flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <span className="text-3xl">💰</span>
+                <p className="text-sm font-medium">Sem dados de faixa ainda</p>
+                <p className="text-xs text-center max-w-[200px]">Qualifique os leads pelo chat para preencher este gráfico</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
               <BarChart data={investimentoData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis 
@@ -565,6 +580,7 @@ export const DashboardCharts = ({ leads }: DashboardChartsProps) => {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
