@@ -83,17 +83,26 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
     );
   }
 
-  // Formato novo: message_direction define o lado
+  // Só bot_message preenchido (mídia/texto da IA ou do assessor) -> sempre outbound,
+  // independente do que message_direction diga (proteção contra dados inconsistentes)
+  if (message.bot_message && !message.user_message) {
+    return <Bubble text={message.bot_message} isSent={true} time={time} message={message} />;
+  }
+
+  // Só user_message preenchido (lead) -> sempre inbound
+  if (message.user_message && !message.bot_message) {
+    return <Bubble text={message.user_message} isSent={false} time={time} message={message} />;
+  }
+
+  // Nenhum dos dois com texto (ex: só mídia pura) -> usa message_direction
   if (message.message_direction) {
     const isSent = message.message_direction.trim() === "outbound";
     const text = isSent ? message.bot_message : message.user_message;
     return <Bubble text={text} isSent={isSent} time={time} message={message} />;
   }
 
-  // Fallback
-  const isSent = !!message.bot_message && !message.user_message;
-  const text = message.user_message || message.bot_message;
-  return <Bubble text={text} isSent={isSent} time={time} message={message} />;
+  // Fallback final
+  return <Bubble text={null} isSent={false} time={time} message={message} />;
 };
 
 export default MessageBubble;
