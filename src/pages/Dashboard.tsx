@@ -5,7 +5,7 @@ import { DashboardSkeleton } from "@/components/SkeletonLoader";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { toast } from "sonner";
-import { getTopoDaFaixa } from "@/lib/investmentUtils";
+import { getValorEstimadoLead } from "@/lib/investmentUtils";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -44,8 +44,7 @@ const DashboardPage = () => {
     totalLeads > 0 ? (leadsGanhos / totalLeads) * 100 : 0;
 
   const valorTotalInvestido = leads.reduce((sum, lead) => {
-    const valor = parseFloat(lead.valor_produto) || 0;
-    return sum + getTopoDaFaixa(valor);
+    return sum + getValorEstimadoLead(lead);
   }, 0);
 
   if (isLoading || loadingRole) {
