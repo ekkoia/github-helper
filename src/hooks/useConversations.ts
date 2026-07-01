@@ -64,8 +64,7 @@ export const useConversations = () => {
     }
 
     // Só mostra assessor se o lead está atribuído (responsavel_id em leads)
-    if (isAdmin && phones.length > 0) {
-      // Busca responsavel_id da tabela leads por telefone
+    if (isAdmin && map.size > 0) {
       const { data: leadsData } = await (supabase as any)
         .from("leads")
         .select("telefone, responsavel_id");
@@ -74,7 +73,6 @@ export const useConversations = () => {
         const normalizedLeadPhone = (lead.telefone || "").replace(/\D/g, "");
         if (!normalizedLeadPhone || !lead.responsavel_id) continue;
 
-        // Procura conversa com esse telefone (últimos 8 dígitos)
         for (const [phone, conv] of map.entries()) {
           if (phone.slice(-8) === normalizedLeadPhone.slice(-8)) {
             conv.assessorName = profileMap.get(lead.responsavel_id) || null;
