@@ -128,13 +128,20 @@ export default function SetPassword() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { data: updateData, error } = await supabase.auth.updateUser({
         password: password,
       });
 
       if (error) {
         toast.error("Erro ao definir senha: " + error.message);
       } else {
+        const uid = updateData.user?.id;
+        if (uid) {
+          await (supabase as any)
+            .from("profiles")
+            .update({ senha_definida: true })
+            .eq("user_id", uid);
+        }
         setSuccess(true);
         toast.success("Senha definida com sucesso!");
         setTimeout(() => {
