@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import logoImaculada from "@/assets/logo-arvora.png";
+import logoArvora from "@/assets/logo-arvora.png";
 
 const passwordSchema = z.object({
   password: z.string().min(6, { message: "Senha deve ter no mínimo 6 caracteres" }),
@@ -163,8 +163,8 @@ export default function SetPassword() {
             <div className="flex justify-center mb-6">
               <div className="bg-primary rounded-full p-6 shadow-elevation-2">
                 <img 
-                  src={logoImaculada} 
-                  alt="Imaculada Agronegócios" 
+                  src={logoArvora} 
+                  alt="Grupo Arvora" 
                   className="h-16 w-auto object-contain"
                 />
               </div>
@@ -202,8 +202,8 @@ export default function SetPassword() {
           <div className="flex justify-center mb-6">
             <div className="bg-primary rounded-full p-6 shadow-elevation-2">
               <img 
-                src={logoImaculada} 
-                alt="Imaculada Agronegócios" 
+                src={logoArvora} 
+                alt="Grupo Arvora" 
                 className="h-16 w-auto object-contain"
               />
             </div>
@@ -214,7 +214,7 @@ export default function SetPassword() {
             Crie sua senha
           </h2>
           <p className="text-center text-muted-foreground text-sm mb-6">
-            Defina uma senha para acessar o CRM Imaculada
+            Defina uma senha para acessar o CRM Grupo Arvora
           </p>
 
           {/* Email do usuário */}
