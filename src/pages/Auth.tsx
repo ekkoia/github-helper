@@ -118,13 +118,11 @@ export default function Auth() {
         <div className="bg-card rounded-2xl shadow-elevation-3 p-8 border border-border/50">
           {/* Logo */}
           <div className="flex justify-center mb-6">
-            <div className="w-28 h-28 bg-primary rounded-full shadow-elevation-2 flex items-center justify-center p-4">
-              <img 
-                src={logoFeeagro} 
-                alt="Feeagro" 
-                className="w-full h-full object-contain"
-              />
-            </div>
+            <img 
+              src={logoFeeagro} 
+              alt="Arvora" 
+              className="h-14 w-auto object-contain"
+            />
           </div>
 
           {/* Título */}
