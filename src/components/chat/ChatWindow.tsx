@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useMetaAccount } from "@/hooks/useMetaAccount";
 import { useUsers } from "@/hooks/useUsers";
+import { useUserRole } from "@/hooks/useUserRole";
 import MessageBubble from "./MessageBubble";
 import MetaChatInput from "./MetaChatInput";
 import LeadInfoPanel from "./LeadInfoPanel";
