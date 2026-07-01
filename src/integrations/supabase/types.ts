@@ -457,6 +457,7 @@ export type Database = {
           email: string | null
           estrada_terra_km: number | null
           etapa_funil: string | null
+          faixa_investimento: string | null
           id: string
           intencao: string | null
           investimento_real: number | null
@@ -492,6 +493,7 @@ export type Database = {
           email?: string | null
           estrada_terra_km?: number | null
           etapa_funil?: string | null
+          faixa_investimento?: string | null
           id?: string
           intencao?: string | null
           investimento_real?: number | null
@@ -527,6 +529,7 @@ export type Database = {
           email?: string | null
           estrada_terra_km?: number | null
           etapa_funil?: string | null
+          faixa_investimento?: string | null
           id?: string
           intencao?: string | null
           investimento_real?: number | null
@@ -783,6 +786,51 @@ export type Database = {
           telefone?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      rodizio_config: {
+        Row: {
+          ativo: boolean
+          created_at: string | null
+          id: string
+          ordem: number
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string | null
+          id?: string
+          ordem?: number
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string | null
+          id?: string
+          ordem?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rodizio_state: {
+        Row: {
+          contador: number | null
+          id: number
+          ultimo_user_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          contador?: number | null
+          id?: number
+          ultimo_user_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          contador?: number | null
+          id?: number
+          ultimo_user_id?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
