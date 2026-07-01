@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import logoImaculada from "@/assets/logo-imaculada.png";
+import logoImaculada from "@/assets/logo-arvora.png";
 
 const passwordSchema = z.object({
   password: z.string().min(6, { message: "Senha deve ter no mínimo 6 caracteres" }),
