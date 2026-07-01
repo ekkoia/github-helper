@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useMetaAccount } from "@/hooks/useMetaAccount";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useUsers } from "@/hooks/useUsers";
 import MessageBubble from "./MessageBubble";
 import MetaChatInput from "./MetaChatInput";
 import LeadInfoPanel from "./LeadInfoPanel";
@@ -20,6 +20,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
   const { messages, loading, refetch } = useChatMessages(phone);
   const { account, loading: loadingAccount } = useMetaAccount();
   const { isAdmin } = useUserRole();
+  const { usersMap } = useUsers();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [iaStatus, setIaStatus] = useState<string | null>(null);
   const [loadingIA, setLoadingIA] = useState(false);
@@ -136,7 +137,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
               <p className="text-sm">Nenhuma mensagem ainda</p>
             </div>
           ) : (
-            messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
+            messages.map((msg) => <MessageBubble key={msg.id} message={msg} usersMap={usersMap} isAdmin={isAdmin} />)
           )}
           <div ref={bottomRef} />
         </div>

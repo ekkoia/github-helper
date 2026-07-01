@@ -5,6 +5,8 @@ import { ChatMessage } from "@/hooks/useChatMessages";
 
 interface MessageBubbleProps {
   message: ChatMessage;
+  usersMap?: Record<string, any>;
+  isAdmin?: boolean;
 }
 
 const TIME = (dateStr: string) =>
@@ -43,14 +45,17 @@ const MediaContent: React.FC<{ message: ChatMessage; isSent: boolean }> = ({ mes
   return null;
 };
 
-const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; message: ChatMessage }> = ({
-  text, isSent, time, message,
+const getInitials = (name: string) =>
+  name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+
+const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; message: ChatMessage; senderName?: string | null }> = ({
+  text, isSent, time, message, senderName,
 }) => {
   const placeholder = message.media_type ? `[${message.media_type}]` : null;
   const displayText = text && !["[audio]", "[image]", "[video]", "[document]"].includes(text) ? text : null;
 
   return (
-    <div className={`flex ${isSent ? "justify-end" : "justify-start"} mb-1`}>
+    <div className={`flex ${isSent ? "justify-end" : "justify-start"} mb-1 items-end gap-1.5`}>
       <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
         isSent
           ? "bg-emerald-700 text-white rounded-br-sm"
@@ -66,42 +71,54 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
           <span className="text-[10px]">{time}</span>
         </div>
       </div>
+      {/* Avatar do assessor — só para mensagens enviadas pelo CRM (meta_account_id preenchido) */}
+      {isSent && message.meta_account_id && senderName && (
+        <div
+          className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0"
+          title={senderName}
+        >
+          {getInitials(senderName)}
+        </div>
+      )}
     </div>
   );
 };
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, usersMap = {}, isAdmin = false }) => {
   const time = TIME(message.created_at);
+
+  // Nome do remetente (só para mensagens via CRM por assessor real)
+  const senderName = message.meta_account_id && message.user_id
+    ? usersMap[message.user_id]?.nome_completo || null
+    : null;
 
   // Se tem os dois (formato legado n8n): renderiza dois balões sempre
   if (message.user_message && message.bot_message) {
     return (
       <>
         <Bubble text={message.user_message} isSent={false} time={time} message={message} />
-        <Bubble text={message.bot_message} isSent={true} time={time} message={message} />
+        <Bubble text={message.bot_message} isSent={true} time={time} message={message} senderName={senderName} />
       </>
     );
   }
 
-  // Só bot_message preenchido (mídia/texto da IA ou do assessor) -> sempre outbound,
-  // independente do que message_direction diga (proteção contra dados inconsistentes)
+  // Só bot_message → outbound
   if (message.bot_message && !message.user_message) {
-    return <Bubble text={message.bot_message} isSent={true} time={time} message={message} />;
+    return <Bubble text={message.bot_message} isSent={true} time={time} message={message} senderName={senderName} />;
   }
 
-  // Só user_message preenchido (lead) -> sempre inbound
+  // Só user_message → inbound
   if (message.user_message && !message.bot_message) {
     return <Bubble text={message.user_message} isSent={false} time={time} message={message} />;
   }
 
-  // Nenhum dos dois com texto (ex: só mídia pura) -> usa message_direction
+  // Só mídia
   if (message.message_direction) {
     const isSent = message.message_direction.trim() === "outbound";
     const text = isSent ? message.bot_message : message.user_message;
-    return <Bubble text={text} isSent={isSent} time={time} message={message} />;
+    return <Bubble text={text} isSent={isSent} time={time} message={message} senderName={isSent ? senderName : undefined} />;
   }
 
-  // Fallback final
   return <Bubble text={null} isSent={false} time={time} message={message} />;
 };
 

@@ -63,23 +63,23 @@ export const useConversations = () => {
       }
     }
 
-    // Só mostra assessor se ele enviou pelo menos uma mensagem outbound pelo CRM
-    // Busca mensagens outbound por phone agrupadas por user_id
-    const phones = Array.from(map.keys());
-    if (phones.length > 0 && isAdmin) {
-      const { data: outboundMsgs } = await (supabase as any)
-        .from("chat_messages")
-        .select("phone, user_id")
-        .eq("whatsapp_instance_name", "meta_official")
-        .eq("message_direction", "outbound")
-        .not("meta_account_id", "is", null)
-        .not("user_id", "is", null);
+    // Só mostra assessor se o lead está atribuído (responsavel_id em leads)
+    if (isAdmin && phones.length > 0) {
+      // Busca responsavel_id da tabela leads por telefone
+      const { data: leadsData } = await (supabase as any)
+        .from("leads")
+        .select("telefone, responsavel_id");
 
-      for (const msg of outboundMsgs || []) {
-        const normalizedPhone = msg.phone.replace(/\D/g, "");
-        const conv = map.get(normalizedPhone);
-        if (conv && msg.user_id && profileMap.has(msg.user_id)) {
-          conv.assessorName = profileMap.get(msg.user_id) || null;
+      for (const lead of leadsData || []) {
+        const normalizedLeadPhone = (lead.telefone || "").replace(/\D/g, "");
+        if (!normalizedLeadPhone || !lead.responsavel_id) continue;
+
+        // Procura conversa com esse telefone (últimos 8 dígitos)
+        for (const [phone, conv] of map.entries()) {
+          if (phone.slice(-8) === normalizedLeadPhone.slice(-8)) {
+            conv.assessorName = profileMap.get(lead.responsavel_id) || null;
+            break;
+          }
         }
       }
     }
