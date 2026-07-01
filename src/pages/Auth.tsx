@@ -118,11 +118,13 @@ export default function Auth() {
         <div className="bg-card rounded-2xl shadow-elevation-3 p-8 border border-border/50">
           {/* Logo */}
           <div className="flex justify-center mb-6">
-            <img 
-              src={logoArvora} 
-              alt="Arvora" 
-              className="h-14 w-auto object-contain"
-            />
+            <div className="bg-primary rounded-full p-6 shadow-elevation-2">
+              <img 
+                src={logoArvora} 
+                alt="Arvora" 
+                className="h-14 w-auto object-contain"
+              />
+            </div>
           </div>
 
           {/* Título */}
