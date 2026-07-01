@@ -39,8 +39,24 @@ export const useChatMessages = (phone: string | null) => {
       .like("phone", `%${cleanPhone.slice(-8)}`)
       .order("created_at", { ascending: true });
 
+    // Para admin: vê tudo
+    // Para assessor: vê todas as mensagens do lead se ele estiver atribuído,
+    // caso contrário filtra por user_id (segurança)
     if (!isAdmin) {
-      query = query.eq("user_id", user.id);
+      const cleanPhoneForLead = phone.replace(/\D/g, "");
+      const { data: assignedLead } = await (supabase as any)
+        .from("leads")
+        .select("id")
+        .eq("responsavel_id", user.id)
+        .like("telefone", `%${cleanPhoneForLead.slice(-8)}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!assignedLead) {
+        // Não está atribuído — só vê mensagens que ele mesmo enviou
+        query = query.eq("user_id", user.id);
+      }
+      // Se está atribuído — não aplica filtro, vê todo o histórico do número
     }
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar mensagens:", error); }
@@ -71,7 +87,7 @@ export const useChatMessages = (phone: string | null) => {
           const msgPhone = (msg.phone || "").replace(/\D/g, "");
           if (msg.whatsapp_instance_name !== "meta_official") return;
           if (!msgPhone.includes(cleanPhone.slice(-8)) && !cleanPhone.includes(msgPhone.slice(-8))) return;
-          if (!isAdmin && msg.user_id !== user.id) return;
+          // Não filtra por user_id aqui — segurança está na lista de conversas
           setMessages((prev) => {
             if (prev.find(m => m.id === msg.id)) return prev;
             return [...prev, msg];
