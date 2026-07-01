@@ -121,7 +121,7 @@ export default function Auth() {
             <img 
               src={logoArvora} 
               alt="Arvora" 
-              className="h-14 w-auto object-contain"
+              className="h-14 w-auto object-contain" // v2
             />
           </div>
 
