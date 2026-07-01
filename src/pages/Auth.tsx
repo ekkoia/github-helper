@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import logoFeeagro from "@/assets/logo-feeagro-auth.png";
+import logoArvora from "@/assets/logo-arvora-auth.png";
 
 const authSchema = z.object({
   nome: z.string().trim().min(3, { message: "Nome deve ter no mínimo 3 caracteres" }).max(100),
@@ -119,7 +119,7 @@ export default function Auth() {
           {/* Logo */}
           <div className="flex justify-center mb-6">
             <img 
-              src={logoFeeagro} 
+              src={logoArvora} 
               alt="Arvora" 
               className="h-14 w-auto object-contain"
             />
