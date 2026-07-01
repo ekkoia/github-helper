@@ -763,6 +763,7 @@ export type Database = {
           email: string | null
           id: string
           nome_completo: string | null
+          senha_definida: boolean
           telefone: string | null
           updated_at: string
           user_id: string
@@ -773,6 +774,7 @@ export type Database = {
           email?: string | null
           id?: string
           nome_completo?: string | null
+          senha_definida?: boolean
           telefone?: string | null
           updated_at?: string
           user_id: string
@@ -783,6 +785,7 @@ export type Database = {
           email?: string | null
           id?: string
           nome_completo?: string | null
+          senha_definida?: boolean
           telefone?: string | null
           updated_at?: string
           user_id?: string
