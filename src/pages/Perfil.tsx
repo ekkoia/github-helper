@@ -328,7 +328,7 @@ const Perfil = () => {
                         <Building className="h-4 w-4" />
                         Empresa
                       </Label>
-                      <p className="text-foreground font-medium">Imaculada Agronegócios</p>
+                      <p className="text-foreground font-medium">Grupo Arvora</p>
                     </div>
                   </div>
                 </div>
