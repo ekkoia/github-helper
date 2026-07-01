@@ -26,13 +26,13 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     (async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id')
+        .select('user_id, senha_definida')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (cancelled) return;
 
-      if (!error && !data) {
+      if (!error && (!data || (data as any).senha_definida === false)) {
         navigate('/set-password', { replace: true });
         return;
       }

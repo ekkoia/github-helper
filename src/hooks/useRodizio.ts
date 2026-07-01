@@ -29,7 +29,7 @@ export const useRodizio = () => {
       .from("profiles")
       .select("user_id, nome_completo, email");
 
-    const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+    const profileMap = new Map<string, any>((profiles || []).map((p: any) => [p.user_id, p]));
 
     setConfig((data || []).map((row: any) => ({
       ...row,
