@@ -18,10 +18,8 @@ serve(async (req) => {
     );
   }
 
-  // Validate API key
   const apiKey = req.headers.get('x-api-key');
   const expectedKey = Deno.env.get('WEBHOOK_API_KEY');
-
   if (!apiKey || apiKey !== expectedKey) {
     return new Response(
       JSON.stringify({ success: false, error: 'Unauthorized: Invalid API key' }),
@@ -30,74 +28,60 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const faixa = url.searchParams.get('faixa');
-
-    if (!faixa || !['ate_10k', '10k_50k', '50k_150k', 'acima_150k'].includes(faixa)) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Parâmetro "faixa" obrigatório. Valores aceitos: ate_10k, 10k_50k, 50k_150k, acima_150k' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // 1. Get last assigned order
-    const { data: stateData } = await supabase
-      .from('auto_assign_state')
-      .select('last_assigned_order')
-      .eq('faixa', faixa)
-      .single();
-
-    const lastOrder = stateData?.last_assigned_order ?? 0;
-
-    // 2. Find next active user (ordem > lastOrder)
-    let { data: nextConfig } = await supabase
-      .from('auto_assign_config')
-      .select('user_id, ordem')
-      .eq('faixa', faixa)
+    // Lista ordenada de assessores ativos no rodízio
+    const { data: lista, error: listaErr } = await supabase
+      .from('rodizio_config')
+      .select('user_id, ordem, id')
       .eq('ativo', true)
-      .gt('ordem', lastOrder)
       .order('ordem', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .order('id', { ascending: true });
 
-    // 3. Wrap around if none found
-    if (!nextConfig) {
-      const { data: firstConfig } = await supabase
-        .from('auto_assign_config')
-        .select('user_id, ordem')
-        .eq('faixa', faixa)
-        .eq('ativo', true)
-        .order('ordem', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      nextConfig = firstConfig;
-    }
+    if (listaErr) throw listaErr;
 
-    if (!nextConfig) {
+    if (!lista || lista.length === 0) {
       return new Response(
-        JSON.stringify({ success: false, error: `Nenhum assessor ativo configurado para a faixa "${faixa}"` }),
+        JSON.stringify({ success: false, error: 'Nenhum assessor ativo no rodízio' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 4. Get Callix mapping
+    // Estado atual do rodízio (linha id=1)
+    const { data: state } = await supabase
+      .from('rodizio_state')
+      .select('ultimo_user_id')
+      .eq('id', 1)
+      .maybeSingle();
+
+    const lastUser = state?.ultimo_user_id ?? null;
+    let nextUserId: string;
+
+    if (!lastUser) {
+      nextUserId = lista[0].user_id;
+    } else {
+      const idx = lista.findIndex((r: any) => r.user_id === lastUser);
+      if (idx === -1 || idx >= lista.length - 1) {
+        nextUserId = lista[0].user_id;
+      } else {
+        nextUserId = lista[idx + 1].user_id;
+      }
+    }
+
     const { data: callixData } = await supabase
       .from('user_callix_mapping')
       .select('callix_assessor_id, callix_name, cal_event_type_id, callix_list_id')
-      .eq('user_id', nextConfig.user_id)
+      .eq('user_id', nextUserId)
       .maybeSingle();
 
     return new Response(
       JSON.stringify({
         success: true,
         data: {
-          user_id: nextConfig.user_id,
-          faixa,
+          user_id: nextUserId,
           callix_assessor_id: callixData?.callix_assessor_id || null,
           callix_name: callixData?.callix_name || null,
           cal_event_type_id: callixData?.cal_event_type_id || null,
@@ -106,7 +90,6 @@ serve(async (req) => {
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error in next-assessor:', error);
     return new Response(
