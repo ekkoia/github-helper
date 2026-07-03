@@ -450,7 +450,9 @@ const LeadsTable = () => {
     ).length;
 
     const valorTotal = leads.reduce((acc, lead) => {
-      const valor = parseFloat(lead.valor_produto) || 0;
+      if (!lead.valor_produto) return acc; // ignora leads sem valor_produto preenchido
+      const valor = parseFloat(lead.valor_produto);
+      if (isNaN(valor)) return acc;
       return acc + getTopoDaFaixa(valor);
     }, 0);
 
