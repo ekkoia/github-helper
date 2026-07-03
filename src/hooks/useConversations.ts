@@ -13,6 +13,20 @@ export interface Conversation {
   assessorName: string | null;
 }
 
+/**
+ * Normaliza telefone apenas para comparação (não altera dados no banco).
+ * Remove tudo que não for dígito, ignora prefixo 55 quando há 12-13 dígitos,
+ * e retorna os últimos 10 dígitos (DDD + número, sem o 9 opcional).
+ */
+const normalizeForMatch = (raw: string | null | undefined): string => {
+  if (!raw) return "";
+  let digits = raw.replace(/\D/g, "");
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    digits = digits.slice(2);
+  }
+  return digits.slice(-10);
+};
+
 export const useConversations = () => {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
@@ -22,20 +36,31 @@ export const useConversations = () => {
   const fetchConversations = useCallback(async () => {
     if (!user?.id) return;
 
-    let query = (supabase as any)
+    // Para não-admin: telefones dos leads atribuídos a ele (chaves normalizadas)
+    const assignedPhones: Set<string> = new Set();
+    if (!isAdmin) {
+      const { data: myLeads } = await (supabase as any)
+        .from("leads")
+        .select("telefone")
+        .eq("responsavel_id", user.id);
+      for (const l of myLeads || []) {
+        const n = normalizeForMatch(l.telefone);
+        if (n) assignedPhones.add(n);
+      }
+    }
+
+    const { data, error } = await (supabase as any)
       .from("chat_messages")
       .select("phone, nomewpp, user_message, bot_message, created_at, user_id")
       .eq("whatsapp_instance_name", "meta_official")
       .order("created_at", { ascending: false });
 
-    if (!isAdmin) {
-      query = query.eq("user_id", user.id);
+    if (error) {
+      console.error("Erro ao buscar conversas:", error);
+      return;
     }
 
-    const { data, error } = await query;
-    if (error) { console.error("Erro ao buscar conversas:", error); return; }
-
-    // Busca nomes dos assessores
+    // Nomes dos assessores
     const { data: profiles } = await (supabase as any)
       .from("profiles")
       .select("user_id, nome_completo");
@@ -45,12 +70,38 @@ export const useConversations = () => {
       profileMap.set(p.user_id, p.nome_completo);
     }
 
-    // Agrupar por phone normalizado
+    // Index leads por chave normalizada -> responsavel_id
+    const { data: leadsData } = await (supabase as any)
+      .from("leads")
+      .select("telefone, responsavel_id");
+
+    const leadByKey = new Map<string, string>();
+    for (const lead of leadsData || []) {
+      if (!lead.responsavel_id) continue;
+      const key = normalizeForMatch(lead.telefone);
+      if (key && !leadByKey.has(key)) {
+        leadByKey.set(key, lead.responsavel_id);
+      }
+    }
+
+    // Agrupar por phone
     const map = new Map<string, Conversation>();
     for (const msg of data || []) {
-      const normalizedPhone = msg.phone.replace(/\D/g, "");
+      const normalizedPhone = (msg.phone || "").replace(/\D/g, "");
+      if (!normalizedPhone) continue;
+
+      const matchKey = normalizeForMatch(msg.phone);
+
+      // Visibilidade para não-admin: própria OU lead atribuído a ele
+      if (!isAdmin) {
+        const isMine = msg.user_id === user.id;
+        const isAssigned = matchKey && assignedPhones.has(matchKey);
+        if (!isMine && !isAssigned) continue;
+      }
+
       if (!map.has(normalizedPhone)) {
         const lastMessage = msg.user_message || msg.bot_message || "";
+        const responsavelId = matchKey ? leadByKey.get(matchKey) : undefined;
         map.set(normalizedPhone, {
           phone: normalizedPhone,
           name: msg.nomewpp || normalizedPhone,
@@ -58,27 +109,8 @@ export const useConversations = () => {
           lastTime: msg.created_at,
           unread: !!msg.user_message,
           userId: msg.user_id,
-          assessorName: null, // preenchido abaixo
+          assessorName: responsavelId ? profileMap.get(responsavelId) || null : null,
         });
-      }
-    }
-
-    // Só mostra assessor se o lead está atribuído (responsavel_id em leads)
-    if (isAdmin && map.size > 0) {
-      const { data: leadsData } = await (supabase as any)
-        .from("leads")
-        .select("telefone, responsavel_id");
-
-      for (const lead of leadsData || []) {
-        const normalizedLeadPhone = (lead.telefone || "").replace(/\D/g, "");
-        if (!normalizedLeadPhone || !lead.responsavel_id) continue;
-
-        for (const [phone, conv] of map.entries()) {
-          if (phone.slice(-8) === normalizedLeadPhone.slice(-8)) {
-            conv.assessorName = profileMap.get(lead.responsavel_id) || null;
-            break;
-          }
-        }
       }
     }
 
@@ -90,7 +122,6 @@ export const useConversations = () => {
     fetchConversations();
   }, [fetchConversations]);
 
-  // Realtime
   useEffect(() => {
     if (!user?.id) return;
 
@@ -102,14 +133,15 @@ export const useConversations = () => {
           event: "INSERT",
           schema: "public",
           table: "chat_messages",
-          filter: isAdmin ? undefined : `user_id=eq.${user.id}`,
         },
         () => fetchConversations()
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id, isAdmin, fetchConversations]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchConversations]);
 
   return { conversations, loading, refetch: fetchConversations };
 };
