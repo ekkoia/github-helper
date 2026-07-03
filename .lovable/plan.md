@@ -1,46 +1,38 @@
-# Corrigir distribuição automática de leads
+## Objetivo
 
-## Diagnóstico
+Corrigir em `/chat`:
+1. Nome do assessor não aparece acima de todos os leads atribuídos (só de alguns).
+2. Assessor atribuído não vê a conversa até que o lead envie mensagem nova.
 
-A distribuição **não está funcionando** com a configuração nova. A UI de "Distribuição" (`DistribuicaoSection` → `useRodizio`) salva a fila em `rodizio_config` / `rodizio_state` (rodízio único, sequencial, sem faixas de valor). Porém o trigger no banco `auto_assign_lead` **ainda lê da tabela antiga** `auto_assign_config`, que hoje tem **0 registros** — ou seja, todo lead novo cai no ramo "sem config" e sai do trigger sem responsável.
+## Causa
 
-Estado atual:
-- `rodizio_config`: 2 assessores ativos (Juliana ordem=1, Pedro Teste ordem=2)
-- `auto_assign_config`: **vazia** ← o trigger consulta essa
-- Leads dos últimos 7 dias: **0 atribuídos** (todos WhatsApp não qualificados, que por regra o trigger ignora — isso está correto)
-- Nenhum lead de `meta_form`/`webhook` recente para comprovar, mas se entrasse agora ficaria sem responsável.
+Em `src/hooks/useConversations.ts`:
+- O match entre `chat_messages.phone` e `leads.telefone` usa `slice(-8)`, o que falha quando um lado tem DDI `55` e o outro não, ou quando o `9` do celular está presente só de um lado.
+- Para não-admin, o hook só considera mensagens onde `user_id = auth.uid()`. Ao atribuir um lead, o `user_id` das mensagens antigas não muda, então o assessor não vê a conversa até chegar uma nova mensagem com o `user_id` dele.
 
-Também impactado: a edge function `next-assessor` continua lendo `auto_assign_config` + parâmetro `faixa`, o que não bate mais com o rodízio simples.
+Nada é alterado no banco. O `55` continua salvo normalmente — a normalização acontece só em memória, apenas para comparar dois telefones.
 
-## O que será feito
+## Alteração
 
-### 1. Reescrever `public.auto_assign_lead()` (migração)
-- Remover a lógica de faixas por `valor_produto`.
-- Ler de `rodizio_config` (apenas `ativo = true`, ordenado por `ordem`).
-- Usar `rodizio_state` (linha única `id=1`) com `contador` + `ultimo_user_id` para avançar sequencialmente, com wrap-around no fim da lista.
-- Manter: skip se `responsavel_id` já vier preenchido; skip se etapa = `Lead WhatsApp (não qualificado)`; reaproveitar responsável de lead duplicado (mesmo email/telefone).
+Único arquivo: `src/hooks/useConversations.ts`
 
-### 2. Atualizar `supabase/functions/next-assessor/index.ts`
-- Remover exigência do parâmetro `faixa`.
-- Ler próximo assessor de `rodizio_config` + `rodizio_state` com a mesma lógica do trigger (sem gravar o avanço — só retorna quem seria o próximo, mantendo o comportamento atual do endpoint de "preview").
-- Continuar retornando o mapping do Callix.
+1. Nova função interna `normalizeForMatch(phone)`:
+   - Deixa só dígitos.
+   - Se tiver 12 ou 13 dígitos e começar com `55`, ignora o `55`.
+   - Retorna os últimos 10 dígitos (tolera variação do 9º dígito).
 
-### 3. Não mexer
-- UI de Distribuição, `useRodizio`, tabelas `rodizio_config`/`rodizio_state` (já estão corretas).
-- Regra de WhatsApp não qualificado.
-- Nada de faixas de valor (o rodízio novo é único).
+2. Visibilidade para não-admin:
+   - Buscar `leads` onde `responsavel_id = user.id` → conjunto de telefones normalizados.
+   - Ao percorrer `chat_messages`, incluir a conversa se `user_id === user.id` **ou** se o telefone normalizado estiver no conjunto de leads atribuídos.
 
-## Detalhes técnicos
+3. Match do nome do assessor (admin e não-admin):
+   - Indexar `leads` por chave normalizada → `responsavel_id`.
+   - Preencher `assessorName` a partir desse índice.
 
-Trecho central da nova `auto_assign_lead` (pseudo):
+Comportamento do envio de mensagens, RLS, edge functions e demais telas: inalterado.
 
-```text
-lock rodizio_state row (id=1) FOR UPDATE
-lista := SELECT user_id, ordem FROM rodizio_config WHERE ativo ORDER BY ordem
-if lista vazia -> return NEW
-idx := posição de ultimo_user_id em lista; próximo := lista[(idx+1) % len]
-NEW.responsavel_id := próximo.user_id
-UPDATE rodizio_state SET ultimo_user_id = próximo.user_id, contador = contador+1
-```
+## Arquivos
 
-Nenhuma alteração em dados existentes; leads antigos permanecem como estão.
+| Arquivo | Ação |
+|---------|------|
+| `src/hooks/useConversations.ts` | Reescrever fetch com normalização e inclusão de leads atribuídos |
