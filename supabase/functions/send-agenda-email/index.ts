@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "CRM Imaculada <noreply@imaculada.online>",
+          from: "Arvora CRM <noreply@arvora.app.br>",
           to: [to_email],
           subject: config.subject,
           html: emailHtml,

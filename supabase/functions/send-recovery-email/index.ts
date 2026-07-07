@@ -87,7 +87,7 @@ const handler = async (req: Request): Promise<Response> => {
         "Authorization": `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "CRM Feeagro <noreply@imaculada.online>",
+        from: "Arvora CRM <noreply@arvora.app.br>",
         to: [to_email],
         subject: "Redefinição de Senha - CRM Feeagro",
         html: emailHtml,
