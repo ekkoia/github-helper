@@ -87,7 +87,7 @@ const handler = async (req: Request): Promise<Response> => {
         "Authorization": `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "CRM Imaculada <noreply@imaculada.online>",
+        from: "Arvora CRM <noreply@arvora.app.br>",
         to: [to_email],
         subject: "Você foi convidado para o CRM Imaculada",
         html: emailHtml,
