@@ -98,10 +98,9 @@ export const useConversations = () => {
       profileMap.set(p.user_id, p.nome_completo);
     }
 
-    // Index leads por chave normalizada -> responsavel_id
-    const { data: leadsData } = await (supabase as any)
-      .from("leads")
-      .select("telefone, responsavel_id");
+    // Index leads por chave normalizada -> responsavel_id (paginado)
+    const leadsData = await fetchAllLeadsForMatch();
+
 
     const leadByKey = new Map<string, string>();
     for (const lead of leadsData || []) {
