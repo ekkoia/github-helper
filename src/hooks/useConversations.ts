@@ -21,10 +21,40 @@ export interface Conversation {
 const normalizeForMatch = (raw: string | null | undefined): string => {
   if (!raw) return "";
   let digits = raw.replace(/\D/g, "");
+  // Remove DDI 55 (celular 13 dígitos ou fixo 12 dígitos)
   if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
     digits = digits.slice(2);
   }
+  // Se tem 11 dígitos (DDD + 9 + 8) e o 3º é 9, remove o 9 do celular
+  // para casar com números salvos sem o 9.
+  if (digits.length === 11 && digits[2] === "9") {
+    digits = digits.slice(0, 2) + digits.slice(3);
+  }
+  // Retorna os últimos 10 dígitos (DDD + 8 dígitos)
   return digits.slice(-10);
+};
+
+// Busca todos os leads paginando (contorna limite de 1000 do PostgREST)
+const fetchAllLeadsForMatch = async (): Promise<Array<{ telefone: string | null; responsavel_id: string | null }>> => {
+  const pageSize = 1000;
+  let all: any[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await (supabase as any)
+      .from("leads")
+      .select("telefone, responsavel_id")
+      .order("data_criacao", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error("Erro ao buscar leads para match:", error);
+      break;
+    }
+    all = all.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
 };
 
 export const useConversations = () => {
@@ -70,10 +100,9 @@ export const useConversations = () => {
       profileMap.set(p.user_id, p.nome_completo);
     }
 
-    // Index leads por chave normalizada -> responsavel_id
-    const { data: leadsData } = await (supabase as any)
-      .from("leads")
-      .select("telefone, responsavel_id");
+    // Index leads por chave normalizada -> responsavel_id (paginado)
+    const leadsData = await fetchAllLeadsForMatch();
+
 
     const leadByKey = new Map<string, string>();
     for (const lead of leadsData || []) {
