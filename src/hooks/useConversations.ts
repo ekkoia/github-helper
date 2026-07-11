@@ -43,7 +43,9 @@ const fetchAllLeadsForMatch = async (): Promise<Array<{ telefone: string | null;
     const { data, error } = await (supabase as any)
       .from("leads")
       .select("telefone, responsavel_id")
+      .order("data_criacao", { ascending: false })
       .range(from, from + pageSize - 1);
+
     if (error) {
       console.error("Erro ao buscar leads para match:", error);
       break;
