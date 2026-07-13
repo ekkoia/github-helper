@@ -77,43 +77,49 @@ Deno.serve(async (req) => {
     // Send email via Resend
     if (to_email && RESEND_API_KEY) {
       const descriptionBlock = event_description
-        ? `<p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;"><strong>Descrição:</strong> ${event_description}</p>`
+        ? `<p style="color: #3C4749; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;"><strong>Descrição:</strong> ${event_description}</p>`
         : "";
 
+      // Paleta institucional Arvora (Manual de Diretrizes de Marca)
+      // Petróleo (principal): #0A3642 | Verde-floresta: #015A3C
+      // Verde-oliva (destaque): #86B227 | Amarelo-mostarda: #DFB902
       const emailHtml = `
         <!DOCTYPE html>
         <html lang="pt-BR">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Saira:wght@400;600;700&display=swap');
+          </style>
         </head>
-        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7fa;">
+        <body style="margin: 0; padding: 0; font-family: 'Saira', 'Poppins', 'Segoe UI', Arial, sans-serif; background-color: #EDF5F7;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
             <tr>
-              <td style="padding: 40px 30px; background: linear-gradient(135deg, #65a30d 0%, #84cc16 100%); text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">CRM Imaculada</h1>
+              <td style="padding: 40px 30px; background-color: #0A3642; text-align: center;">
+                <img src="https://omilhfohvstqsonhyuxp.supabase.co/storage/v1/object/public/public-assets/LOGO%20ARVORA%20COR%20NEG@5x-8.png" alt="Arvora" width="160" style="display: block; margin: 0 auto;" />
               </td>
             </tr>
             <tr>
               <td style="padding: 40px 30px;">
-                <h2 style="color: #1a1a2e; margin: 0 0 20px 0; font-size: 24px;">${config.heading}</h2>
-                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                <h2 style="font-family: 'Saira', 'Poppins', 'Segoe UI', Arial, sans-serif; color: #0A3642; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">${config.heading}</h2>
+                <p style="color: #3C4749; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
                   Olá, <strong>${nome_assessor}</strong>! ${config.description}
                 </p>
                 
-                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
-                  <p style="color: #64748b; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">Detalhes do evento</p>
-                  <p style="color: #1a1a2e; font-size: 18px; font-weight: 600; margin: 0 0 8px 0;">${event_title}</p>
-                  <p style="color: #4a5568; font-size: 14px; margin: 0 0 4px 0;">📅 ${event_date}</p>
-                  ${event_time ? `<p style="color: #4a5568; font-size: 14px; margin: 0;">🕐 ${event_time}</p>` : ""}
+                <div style="background-color: #EDF5F7; border: 1px solid #6E7E82; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                  <p style="color: #3C4749; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">Detalhes do evento</p>
+                  <p style="color: #0A3642; font-size: 18px; font-weight: 600; margin: 0 0 8px 0;">${event_title}</p>
+                  <p style="color: #3C4749; font-size: 14px; margin: 0 0 4px 0;">📅 ${event_date}</p>
+                  ${event_time ? `<p style="color: #3C4749; font-size: 14px; margin: 0;">🕐 ${event_time}</p>` : ""}
                   ${descriptionBlock}
                 </div>
               </td>
             </tr>
             <tr>
-              <td style="padding: 30px; background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
-                <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">
-                  Este email foi enviado automaticamente pelo CRM Imaculada.
+              <td style="padding: 30px; background-color: #EDF5F7; border-top: 1px solid #6E7E82;">
+                <p style="color: #6E7E82; font-size: 12px; text-align: center; margin: 0;">
+                  Este email foi enviado automaticamente pelo CRM Arvora.
                 </p>
               </td>
             </tr>
@@ -129,7 +135,7 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "Arvora CRM <noreply@arvora.app.br>",
+          from: "CRM Arvora <noreply@arvora.app.br>",
           to: [to_email],
           subject: config.subject,
           html: emailHtml,
