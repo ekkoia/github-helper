@@ -10,35 +10,27 @@ serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const siteUrl = Deno.env.get("SITE_URL") || "https://crm.imaculada.online";
-
+    const siteUrl = Deno.env.get("SITE_URL") || "https://crm.arvora.app.br";
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-
     const { email }: { email: string } = await req.json();
-
     if (!email) {
       return new Response(
         JSON.stringify({ error: "Email é obrigatório" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-
     console.log(`Generating recovery link for: ${email}`);
-
     const redirectUrl = `${siteUrl}/set-password`;
-
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
       email,
       options: { redirectTo: redirectUrl },
     });
-
     if (linkError) {
       console.error("Error generating recovery link:", linkError);
       return new Response(
@@ -46,9 +38,7 @@ serve(async (req: Request): Promise<Response> => {
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-
     const recoveryLink = linkData.properties?.action_link;
-
     if (!recoveryLink) {
       console.error("No action_link in response");
       return new Response(
@@ -56,9 +46,7 @@ serve(async (req: Request): Promise<Response> => {
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-
     console.log("Recovery link generated, sending custom email...");
-
     // Send custom recovery email
     const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-recovery-email`, {
       method: "POST",
@@ -68,7 +56,6 @@ serve(async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({ to_email: email, recovery_link: recoveryLink }),
     });
-
     if (!emailResponse.ok) {
       const errorData = await emailResponse.json();
       console.error("Error sending recovery email:", errorData);
@@ -77,9 +64,7 @@ serve(async (req: Request): Promise<Response> => {
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-
     console.log("Recovery email sent successfully");
-
     return new Response(
       JSON.stringify({ success: true, message: "Email de recuperação enviado com sucesso" }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
