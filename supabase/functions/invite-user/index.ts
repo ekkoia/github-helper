@@ -22,7 +22,7 @@ serve(async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const siteUrl = Deno.env.get("SITE_URL") || "https://crm.imaculada.online";
+    const siteUrl = Deno.env.get("SITE_URL") || "https://crm.arvora.app.br";
 
     // Create admin client with service role key
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
