@@ -168,11 +168,12 @@ export const useConversations = () => {
       .channel(`conversations-meta-${user.id}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "chat_messages",
-        },
+        { event: "INSERT", schema: "public", table: "chat_messages" },
+        () => fetchConversations()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "whatsapp_conversation_windows" },
         () => fetchConversations()
       )
       .subscribe();
