@@ -990,6 +990,44 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_conversation_windows: {
+        Row: {
+          expires_at: string | null
+          last_inbound_at: string | null
+          meta_account_id: string | null
+          phone_e164: string
+          source: string
+          updated_at: string
+          wa_id: string | null
+        }
+        Insert: {
+          expires_at?: string | null
+          last_inbound_at?: string | null
+          meta_account_id?: string | null
+          phone_e164: string
+          source?: string
+          updated_at?: string
+          wa_id?: string | null
+        }
+        Update: {
+          expires_at?: string | null
+          last_inbound_at?: string | null
+          meta_account_id?: string | null
+          phone_e164?: string
+          source?: string
+          updated_at?: string
+          wa_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversation_windows_meta_account_id_fkey"
+            columns: ["meta_account_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_meta_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_meta_accounts: {
         Row: {
           access_token: string
