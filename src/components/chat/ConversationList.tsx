@@ -92,9 +92,9 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 </div>
                 <p className="text-xs text-muted-foreground truncate mt-0.5">{conv.lastMessage || "Mídia"}</p>
               </div>
-              {/* Indicador inbound */}
-              {conv.unread && (
-                <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+              {/* Janela de 24h aberta */}
+              {conv.windowOpen && (
+                <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" title="Janela de 24h aberta" />
               )}
             </button>
           ))
