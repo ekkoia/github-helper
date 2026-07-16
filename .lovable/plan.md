@@ -1,63 +1,27 @@
 
-## Objetivo
+## Problema
 
-Substituir a lógica atual (que deduz a janela de 24h olhando `chat_messages`) por uma tabela dedicada `whatsapp_conversation_windows` alimentada pelos eventos oficiais da Meta — evitando falsos positivos/negativos causados por webhook atrasado, filtro por últimos 8 dígitos ou mensagens vindas por outros canais.
+A bolinha verde na lista de conversas hoje é calculada como `unread = !!msg.user_message` da linha mais recente de `chat_messages` — ou seja, "a última mensagem gravada é inbound", não "a janela de 24h está aberta". Isso gera:
 
-## 1. Nova tabela `whatsapp_conversation_windows`
+- Conversas com janela aberta mas **sem** bolinha (última linha é outbound do bot/humano).
+- Conversas **com** bolinha mas fora da janela (última linha inbound tem >24h).
 
-Uma linha por contato (número normalizado). Guarda o timestamp exato em que a janela expira e a fonte que atualizou.
+## Solução
 
-Colunas principais:
-- `phone_e164` (texto, PK) — número apenas com dígitos, com DDI
-- `wa_id` (texto, opcional) — id do contato como recebido da Meta
-- `expires_at` (timestamptz) — momento em que a janela fecha
-- `last_inbound_at` (timestamptz) — último inbound conhecido
-- `source` (texto) — `meta_status` (oficial) ou `inbound_message` (fallback)
-- `meta_account_id` (uuid, FK opcional para `whatsapp_meta_accounts`)
-- `updated_at`
+Usar a mesma fonte da verdade que o `MetaChatInput` já consome: `whatsapp_conversation_windows.expires_at`.
 
-RLS: leitura liberada para qualquer usuário autenticado; escrita apenas via `service_role` (triggers/edge).
+### 1. `src/hooks/useConversations.ts`
+- Buscar todas as linhas de `whatsapp_conversation_windows` (`phone_e164, expires_at`) em paralelo com a query de mensagens.
+- Montar `Map<phone_e164, Date>` das expirações.
+- Renomear o campo `unread` da interface `Conversation` para `windowOpen`, calculado como `expires_at != null && expires_at > now()`. O match usa o telefone já normalizado para só dígitos, mesma regra dos triggers.
 
-## 2. Alimentação da tabela
+### 2. `src/components/chat/ConversationList.tsx`
+- Trocar a checagem `conv.unread` por `conv.windowOpen` ao renderizar a bolinha verde.
+- Adicionar `title="Janela de 24h aberta"` para explicitar o significado.
 
-Duas fontes, em ordem de prioridade:
+### 3. Reatividade
+- Manter o canal Realtime atual (INSERT em `chat_messages`).
+- Adicionar segundo canal para INSERT/UPDATE em `whatsapp_conversation_windows`, para que atualizações vindas do webhook oficial (status da Meta) atualizem a bolinha mesmo sem novo `chat_messages`.
 
-**a) Trigger em `whatsapp_webhook_events` (fonte oficial)**
-
-Quando o payload contém `entry[].changes[].value.statuses[].conversation.expiration_timestamp`, faz UPSERT usando esse `expiration_timestamp` (é o valor que a Meta usa internamente para cobrar/bloquear).
-
-**b) Trigger em `chat_messages` (fallback)**
-
-Quando um novo registro é inserido com `message_direction = 'inbound'` e `whatsapp_instance_name = 'meta_official'`, faz UPSERT com `expires_at = created_at + 24h`, mas somente se o `expires_at` atual for menor (nunca sobrescreve um valor oficial mais recente vindo do status).
-
-Normalização do número em ambos os caminhos: `regexp_replace(phone, '[^0-9]', '', 'g')` para bater com o mesmo padrão da tabela.
-
-## 3. Ajuste no `MetaChatInput.tsx`
-
-Remove a query em `chat_messages` que deduz a janela e passa a consultar diretamente:
-
-```
-select expires_at
-from whatsapp_conversation_windows
-where phone_e164 = <numero_normalizado>
-```
-
-`isWithin24h = expires_at && expires_at > now()`.
-
-Também expõe o `expires_at` na UI (ex.: "Janela aberta — expira em 3h 12min") para o usuário ter feedback claro.
-
-## 4. Backfill inicial
-
-Migração popula `whatsapp_conversation_windows` a partir do último inbound conhecido em `chat_messages` por número, para que a troca não deixe conversas ativas parecendo fechadas no dia da subida.
-
-## 5. Fora de escopo
-
-- Alterar o webhook externo (n8n / serviço fora do repo). A abordagem via trigger em `whatsapp_webhook_events` funciona sem tocar nele, desde que ele continue gravando o payload cru — que já é o comportamento atual (a tabela existe).
-- Se depois for desejável, dá para migrar o webhook para uma edge function `meta-webhook` dentro do projeto e escrever direto na tabela sem depender de trigger.
-
-## Detalhes técnicos
-
-- Extração do `expiration_timestamp` no trigger: `jsonb_path_query_first(payload, '$.entry[*].changes[*].value.statuses[*].conversation.expiration_timestamp')` convertido de epoch (segundos) para `timestamptz`.
-- Índice em `whatsapp_conversation_windows(phone_e164)` (implícito pela PK) e opcional em `expires_at` para consultas administrativas.
-- Grants explícitos: `SELECT` para `authenticated`, `ALL` para `service_role`.
-- Nenhuma mudança em `send-whatsapp-message` — o gate continua no cliente + regras da Meta no envio.
+### Fora de escopo
+- Sem mudanças em `MetaChatInput`, schema ou triggers.
