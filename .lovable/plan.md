@@ -1,51 +1,26 @@
 ## Diagnóstico
 
-Em `/chat`, o nome do assessor aparece só em algumas conversas porque o índice de leads em `src/hooks/useConversations.ts` tem dois problemas:
+Investiguei `MetaChatInput.tsx`, as políticas RLS e os dados reais no Supabase. Encontrei duas causas raiz distintas.
 
-### 1. Limite de 1000 linhas do Supabase
+### 1. Templates não aparecem para os usuários
+- A tabela `whatsapp_meta_templates` **não tem nenhum GRANT** para o role `authenticated` (consulta em `information_schema.role_table_grants` retorna vazio). Sem GRANT, o PostgREST bloqueia a leitura mesmo com RLS permissiva.
+- Além disso, a policy `user_own_templates` exige que a conta Meta pertença ao próprio usuário (`whatsapp_meta_accounts.user_id = auth.uid()`). Só existe **uma** conta Meta compartilhada, pertencente ao usuário `601cda2a-…` (Arvora Whatsapp Comercial). Qualquer outro usuário (admin ou comum) que não seja o dono cai fora dessa policy — só admin/global veem via `admin_all_templates`; assessores comuns ficam sem nenhum template.
 
-A consulta:
+### 2. Janela de 24h aponta como aberta mas envio não libera
+- Em `MetaChatInput.tsx` (linhas 120-128), a consulta que decide `isWithin24h` filtra `.eq("meta_account_id", metaAccount.id)` nas mensagens inbound.
+- Nas 10 últimas mensagens inbound reais (`whatsapp_instance_name='meta_official'`), **todas têm `meta_account_id = NULL`** — o webhook que grava os inbounds não carimba a conta. Resultado: o filtro sempre retorna zero linhas, `isWithin24h` fica `false`, e a UI trava em "Fora da janela de 24h — apenas templates aprovados", mesmo quando o lead acabou de responder. Combinado com o bug 1, o assessor não consegue enviar nem texto livre nem template.
 
-```ts
-supabase.from("leads").select("telefone, responsavel_id")
-```
+## Correções propostas
 
-não usa `.range()` nem paginação. O PostgREST devolve no máximo 1000 linhas. Se o projeto tem mais leads que isso (bem provável — o `fetchAllLeads` em `src/lib/supabaseUtils.ts` já pagina justamente por isso), muitos leads atribuídos ficam de fora do `leadByKey`, então `assessorName` fica `null` mesmo com o lead corretamente atribuído. O mesmo vale para a consulta `profiles` (menos crítico, mas idealmente também paginada).
+### A) Templates — migration
+- `GRANT SELECT ON public.whatsapp_meta_templates TO authenticated;`
+- `GRANT ALL ON public.whatsapp_meta_templates TO service_role;`
+- Substituir a policy `user_own_templates` (só o dono da conta) por uma policy que permita a qualquer usuário autenticado ler templates `status = 'approved'` da conta Meta compartilhada — espelhando o padrão já usado em `whatsapp_meta_accounts` (`any_authenticated_user_can_view_meta_account`). INSERT/UPDATE/DELETE continuam restritos a admin/global.
 
-### 2. Normalização de telefone perde matches por causa do "9"
+### B) Janela de 24h — código
+- Em `src/components/chat/MetaChatInput.tsx`, remover o filtro `.eq("meta_account_id", metaAccount.id)` da query que busca a última mensagem inbound. Manter os filtros por `whatsapp_instance_name = 'meta_official'`, `message_direction = 'inbound'` e o `like` no telefone. Assim a janela passa a considerar corretamente qualquer inbound recente daquele contato pelo número comercial.
+- Atualizar o comentário no bloco para refletir que o webhook não carimba `meta_account_id` nos inbounds.
 
-`normalizeForMatch` faz `digits.slice(-10)`. Isso funciona quando os dois lados têm 11 dígitos (DDD + 9 + 8) OU os dois têm 10 (DDD + 8). Falha quando um lado tem o 9 do celular e o outro não:
-
-- Lead salvo como `11987654321` (com 9) → últimos 10 = `1987654321`
-- Msg WhatsApp `1187654321` (sem 9) → últimos 10 = `1187654321`
-- Sem match → sem `assessorName`.
-
-Como leads vêm de fontes diferentes (Meta forms, webhook-lead, importação, digitação manual), esse descasamento acontece em parte da base — coerente com o print, onde alguns leads têm o `↳ nome` e outros não.
-
-## Correção proposta
-
-Alteração isolada em `src/hooks/useConversations.ts`. Nenhum outro arquivo, nenhuma mudança no banco, nenhuma mudança de UI.
-
-1. **Paginar a busca de leads** com `.range()` em lotes de 1000 até esgotar (mesmo padrão de `fetchAllLeads`). Selecionar só `telefone, responsavel_id` para manter leve. Aplicar a mesma ideia em `profiles` se necessário.
-
-2. **Normalização robusta a "9"**: além da chave de 10 dígitos, gerar uma chave "core" com o DDD (2 dígitos) + últimos 8 dígitos do número — descartando o 9 quando presente. Indexar cada lead por essa chave e resolver a mensagem pela mesma chave.
-
-   Regra:
-   - Tira tudo que não é dígito.
-   - Se começa com `55` e tem 12/13 dígitos, remove o `55`.
-   - Pega os últimos 10 ou 11 dígitos. Se tiver 11 e o 3º dígito for `9` (celular), remove esse `9`.
-   - Resultado: sempre 10 dígitos (DDD + 8), estável entre com/sem 9 e com/sem DDI.
-
-3. Manter o resto da lógica igual: visibilidade de não-admin por `user_id` OU telefone atribuído (usando a nova chave), agrupamento por telefone bruto normalizado (só dígitos) para não misturar conversas.
-
-## Resultado esperado
-
-- Todos os leads (mesmo acima de 1000) entram no índice.
-- Match funciona independentemente do `9` do celular e do prefixo `55`.
-- `↳ Nome do assessor` passa a aparecer em toda conversa cujo telefone bate com um lead que tem `responsavel_id`.
-
-## Arquivos
-
-| Arquivo | Ação |
-|---------|------|
-| `src/hooks/useConversations.ts` | Paginar `leads`, refinar `normalizeForMatch` para lidar com o "9" do celular |
+## Fora de escopo
+- Não vou alterar o webhook de inbound para começar a gravar `meta_account_id` (mudança de backend maior, sem impacto para a correção do front).
+- Nenhuma outra alteração em UI/estilos.
