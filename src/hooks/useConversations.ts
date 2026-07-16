@@ -8,7 +8,7 @@ export interface Conversation {
   name: string;
   lastMessage: string;
   lastTime: string;
-  unread: boolean;
+  windowOpen: boolean;
   userId: string;
   assessorName: string | null;
 }
