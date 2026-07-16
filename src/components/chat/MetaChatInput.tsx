@@ -86,6 +86,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<MetaTemplate[]>([]);
   const [isWithin24h, setIsWithin24h] = useState(false);
+  const [windowExpiresAt, setWindowExpiresAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -113,24 +114,20 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           .eq("status", "approved");
         setTemplates(tpls || []);
 
-        // Verificar janela de 24h — considera qualquer mensagem inbound recebida
-        // pelo canal meta_official para este número. O webhook de inbound não
-        // carimba meta_account_id, então filtrar por ele zeraria o resultado.
-        const { data: lastMsg } = await (supabase as any)
-          .from("chat_messages")
-          .select("created_at")
-          .eq("whatsapp_instance_name", "meta_official")
-          .eq("message_direction", "inbound")
-          .like("phone", `%${cleanPhone.slice(-8)}`)
-          .order("created_at", { ascending: false })
-          .limit(1);
+        // Fonte da verdade: tabela whatsapp_conversation_windows alimentada
+        // pelo webhook (status oficial da Meta) e por triggers de inbound.
+        const { data: win } = await (supabase as any)
+          .from("whatsapp_conversation_windows")
+          .select("expires_at")
+          .eq("phone_e164", cleanPhone)
+          .maybeSingle();
 
-
-        if (lastMsg && lastMsg.length > 0) {
-          const lastTime = new Date(lastMsg[0].created_at).getTime();
-          setIsWithin24h(Date.now() - lastTime < 24 * 60 * 60 * 1000);
+        if (win?.expires_at) {
+          const exp = new Date(win.expires_at);
+          setWindowExpiresAt(exp);
+          setIsWithin24h(exp.getTime() > Date.now());
         } else {
-          // Nunca houve mensagem inbound pelo número comercial -> fora da janela
+          setWindowExpiresAt(null);
           setIsWithin24h(false);
         }
       } catch (err) {
