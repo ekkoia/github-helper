@@ -79,21 +79,30 @@ export const useConversations = () => {
       }
     }
 
-    const { data, error } = await (supabase as any)
-      .from("chat_messages")
-      .select("phone, nomewpp, user_message, bot_message, created_at, user_id")
-      .eq("whatsapp_instance_name", "meta_official")
-      .order("created_at", { ascending: false });
+    const [{ data, error }, { data: windows }, { data: profiles }] = await Promise.all([
+      (supabase as any)
+        .from("chat_messages")
+        .select("phone, nomewpp, user_message, bot_message, created_at, user_id")
+        .eq("whatsapp_instance_name", "meta_official")
+        .order("created_at", { ascending: false }),
+      (supabase as any)
+        .from("whatsapp_conversation_windows")
+        .select("phone_e164, expires_at"),
+      (supabase as any)
+        .from("profiles")
+        .select("user_id, nome_completo"),
+    ]);
 
     if (error) {
       console.error("Erro ao buscar conversas:", error);
       return;
     }
 
-    // Nomes dos assessores
-    const { data: profiles } = await (supabase as any)
-      .from("profiles")
-      .select("user_id, nome_completo");
+    const nowMs = Date.now();
+    const windowByPhone = new Map<string, number>();
+    for (const w of windows || []) {
+      if (w.expires_at) windowByPhone.set(w.phone_e164, new Date(w.expires_at).getTime());
+    }
 
     const profileMap = new Map<string, string>();
     for (const p of profiles || []) {
@@ -131,12 +140,13 @@ export const useConversations = () => {
       if (!map.has(normalizedPhone)) {
         const lastMessage = msg.user_message || msg.bot_message || "";
         const responsavelId = matchKey ? leadByKey.get(matchKey) : undefined;
+        const expMs = windowByPhone.get(normalizedPhone);
         map.set(normalizedPhone, {
           phone: normalizedPhone,
           name: msg.nomewpp || normalizedPhone,
           lastMessage,
           lastTime: msg.created_at,
-          unread: !!msg.user_message,
+          windowOpen: expMs != null && expMs > nowMs,
           userId: msg.user_id,
           assessorName: responsavelId ? profileMap.get(responsavelId) || null : null,
         });
