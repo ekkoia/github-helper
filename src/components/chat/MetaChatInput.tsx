@@ -392,7 +392,10 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         <>
           <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
             <Clock className="h-3 w-3" />
-            <span>Janela de 24h ativa — texto livre e mídia habilitados</span>
+            <span>
+              Janela de 24h ativa — texto livre e mídia habilitados
+              {windowExpiresAt && ` (expira ${windowExpiresAt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})`}
+            </span>
           </div>
 
           {attachedFile && !isRecording && !recordedBlob && (
