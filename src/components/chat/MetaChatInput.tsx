@@ -113,19 +113,18 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           .eq("status", "approved");
         setTemplates(tpls || []);
 
-        // Verificar janela de 24h — APENAS mensagens recebidas pelo número
-        // comercial configurado no CRM (meta_account_id), nunca pela IA/Chatwoot.
-        // Conversas conduzidas pela IA têm meta_account_id NULL e não contam
-        // para a janela do número comercial, que é outro número na Meta.
+        // Verificar janela de 24h — considera qualquer mensagem inbound recebida
+        // pelo canal meta_official para este número. O webhook de inbound não
+        // carimba meta_account_id, então filtrar por ele zeraria o resultado.
         const { data: lastMsg } = await (supabase as any)
           .from("chat_messages")
           .select("created_at")
           .eq("whatsapp_instance_name", "meta_official")
           .eq("message_direction", "inbound")
-          .eq("meta_account_id", metaAccount.id)
           .like("phone", `%${cleanPhone.slice(-8)}`)
           .order("created_at", { ascending: false })
           .limit(1);
+
 
         if (lastMsg && lastMsg.length > 0) {
           const lastTime = new Date(lastMsg[0].created_at).getTime();
