@@ -477,6 +477,7 @@ export type Database = {
           telefone: string | null
           telefone_key: string | null
           tem_royalties: boolean | null
+          template_fds_enviado_em: string | null
           tipo_grao: string | null
           uf: string | null
           valor_produto: number | null
@@ -514,6 +515,7 @@ export type Database = {
           telefone?: string | null
           telefone_key?: string | null
           tem_royalties?: boolean | null
+          template_fds_enviado_em?: string | null
           tipo_grao?: string | null
           uf?: string | null
           valor_produto?: number | null
@@ -551,6 +553,7 @@ export type Database = {
           telefone?: string | null
           telefone_key?: string | null
           tem_royalties?: boolean | null
+          template_fds_enviado_em?: string | null
           tipo_grao?: string | null
           uf?: string | null
           valor_produto?: number | null
