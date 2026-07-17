@@ -475,6 +475,7 @@ export type Database = {
           responsavel_id: string | null
           sentido: string | null
           telefone: string | null
+          telefone_key: string | null
           tem_royalties: boolean | null
           tipo_grao: string | null
           uf: string | null
@@ -511,6 +512,7 @@ export type Database = {
           responsavel_id?: string | null
           sentido?: string | null
           telefone?: string | null
+          telefone_key?: string | null
           tem_royalties?: boolean | null
           tipo_grao?: string | null
           uf?: string | null
@@ -547,6 +549,7 @@ export type Database = {
           responsavel_id?: string | null
           sentido?: string | null
           telefone?: string | null
+          telefone_key?: string | null
           tem_royalties?: boolean | null
           tipo_grao?: string | null
           uf?: string | null
@@ -1189,6 +1192,7 @@ export type Database = {
           similarity: number
         }[]
       }
+      phone_key: { Args: { _phone: string }; Returns: string }
     }
     Enums: {
       app_role: "user" | "admin" | "global"
