@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { DensityWrapper } from "@/components/DensityWrapper";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import Leads from "./pages/Leads";
 import Auth from "./pages/Auth";
@@ -21,7 +22,15 @@ import Atividades from "./pages/Atividades";
 import Agenda from "./pages/Agenda";
 import Chat from "./pages/Chat";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
