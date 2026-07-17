@@ -51,8 +51,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
     const newStatus = iaStatus === "pause" ? "reativada" : "pause";
     const { error } = await (supabase as any)
       .from("dados_cliente")
-      .update({ atendimento_ia: newStatus })
-      .eq("telefone", phoneKey);
+      .upsert(
+        { telefone: phoneKey, atendimento_ia: newStatus },
+        { onConflict: "telefone" }
+      );
 
     if (error) {
       toast.error("Erro ao atualizar status da IA");
