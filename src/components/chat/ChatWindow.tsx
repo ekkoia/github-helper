@@ -140,7 +140,42 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
               <p className="text-sm">Nenhuma mensagem ainda</p>
             </div>
           ) : (
-            messages.map((msg) => <MessageBubble key={msg.id} message={msg} usersMap={usersMap} isAdmin={isAdmin} />)
+            (() => {
+              const tz = "America/Sao_Paulo";
+              const dayKey = (d: string) =>
+                new Date(d).toLocaleDateString("en-CA", { timeZone: tz });
+              const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+              const yesterdayKey = new Date(Date.now() - 86400000).toLocaleDateString("en-CA", { timeZone: tz });
+              const formatLabel = (key: string, iso: string) => {
+                if (key === todayKey) return "Hoje";
+                if (key === yesterdayKey) return "Ontem";
+                const diffDays = Math.floor(
+                  (new Date(todayKey).getTime() - new Date(key).getTime()) / 86400000
+                );
+                if (diffDays > 0 && diffDays < 7) {
+                  return new Date(iso).toLocaleDateString("pt-BR", { weekday: "long", timeZone: tz });
+                }
+                return new Date(iso).toLocaleDateString("pt-BR", { timeZone: tz });
+              };
+              let lastKey = "";
+              return messages.map((msg) => {
+                const key = dayKey(msg.created_at);
+                const showSep = key !== lastKey;
+                lastKey = key;
+                return (
+                  <React.Fragment key={msg.id}>
+                    {showSep && (
+                      <div className="flex justify-center my-3">
+                        <span className="px-3 py-1 rounded-full bg-card border border-border text-[11px] text-muted-foreground shadow-sm capitalize">
+                          {formatLabel(key, msg.created_at)}
+                        </span>
+                      </div>
+                    )}
+                    <MessageBubble message={msg} usersMap={usersMap} isAdmin={isAdmin} />
+                  </React.Fragment>
+                );
+              });
+            })()
           )}
           <div ref={bottomRef} />
         </div>
