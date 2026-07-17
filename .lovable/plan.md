@@ -1,55 +1,31 @@
-## Sintoma
-Ao trocar de aba e voltar, o CRM mostra a viewport inteira em branco com o fundo verde do tema (sem sidebar, header ou conteúdo). Reprodutível em navegadores/redes diferentes → é código da aplicação, não ambiente.
 
-## Diagnóstico (não confirmado 100% — 1º passo do plano é confirmar via console)
+## Diagnóstico confirmado
 
-A tela fica totalmente vazia (nem sidebar aparece), então algo alto na árvore está retornando `null` ou o React está desmontando por erro sem `ErrorBoundary`. Suspeitos identificados na leitura do código:
+Consultei as últimas mensagens do Jonas (+555381371601) na tabela `chat_messages`:
 
-1. **`AuthProvider` retorna `null` quando `loading` é true** (`src/contexts/AuthContext.tsx`). Quando a aba volta ao foco, o Supabase dispara `onAuthStateChange` (`TOKEN_REFRESHED` / `SIGNED_IN` com sessão restaurada) e o handler chama `setSession/setUser` com um **novo objeto de sessão a cada evento**. Isso não deveria remontar tudo, mas combinado com o item 2 causa cascata.
+- Todas as linhas inbound do n8n vêm com `message_direction = ' inbound'` (com espaço à esquerda, `length = 8`).
+- O trigger atual `upsert_window_from_inbound` compara com a string exata `'inbound'`, então **nenhuma dessas linhas atualiza `whatsapp_conversation_windows`** — por isso o chat aparece "Fora da janela de 24h" mesmo com o cliente respondendo várias vezes.
+- Todas essas linhas também têm `meta_account_id = NULL` e vêm com `bot_message` preenchido pelo fluxo do n8n. Como você confirmou que esse número comercial **não** deveria ter IA, isso é um problema do lado do n8n (webhook Meta apontando para o fluxo errado / sem filtro por número). Não dá para corrigir isso pelo CRM — é ajuste no n8n. Aqui vou apenas garantir que o CRM se comporte corretamente com o que chega.
 
-2. **`ProtectedRoute` re-dispara o efeito de checagem de perfil** toda vez que a referência de `user` muda. Se o `.select().maybeSingle()` retornar erro transitório (rede lenta ao acordar a aba, WS reconectando), `profileChecked` não é setado e a rota fica em `return null` — resultado: viewport verde vazia.
+## O que vou mudar (somente o CRM)
 
-3. **Sem `ErrorBoundary` global.** Qualquer exceção não tratada em um hook (ex.: `useConversations` durante refetch com WS reconectando) desmonta a árvore inteira e sobra só o `body` verde.
+### 1. Ajustar trigger `upsert_window_from_inbound`
+- Aplicar `trim(lower(...))` na comparação de `message_direction` para aceitar `' inbound'`, `'inbound '`, `'Inbound'`, etc.
+- Aplicar `trim(lower(...))` também em `whatsapp_instance_name`.
+- Manter o resto da lógica intacta (mesmo cálculo de `expires_at = created_at + 24h`, mesmo upsert com `GREATEST`).
 
-4. **React Query com `refetchOnWindowFocus` default (`true`)** dispara refetch em massa ao voltar o foco, aumentando a chance de disparar 2/3.
+### 2. Backfill da janela do Jonas
+Rodar um upsert único em `whatsapp_conversation_windows` para o telefone `555381371601` usando o `created_at` da última mensagem inbound dele (id 8345 → expira ~2026‑07‑18 17:47 UTC). Isso libera o envio de texto/mídia imediatamente, sem esperar nova mensagem.
 
-## Plano
+### 3. (Opcional, se autorizar) Backfill geral
+Rodar um `INSERT ... SELECT` que percorre `chat_messages` com `trim(lower(message_direction)) = 'inbound'` dos últimos 24h e reabre a janela para todos os contatos afetados pelo mesmo bug. Sem isso, cada contato só volta a ficar liberado quando mandar a próxima mensagem (que já vai disparar o trigger corrigido).
 
-### 1. Confirmar a causa (antes de mexer)
-- Abrir DevTools → Console e Network no CRM, deixar aberto, trocar de aba por 1–2 min, voltar.
-- Registrar: se há exceção JS, se `onAuthStateChange` disparou, se alguma request Supabase falhou.
-- Se possível, reproduzir no sandbox via Playwright simulando `visibilitychange`.
+## O que NÃO vou mexer
 
-### 2. Blindar o `AuthProvider` (`src/contexts/AuthContext.tsx`)
-- Nunca mais voltar a `loading = true` depois do primeiro carregamento (garantir com `initializedRef`).
-- Não trocar o objeto `session/user` se o `user.id` e `access_token` forem iguais — evita re-render em cascata em cada `TOKEN_REFRESHED`.
-- Remover o `if (loading) return null` e sempre renderizar `children` após a primeira carga; enquanto isso, mostrar um placeholder pequeno em vez de árvore vazia.
+- Nada relacionado à IA / `atendimento_ia` / `dados_cliente` — o problema da IA intervindo é do n8n, fora do CRM.
+- Nada no fluxo de envio, templates, permissões, ou UI do `/chat`.
+- Nada no trigger `upsert_window_from_webhook` (que continua sendo o caminho oficial via status da Meta).
 
-### 3. Blindar o `ProtectedRoute` (`src/components/ProtectedRoute.tsx`)
-- Rodar a checagem de perfil **apenas uma vez por `user.id`** (usar `useRef` com o id já checado), não a cada troca de referência de `user`.
-- Em caso de erro na query de `profiles`, **manter o `profileChecked` anterior** em vez de reverter para `null` (fail-open para não expulsar o usuário logado da tela).
+## Me confirme antes de implementar
 
-### 4. Adicionar `ErrorBoundary` global (novo arquivo)
-- Criar `src/components/ErrorBoundary.tsx` (class component simples) e envolvê-lo em volta de `<Routes>` no `src/App.tsx`.
-- Em erro: renderizar um card com botão "Recarregar" e logar no console; nunca deixar a árvore inteira desmontar em branco.
-
-### 5. Reduzir tempestade de refetch ao focar a aba
-- No `QueryClient` (`src/App.tsx`), setar defaults:
-  - `refetchOnWindowFocus: false`
-  - `retry: 1`
-- Isso não afeta os `useEffect` manuais que já existem; apenas as queries do React Query.
-
-### 6. Verificar
-- Após deploy do preview, repetir o teste (trocar de aba, esperar > 1 min, voltar) em `/chat`, `/dashboard` e `/leads`. Confirmar que a tela reaparece intacta.
-
-## Escopo do que NÃO será tocado
-- Nenhuma lógica de negócio, RLS, edge functions, webhooks, distribuição, Meta, chat, envio de mensagem, ou schema do banco.
-- Nenhum hook de dados (`useConversations`, `useChatMessages`, `useLeads`, etc.) — só o encadeamento Auth/Route/Boundary.
-
-## Detalhes técnicos (para revisão)
-
-Arquivos alterados:
-- `src/contexts/AuthContext.tsx` — comparação de sessão + remoção do `return null` global.
-- `src/components/ProtectedRoute.tsx` — cache de `profileChecked` por `user.id` + fail-open.
-- `src/components/ErrorBoundary.tsx` — novo.
-- `src/App.tsx` — envolver `<Routes>` com `<ErrorBoundary>` e ajustar `QueryClient` defaults.
+Quer que eu inclua o **passo 3 (backfill geral dos últimos 24h)** ou só o passo 2 (apenas o Jonas)?
