@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,17 +11,24 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [profileChecked, setProfileChecked] = useState(false);
+  const checkedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
 
     if (!user) {
+      checkedUserIdRef.current = null;
+      setProfileChecked(false);
       navigate('/auth');
       return;
     }
 
-    // Guard: convidado que ainda não definiu senha não tem profile criado.
-    // Nesse caso, forçar /set-password.
+    // Só checa uma vez por user.id — evita re-executar em cada TOKEN_REFRESHED
+    if (checkedUserIdRef.current === user.id) {
+      if (!profileChecked) setProfileChecked(true);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
@@ -32,17 +39,26 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
       if (cancelled) return;
 
-      if (!error && (!data || (data as any).senha_definida === false)) {
+      // Fail-open: em erro transitório, não expulsa o usuário — mantém a tela
+      if (error) {
+        checkedUserIdRef.current = user.id;
+        setProfileChecked(true);
+        return;
+      }
+
+      if (!data || (data as any).senha_definida === false) {
         navigate('/set-password', { replace: true });
         return;
       }
+
+      checkedUserIdRef.current = user.id;
       setProfileChecked(true);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, profileChecked]);
 
   if (loading || !user || !profileChecked) {
     return null;
