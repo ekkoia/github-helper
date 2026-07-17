@@ -20,22 +20,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const signOutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initializedRef = useRef(false);
+  const currentAccessTokenRef = useRef<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const applySession = (nextSession: Session | null) => {
+      const nextToken = nextSession?.access_token ?? null;
+      const nextUserId = nextSession?.user?.id ?? null;
+      // Se nada mudou de fato, evita re-render em cascata (TOKEN_REFRESHED, focus, etc.)
+      if (
+        nextToken === currentAccessTokenRef.current &&
+        nextUserId === currentUserIdRef.current
+      ) {
+        return;
+      }
+      currentAccessTokenRef.current = nextToken;
+      currentUserIdRef.current = nextUserId;
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+    };
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        // Valid session: cancel any pending sign-out
         if (signOutTimerRef.current) {
           clearTimeout(signOutTimerRef.current);
           signOutTimerRef.current = null;
         }
-        setSession(session);
-        setUser(session.user);
+        applySession(session);
       } else if (event === "SIGNED_OUT") {
-        // Debounce: wait 300ms before clearing state
         signOutTimerRef.current = setTimeout(() => {
+          currentAccessTokenRef.current = null;
+          currentUserIdRef.current = null;
           setSession(null);
           setUser(null);
           signOutTimerRef.current = null;
@@ -49,7 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .from("profiles")
             .select("user_id")
             .eq("user_id", session.user.id)
-            .single();
+            .maybeSingle();
 
           if (!existingProfile) {
             await supabase.from("profiles").insert({
@@ -63,13 +81,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }, 0);
       }
 
-      setLoading(false);
+      if (!initializedRef.current) {
+        initializedRef.current = true;
+        setLoading(false);
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      applySession(session);
+      if (!initializedRef.current) {
+        initializedRef.current = true;
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -79,6 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
   }, []);
+
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -200,8 +224,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   if (loading) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+      </div>
+    );
   }
+
 
   return (
     <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, signInWithGoogle, resetPassword }}>
