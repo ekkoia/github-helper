@@ -1192,6 +1192,7 @@ export type Database = {
           similarity: number
         }[]
       }
+      normalize_telefone_br: { Args: { _phone: string }; Returns: string }
       phone_key: { Args: { _phone: string }; Returns: string }
     }
     Enums: {
