@@ -123,11 +123,24 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
         // Fonte da verdade: tabela whatsapp_conversation_windows alimentada
         // pelo webhook (status oficial da Meta) e por triggers de inbound.
-        const { data: win } = await (supabase as any)
+        // A Meta pode registrar o wa_id com ou sem o 9 do celular (ex: 552498240251
+        // vs 5524998240251). Consultamos os dois formatos e usamos o que existir.
+        const rawDigits = contactPhone.replace(/\D/g, "");
+        const withDDI = rawDigits.startsWith("55") ? rawDigits : `55${rawDigits}`;
+        const candidates = new Set<string>([cleanPhone, withDDI]);
+        if (withDDI.length === 13 && withDDI[4] === "9") {
+          candidates.add(withDDI.slice(0, 4) + withDDI.slice(5));
+        }
+        if (withDDI.length === 12) {
+          candidates.add(withDDI.slice(0, 4) + "9" + withDDI.slice(4));
+        }
+        const { data: wins } = await (supabase as any)
           .from("whatsapp_conversation_windows")
-          .select("expires_at")
-          .eq("phone_e164", cleanPhone)
-          .maybeSingle();
+          .select("phone_e164, expires_at")
+          .in("phone_e164", Array.from(candidates));
+        const win = (wins || [])
+          .filter((w: any) => w.expires_at)
+          .sort((a: any, b: any) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime())[0];
 
         if (win?.expires_at) {
           const exp = new Date(win.expires_at);
