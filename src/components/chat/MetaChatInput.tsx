@@ -68,7 +68,9 @@ const ENCODER_WORKER_URL = "/encoderWorker.min.js";
 
 const MetaChatInput: React.FC<MetaChatInputProps> = ({
   contactPhone, contactName, metaAccount, onMessageSent,
+  addOptimistic, updateOptimistic, removeOptimistic,
 }) => {
+
   // Normaliza número BR: garante DDI 55 + 9º dígito em celulares
   const cleanPhone = (() => {
     const raw = contactPhone.replace(/\D/g, "");
