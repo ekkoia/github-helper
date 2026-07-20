@@ -116,24 +116,34 @@ export const useChatMessages = (phone: string | null) => {
   useEffect(() => {
     if (!phone || !user?.id) return;
 
-    const channel = supabase
-      .channel(`chat-${phone}-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages" },
-        (payload: any) => {
-          const msg = payload.new;
-          const cleanPhone = phone.replace(/\D/g, "");
-          const msgPhone = (msg.phone || "").replace(/\D/g, "");
-          if (msg.whatsapp_instance_name !== "meta_official") return;
-          if (!msgPhone.includes(cleanPhone.slice(-8)) && !cleanPhone.includes(msgPhone.slice(-8))) return;
-          reconcile(msg);
-        }
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    return () => { supabase.removeChannel(channel); };
-  }, [phone, user?.id, isAdmin, reconcile]);
+    try {
+      const safePhone = phone.replace(/\D/g, "");
+      const channelName = `chat-${safePhone}-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      channel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "chat_messages" },
+          (payload: any) => {
+            const msg = payload.new;
+            const cleanPhone = phone.replace(/\D/g, "");
+            const msgPhone = (msg.phone || "").replace(/\D/g, "");
+            if (msg.whatsapp_instance_name !== "meta_official") return;
+            if (!msgPhone.includes(cleanPhone.slice(-8)) && !cleanPhone.includes(msgPhone.slice(-8))) return;
+            reconcile(msg);
+          }
+        )
+        .subscribe();
+    } catch (error) {
+      console.error("Erro ao assinar mensagens em tempo real:", error);
+    }
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [phone, user?.id, reconcile]);
 
   return { messages, loading, refetch: fetchMessages, addOptimistic, updateOptimistic, removeOptimistic };
 };
