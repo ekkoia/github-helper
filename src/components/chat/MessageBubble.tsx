@@ -3,6 +3,8 @@ import { FileText, Download, Clock, AlertCircle, Check, RotateCw } from "lucide-
 
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { ChatMessage } from "@/hooks/useChatMessages";
+import { detectMediaKind, MediaPreviewInline } from "./mediaPreview";
+
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -52,8 +54,9 @@ const getInitials = (name: string) =>
 const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; message: ChatMessage; senderName?: string | null }> = ({
   text, isSent, time, message, senderName,
 }) => {
-  const placeholder = message.media_type ? `[${message.media_type}]` : null;
-  const displayText = text && !["[audio]", "[image]", "[video]", "[document]"].includes(text) ? text : null;
+  const detectedKind = detectMediaKind(text, message.media_type);
+  const isPlaceholderText = !!(text && detectMediaKind(text));
+  const displayText = text && !isPlaceholderText ? text : null;
   const status = message.status;
 
   return (
@@ -66,8 +69,8 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
         {isSent && <MediaContent message={message} isSent={isSent} />}
         {displayText && <p className="whitespace-pre-wrap break-words leading-relaxed">{displayText}</p>}
         {!isSent && <MediaContent message={message} isSent={isSent} />}
-        {!displayText && !message.media_url && placeholder && (
-          <p className="text-xs opacity-60">{placeholder}</p>
+        {!displayText && !message.media_url && detectedKind && (
+          <div className="opacity-80"><MediaPreviewInline kind={detectedKind} /></div>
         )}
         <div className={`flex justify-end items-center gap-1 mt-0.5 ${isSent ? "text-white/70" : "text-muted-foreground"}`}>
           <span className="text-[10px]">{time}</span>

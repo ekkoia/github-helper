@@ -4,6 +4,8 @@ import { MessageCircle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { detectMediaKind, MediaPreviewInline } from "./mediaPreview";
+
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -90,7 +92,12 @@ const ConversationList: React.FC<ConversationListProps> = ({
                   <span className="font-medium text-sm text-foreground truncate">{conv.name}</span>
                   <span className="text-[10px] text-muted-foreground flex-shrink-0">{formatTime(conv.lastTime)}</span>
                 </div>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">{conv.lastMessage || "Mídia"}</p>
+                <div className="text-xs text-muted-foreground truncate mt-0.5">
+                  {(() => {
+                    const kind = detectMediaKind(conv.lastMessage);
+                    return kind ? <MediaPreviewInline kind={kind} /> : (conv.lastMessage || "Mídia");
+                  })()}
+                </div>
               </div>
               {/* Janela de 24h aberta */}
               {conv.windowOpen && (

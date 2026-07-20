@@ -1,51 +1,41 @@
-## Diagnóstico
+## Objetivo
+Substituir os marcadores textuais (`[audio]`, `[imagem]`, `[image]`, `[video]`, `[document]`, `[sticker]`) por uma representação visual estilo WhatsApp (ícone + rótulo em português) tanto no preview da lista de conversas quanto no balão de mensagem quando não houver mídia carregada.
 
-Confirmei o que está acontecendo. O problema tem duas partes:
+## Escopo
+Apenas frontend/apresentação. Nenhuma alteração no banco, triggers, edge functions ou lógica de envio.
 
-### 1. Formato do telefone divergente entre UI ↔ banco ↔ n8n
+## Mudanças
 
-Depois da padronização feita anteriormente, a tabela `dados_cliente` armazena o telefone **só com dígitos, no padrão `55DDDNUMERO`** (o trigger `trg_normalize_dados_cliente_telefone` remove qualquer sufixo e o `9` extra). Confirmado:
-- 1341 registros, nenhum com `@s.whatsapp.net`.
-- 629 registros estão como `pause` — inclusive Claudio (552498240251), Sam Santos (554192341711), etc.
+### 1. Novo helper `src/components/chat/mediaPreview.tsx`
+Exporta:
+- `detectMediaKind(text, media_type?)` → retorna `"audio" | "image" | "video" | "document" | "sticker" | null` reconhecendo:
+  - `media_type` explícito da linha (prioridade)
+  - Strings: `[audio]`, `[image]`, `[imagem]`, `[video]`, `[vídeo]`, `[document]`, `[documento]`, `[sticker]`, `[figurinha]` (case-insensitive, trim)
+- `<MediaPreviewInline kind size?>` → renderiza `ícone + label` inline:
+  - audio → `Mic` + "Áudio"
+  - image → `Image` + "Foto"
+  - video → `Video` + "Vídeo"
+  - document → `FileText` + "Documento"
+  - sticker → `Sticker` + "Figurinha"
+- Ícones do `lucide-react`, tamanho `h-3.5 w-3.5`, cor herdada (`text-muted-foreground` no preview, `opacity-70` no balão).
 
-Porém:
-- O **frontend** (`ChatWindow.tsx`) ainda monta `phoneKey = <digitos>@s.whatsapp.net` para o `SELECT` e para o `UPSERT`. O `UPSERT` funciona porque o trigger normaliza antes do `ON CONFLICT`, mas o `SELECT` de leitura nunca encontra o registro → o botão sempre aparece como "Pausar IA" mesmo quando já está pausado. Isso confunde o assessor (parece que "não pausou").
-- O **n8n** provavelmente consulta `dados_cliente` usando o JID do WhatsApp (`<digitos>@s.whatsapp.net`), que era o formato antigo. Como agora o banco só tem dígitos, o n8n **não encontra o registro → assume que não está pausado → a IA continua respondendo**. É exatamente o sintoma reportado por Andrea e Giovanna.
-
-### 2. Por que Giovanna vê em "todos" e Andrea só nos últimos 2
-
-Giovanna tem muitos leads antigos (Claudio, etc.) cujos registros já estavam no banco antes da padronização e foram convertidos para dígitos. Andrea provavelmente pausou 2 leads novos após a mudança — mesmo comportamento, mas amostra menor.
-
-## Plano de correção
-
-### A) Corrigir a leitura/escrita no frontend (`src/components/chat/ChatWindow.tsx`)
-
-Trocar o `phoneKey` de `<digitos>@s.whatsapp.net` para o **mesmo formato normalizado do banco**, para que o botão reflita o status real:
-
-```ts
-// antes
-const phoneKey = `${phone.replace(/\D/g, "")}@s.whatsapp.net`;
-
-// depois — mesma lógica do normalize_telefone_br
-const normalizePhoneBR = (raw: string) => {
-  let d = raw.replace(/\D/g, "");
-  if (d.length === 10 || d.length === 11) d = "55" + d;
-  if (d.length === 13 && d.startsWith("55") && d[4] === "9") {
-    d = d.slice(0, 4) + d.slice(5);
-  }
-  return d;
-};
-const phoneKey = normalizePhoneBR(phone);
+### 2. `src/components/chat/ConversationList.tsx` (linha 93)
+Substituir o parágrafo por:
+```tsx
+<div className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
+  {(() => {
+    const kind = detectMediaKind(conv.lastMessage);
+    if (kind) return <MediaPreviewInline kind={kind} />;
+    return <span className="truncate">{conv.lastMessage || "Mídia"}</span>;
+  })()}
+</div>
 ```
 
-O `SELECT` passa a achar o registro correto → o botão aparece como "Reativar IA" quando já está pausado, e o `UPSERT` continua funcionando.
+### 3. `src/components/chat/MessageBubble.tsx` (linhas 55–70)
+- Ampliar a lista de placeholders detectados (incluir `[imagem]`, `[vídeo]`, `[documento]`, `[sticker]`, `[figurinha]`).
+- Quando `!displayText && !message.media_url` e houver kind detectado, renderizar `<MediaPreviewInline>` em vez do `[media_type]` cru.
 
-### B) Ajuste no n8n (fora do código Lovable — instrução para o usuário)
-
-O workflow do n8n precisa consultar `dados_cliente` usando o telefone **só com dígitos no formato `55DDDNUMERO` (sem `@s.whatsapp.net`, sem `+`, e sem o `9` extra do celular)**. Ex.: para o JID `5524998240251@s.whatsapp.net`, consultar `telefone = '552498240251'`.
-
-Alternativa mais robusta se você não quiser mexer no n8n agora: eu posso criar uma função SQL `public.dc_is_paused(_phone text)` que aceita qualquer formato (JID, com `+`, com/sem 9) e retorna boolean. O n8n chamaria via RPC. Me avise se prefere esse caminho — não faço agora, é opcional.
-
-### Nada mais é alterado
-
-Somente `src/components/chat/ChatWindow.tsx` sofre mudança de código. Nenhum trigger, tabela, ou outra automação será tocada.
+## Fora do escopo
+- Não alterar o que o n8n grava (continua `[audio]` etc.).
+- Não mexer em envio, upload, realtime, janelas de 24h, IA ou triggers.
+- Não alterar `MediaContent` quando o `media_url` existe (renderização real permanece).
