@@ -164,22 +164,29 @@ export const useConversations = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    const channel = supabase
-      .channel(`conversations-meta-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages" },
-        () => fetchConversations()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "whatsapp_conversation_windows" },
-        () => fetchConversations()
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    try {
+      const channelName = `conversations-meta-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      channel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "chat_messages" },
+          () => fetchConversations()
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "whatsapp_conversation_windows" },
+          () => fetchConversations()
+        )
+        .subscribe();
+    } catch (error) {
+      console.error("Erro ao assinar conversas em tempo real:", error);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [user?.id, fetchConversations]);
 
