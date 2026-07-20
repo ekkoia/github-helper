@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetaAccount } from "@/hooks/useMetaAccount";
+import { ChatMessage } from "@/hooks/useChatMessages";
 import { toast } from "sonner";
 
 interface MetaChatInputProps {
@@ -19,7 +20,11 @@ interface MetaChatInputProps {
   contactName: string;
   metaAccount: MetaAccount;
   onMessageSent: () => void;
+  addOptimistic?: (msg: ChatMessage) => void;
+  updateOptimistic?: (tempId: string, patch: Partial<ChatMessage>) => void;
+  removeOptimistic?: (tempId: string) => void;
 }
+
 
 interface MetaTemplate {
   id: string;
