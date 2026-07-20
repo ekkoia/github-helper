@@ -1,55 +1,51 @@
-## Problema
-No `/chat`, ao clicar em enviar o input trava (`sending=true`) até a sequência inteira terminar: `functions.invoke('send-whatsapp-message')` → `chat_messages.insert()` → `onMessageSent()` (que refaz o fetch). Só depois o texto some do campo e a mensagem aparece na tela. Isso dá a sensação de "delay" — o usuário fica olhando o botão girando por 1–3s antes de qualquer feedback visual.
+## Diagnóstico
 
-Ferramentas como WhatsApp Web resolvem isso com **UI otimista**: a mensagem aparece na conversa instantaneamente com um relógio ⏱ (pendente), o input é limpo na hora, e o envio real acontece em background. Se falhar, mostra um ícone de erro com opção "reenviar".
+Confirmei o que está acontecendo. O problema tem duas partes:
 
-## Objetivo
-Deixar o envio de texto, template, mídia e áudio com resposta visual **instantânea** (< 50ms), mantendo o envio real via Meta em background e reconciliando o status quando termina.
+### 1. Formato do telefone divergente entre UI ↔ banco ↔ n8n
 
-## Escopo (apenas UI/fluxo do chat — nenhuma mudança de banco, RLS, edge function ou lógica de negócio)
+Depois da padronização feita anteriormente, a tabela `dados_cliente` armazena o telefone **só com dígitos, no padrão `55DDDNUMERO`** (o trigger `trg_normalize_dados_cliente_telefone` remove qualquer sufixo e o `9` extra). Confirmado:
+- 1341 registros, nenhum com `@s.whatsapp.net`.
+- 629 registros estão como `pause` — inclusive Claudio (552498240251), Sam Santos (554192341711), etc.
 
-### 1. `src/hooks/useChatMessages.ts`
-- Expor duas novas funções no retorno do hook:
-  - `addOptimistic(msg)` — insere na lista local uma mensagem com `id` temporário (`temp-<uuid>`) e um campo extra `status: 'pending' | 'sent' | 'failed'`.
-  - `updateOptimistic(tempId, patch)` — atualiza status/id da mensagem otimista (usado quando o insert real retorna, ou quando falha).
-- Ajustar o handler Realtime de INSERT para **reconciliar**: se chegar uma mensagem cujo `phone + bot_message + created_at (~5s)` bate com uma pendente, substitui a otimista em vez de duplicar.
+Porém:
+- O **frontend** (`ChatWindow.tsx`) ainda monta `phoneKey = <digitos>@s.whatsapp.net` para o `SELECT` e para o `UPSERT`. O `UPSERT` funciona porque o trigger normaliza antes do `ON CONFLICT`, mas o `SELECT` de leitura nunca encontra o registro → o botão sempre aparece como "Pausar IA" mesmo quando já está pausado. Isso confunde o assessor (parece que "não pausou").
+- O **n8n** provavelmente consulta `dados_cliente` usando o JID do WhatsApp (`<digitos>@s.whatsapp.net`), que era o formato antigo. Como agora o banco só tem dígitos, o n8n **não encontra o registro → assume que não está pausado → a IA continua respondendo**. É exatamente o sintoma reportado por Andrea e Giovanna.
 
-### 2. `src/components/chat/MessageBubble.tsx`
-- Aceitar o campo opcional `status` e renderizar:
-  - `pending` → ícone `Clock` cinza (equivalente ao ⏱ do WhatsApp)
-  - `sent` → check simples (padrão atual)
-  - `failed` → ícone vermelho `AlertCircle` + botão pequeno "Reenviar"
-- Nenhuma mudança visual para mensagens sem `status` (inbound e histórico).
+### 2. Por que Giovanna vê em "todos" e Andrea só nos últimos 2
 
-### 3. `src/components/chat/MetaChatInput.tsx`
-Refatorar os 3 fluxos de envio (`sendTextMessage`, `sendTemplateMessage`, `sendRecordedAudio`) para o padrão otimista:
+Giovanna tem muitos leads antigos (Claudio, etc.) cujos registros já estavam no banco antes da padronização e foram convertidos para dígitos. Andrea provavelmente pausou 2 leads novos após a mudança — mesmo comportamento, mas amostra menor.
 
-```text
-handleSend():
-  1. Monta objeto da mensagem (com temp-id, status='pending', created_at=now)
-  2. addOptimistic(msg)              // UI aparece na hora
-  3. Limpa input / anexo / gravação  // campo já vazio
-  4. setSending(false)               // botão libera imediatamente
-  5. Em background (fire-and-forget async):
-     - invoke('send-whatsapp-message')
-     - se ok → chat_messages.insert() → updateOptimistic(tempId, {status:'sent', id: realId})
-     - se erro → updateOptimistic(tempId, {status:'failed'}) + toast
+## Plano de correção
+
+### A) Corrigir a leitura/escrita no frontend (`src/components/chat/ChatWindow.tsx`)
+
+Trocar o `phoneKey` de `<digitos>@s.whatsapp.net` para o **mesmo formato normalizado do banco**, para que o botão reflita o status real:
+
+```ts
+// antes
+const phoneKey = `${phone.replace(/\D/g, "")}@s.whatsapp.net`;
+
+// depois — mesma lógica do normalize_telefone_br
+const normalizePhoneBR = (raw: string) => {
+  let d = raw.replace(/\D/g, "");
+  if (d.length === 10 || d.length === 11) d = "55" + d;
+  if (d.length === 13 && d.startsWith("55") && d[4] === "9") {
+    d = d.slice(0, 4) + d.slice(5);
+  }
+  return d;
+};
+const phoneKey = normalizePhoneBR(phone);
 ```
 
-- Manter validação prévia (texto/arquivo vazio, janela 24h) igual.
-- Manter o gate `sending` **apenas** para uploads de mídia grandes onde o botão precisa continuar desabilitado até o upload à Meta terminar (para não perder o arquivo em anexo). Para texto puro e template, o botão é liberado no ato.
-- Remover o `onMessageSent()` como forma de refresh — a lista já está atualizada via `addOptimistic` + Realtime.
+O `SELECT` passa a achar o registro correto → o botão aparece como "Reativar IA" quando já está pausado, e o `UPSERT` continua funcionando.
 
-### 4. Reenvio em caso de falha
-- Quando `status='failed'`, o `MessageBubble` exibe botão "Reenviar" que chama um `retryOptimistic(msg)` exposto pelo hook, que reexecuta o envio original a partir do payload guardado na própria mensagem otimista.
+### B) Ajuste no n8n (fora do código Lovable — instrução para o usuário)
 
-## Fora do escopo
-- Nenhuma alteração em edge functions, tabelas, triggers, RLS ou webhook.
-- Nenhuma mudança em `ConversationList`, `LeadInfoPanel` ou outros componentes.
-- Nenhuma mudança na lógica de janela 24h, templates aprovados ou normalização de telefone.
+O workflow do n8n precisa consultar `dados_cliente` usando o telefone **só com dígitos no formato `55DDDNUMERO` (sem `@s.whatsapp.net`, sem `+`, e sem o `9` extra do celular)**. Ex.: para o JID `5524998240251@s.whatsapp.net`, consultar `telefone = '552498240251'`.
 
-## Resultado esperado
-- Enviar texto: aparece na tela em < 50ms com ⏱, campo já limpo, botão já liberado para digitar a próxima. Check aparece 1–2s depois quando a Meta confirma.
-- Enviar template: idem.
-- Enviar mídia: preview aparece imediato com ⏱, botão fica desabilitado só durante o upload (necessário), demais interações continuam livres.
-- Falha de rede: mensagem fica com ícone vermelho e botão "Reenviar" — nada se perde.
+Alternativa mais robusta se você não quiser mexer no n8n agora: eu posso criar uma função SQL `public.dc_is_paused(_phone text)` que aceita qualquer formato (JID, com `+`, com/sem 9) e retorna boolean. O n8n chamaria via RPC. Me avise se prefere esse caminho — não faço agora, é opcional.
+
+### Nada mais é alterado
+
+Somente `src/components/chat/ChatWindow.tsx` sofre mudança de código. Nenhum trigger, tabela, ou outra automação será tocada.
