@@ -27,7 +27,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
   const [loadingIA, setLoadingIA] = useState(false);
   const [showLeadPanel, setShowLeadPanel] = useState(true);
 
-  const phoneKey = `${phone.replace(/\D/g, "")}@s.whatsapp.net`;
+  // Normaliza no mesmo formato armazenado em dados_cliente (55DDDNUMERO, sem 9 extra)
+  const normalizePhoneBR = (raw: string) => {
+    let d = (raw || "").replace(/\D/g, "");
+    if (d.length === 10 || d.length === 11) d = "55" + d;
+    if (d.length === 13 && d.startsWith("55") && d[4] === "9") {
+      d = d.slice(0, 4) + d.slice(5);
+    }
+    return d;
+  };
+  const phoneKey = normalizePhoneBR(phone);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
