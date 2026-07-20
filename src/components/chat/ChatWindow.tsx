@@ -187,7 +187,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
             contactName={name}
             metaAccount={account}
             onMessageSent={refetch}
+            addOptimistic={addOptimistic}
+            updateOptimistic={updateOptimistic}
+            removeOptimistic={removeOptimistic}
           />
+
         </div>
       </div>
 
