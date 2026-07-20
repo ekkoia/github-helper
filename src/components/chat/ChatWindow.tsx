@@ -18,7 +18,7 @@ interface ChatWindowProps {
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) => {
-  const { messages, loading, refetch } = useChatMessages(phone);
+  const { messages, loading, refetch, addOptimistic, updateOptimistic, removeOptimistic } = useChatMessages(phone);
   const { account, loading: loadingAccount } = useMetaAccount();
   const { isAdmin } = useUserRole();
   const { usersMap } = useUsers();
