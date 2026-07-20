@@ -1,41 +1,32 @@
-## Objetivo
-Substituir os marcadores textuais (`[audio]`, `[imagem]`, `[image]`, `[video]`, `[document]`, `[sticker]`) por uma representação visual estilo WhatsApp (ícone + rótulo em português) tanto no preview da lista de conversas quanto no balão de mensagem quando não houver mídia carregada.
+## Diagnóstico
 
-## Escopo
-Apenas frontend/apresentação. Nenhuma alteração no banco, triggers, edge functions ou lógica de envio.
+O erro da print vem do Supabase Realtime: `cannot add postgres_changes callbacks ... after subscribe()`.
 
-## Mudanças
+Isso acontece quando o app tenta reaproveitar um canal Realtime que já está em processo de inscrição/inscrito e adiciona novos callbacks nele. No `/chat`, há dois pontos mais prováveis:
 
-### 1. Novo helper `src/components/chat/mediaPreview.tsx`
-Exporta:
-- `detectMediaKind(text, media_type?)` → retorna `"audio" | "image" | "video" | "document" | "sticker" | null` reconhecendo:
-  - `media_type` explícito da linha (prioridade)
-  - Strings: `[audio]`, `[image]`, `[imagem]`, `[video]`, `[vídeo]`, `[document]`, `[documento]`, `[sticker]`, `[figurinha]` (case-insensitive, trim)
-- `<MediaPreviewInline kind size?>` → renderiza `ícone + label` inline:
-  - audio → `Mic` + "Áudio"
-  - image → `Image` + "Foto"
-  - video → `Video` + "Vídeo"
-  - document → `FileText` + "Documento"
-  - sticker → `Sticker` + "Figurinha"
-- Ícones do `lucide-react`, tamanho `h-3.5 w-3.5`, cor herdada (`text-muted-foreground` no preview, `opacity-70` no balão).
+1. `useConversations` usa um nome fixo por usuário: `conversations-meta-${user.id}` e adiciona dois callbacks no mesmo canal.
+2. `useChatMessages` usa `chat-${phone}-${user.id}`. Se a tela recarrega, troca conversa rápido, ou o cleanup anterior ainda não terminou, o Supabase pode devolver/reusar um canal ainda ativo e o app quebra a tela inteira pelo `ErrorBoundary`.
 
-### 2. `src/components/chat/ConversationList.tsx` (linha 93)
-Substituir o parágrafo por:
-```tsx
-<div className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
-  {(() => {
-    const kind = detectMediaKind(conv.lastMessage);
-    if (kind) return <MediaPreviewInline kind={kind} />;
-    return <span className="truncate">{conv.lastMessage || "Mídia"}</span>;
-  })()}
-</div>
-```
+## Plano de correção
 
-### 3. `src/components/chat/MessageBubble.tsx` (linhas 55–70)
-- Ampliar a lista de placeholders detectados (incluir `[imagem]`, `[vídeo]`, `[documento]`, `[sticker]`, `[figurinha]`).
-- Quando `!displayText && !message.media_url` e houver kind detectado, renderizar `<MediaPreviewInline>` em vez do `[media_type]` cru.
+1. **Tornar os canais do chat únicos por montagem**
+   - Ajustar `useConversations` para criar canal com sufixo único estável por montagem.
+   - Ajustar `useChatMessages` para criar canal com sufixo único estável por montagem/conversa.
+   - Manter o cleanup com `supabase.removeChannel(channel)`.
 
-## Fora do escopo
-- Não alterar o que o n8n grava (continua `[audio]` etc.).
-- Não mexer em envio, upload, realtime, janelas de 24h, IA ou triggers.
-- Não alterar `MediaContent` quando o `media_url` existe (renderização real permanece).
+2. **Evitar que erro de Realtime derrube a tela**
+   - Envolver a criação/subscrição dos canais em `try/catch`.
+   - Se o Realtime falhar, o chat continua carregando por busca normal, em vez de mostrar “Algo deu errado”.
+
+3. **Reduzir risco de loop/reinscrição desnecessária**
+   - Remover dependências que não afetam o canal quando possível.
+   - Manter callbacks estáveis já existentes (`fetchConversations`, `reconcile`) sem recriar canal mais vezes que o necessário.
+
+4. **Validar no `/chat`**
+   - Abrir `/chat` com conversa selecionada.
+   - Confirmar que a tela não cai no ErrorBoundary.
+   - Verificar console para garantir que o erro `cannot add postgres_changes callbacks` não aparece mais.
+
+## Resultado esperado
+
+Mesmo que o usuário deslogue, recarregue ou atualize várias vezes, o `/chat` não deve quebrar por conflito de canais Realtime. Se o Realtime falhar momentaneamente, a tela permanece utilizável e os dados ainda carregam via consultas normais.
