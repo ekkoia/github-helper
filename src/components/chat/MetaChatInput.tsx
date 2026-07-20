@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetaAccount } from "@/hooks/useMetaAccount";
+import { ChatMessage } from "@/hooks/useChatMessages";
 import { toast } from "sonner";
 
 interface MetaChatInputProps {
@@ -19,7 +20,11 @@ interface MetaChatInputProps {
   contactName: string;
   metaAccount: MetaAccount;
   onMessageSent: () => void;
+  addOptimistic?: (msg: ChatMessage) => void;
+  updateOptimistic?: (tempId: string, patch: Partial<ChatMessage>) => void;
+  removeOptimistic?: (tempId: string) => void;
 }
+
 
 interface MetaTemplate {
   id: string;
@@ -63,7 +68,9 @@ const ENCODER_WORKER_URL = "/encoderWorker.min.js";
 
 const MetaChatInput: React.FC<MetaChatInputProps> = ({
   contactPhone, contactName, metaAccount, onMessageSent,
+  addOptimistic, updateOptimistic, removeOptimistic,
 }) => {
+
   // Normaliza número BR: garante DDI 55 + 9º dígito em celulares
   const cleanPhone = (() => {
     const raw = contactPhone.replace(/\D/g, "");
@@ -230,77 +237,160 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     }
   };
 
+  const buildOptimistic = (overrides: Partial<ChatMessage>): ChatMessage => ({
+    id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    phone: cleanPhone,
+    nomewpp: contactName,
+    user_message: null,
+    bot_message: null,
+    message_type: "text",
+    message_direction: "outbound",
+    media_type: null,
+    media_url: null,
+    media_mime_type: null,
+    media_filename: null,
+    meta_account_id: metaAccount.id,
+    user_id: user?.id || null,
+    created_at: new Date().toISOString(),
+    status: "pending",
+    ...overrides,
+  });
+
+  const performSend = async (
+    optimistic: ChatMessage,
+    sendFn: () => Promise<{ ok: boolean; error?: string }>,
+    persistFn: () => Promise<void>,
+  ) => {
+    const tempId = optimistic.id;
+    try {
+      const result = await sendFn();
+      if (!result.ok) {
+        updateOptimistic?.(tempId, { status: "failed" });
+        toast.error(`Erro: ${result.error || "falha ao enviar"}`);
+        return;
+      }
+      // Marca como enviado imediatamente (Realtime reconciliará com id real)
+      updateOptimistic?.(tempId, { status: "sent" });
+      // Persistência em background — não bloqueia UI
+      persistFn().catch((e) => console.error("Erro ao persistir mensagem:", e));
+    } catch (err: any) {
+      updateOptimistic?.(tempId, { status: "failed" });
+      toast.error("Erro ao enviar: " + (err.message || ""));
+    }
+  };
+
   const sendTextMessage = async () => {
     if (!user?.id) return;
     const hasText = message.trim().length > 0;
     const hasFile = !!attachedFile;
     if (!hasText && !hasFile) return;
-    setSending(true);
-    try {
-      if (hasFile && attachedFile) {
-        const mediaId = await uploadMediaToMeta(attachedFile);
-        if (!mediaId) { setSending(false); return; }
 
-        const mediaType = getMediaType(attachedFile.type);
+    if (hasFile && attachedFile) {
+      // Mídia: precisa aguardar upload à Meta (não dá pra ser 100% otimista sem media_id)
+      const fileSnapshot = attachedFile;
+      const textSnapshot = hasText ? message.trim() : "";
+      const mediaType = getMediaType(fileSnapshot.type);
+      const localPreviewUrl = URL.createObjectURL(fileSnapshot);
+
+      // Otimista imediato com preview local
+      const optimistic = buildOptimistic({
+        bot_message: textSnapshot || `[${mediaType}] ${fileSnapshot.name}`,
+        media_type: mediaType,
+        media_url: localPreviewUrl,
+        media_mime_type: fileSnapshot.type,
+        media_filename: fileSnapshot.name,
+        message_type: mediaType,
+      });
+      addOptimistic?.(optimistic);
+      setMessage("");
+      setAttachedFile(null);
+      setSending(true);
+
+      try {
+        const mediaId = await uploadMediaToMeta(fileSnapshot);
+        if (!mediaId) { updateOptimistic?.(optimistic.id, { status: "failed" }); return; }
 
         const { data: json, error } = await supabase.functions.invoke("send-whatsapp-message", {
           body: {
-            to: cleanPhone,
-            type: mediaType,
-            media_id: mediaId,
-            media_type: mediaType,
-            caption: hasText ? message.trim() : undefined,
-            filename: mediaType === "document" ? attachedFile.name : undefined,
+            to: cleanPhone, type: mediaType, media_id: mediaId, media_type: mediaType,
+            caption: textSnapshot || undefined,
+            filename: mediaType === "document" ? fileSnapshot.name : undefined,
           }
         });
-        if (error || json?.error) { toast.error(`Erro: ${json?.error || error?.message}`); setSending(false); return; }
-
-        const persistentUrl = await saveToStorage(attachedFile, user.id);
-
-        await (supabase as any).from("chat_messages").insert({
-          user_id: user.id, phone: cleanPhone, nomewpp: contactName,
-          bot_message: hasText ? message.trim() : `[${mediaType}] ${attachedFile.name}`,
-          whatsapp_instance_name: "meta_official", message_type: "text", message_direction: "outbound",
-          media_type: mediaType, media_url: persistentUrl,
-          media_mime_type: attachedFile.type, media_filename: attachedFile.name,
-          meta_account_id: metaAccount.id, created_at: new Date().toISOString(),
-        });
-
-        toast.success("Mídia enviada!");
-        setMessage(""); setAttachedFile(null);
-      } else {
-        const { data: json, error } = await supabase.functions.invoke("send-whatsapp-message", {
-          body: { to: cleanPhone, type: "text", text: message.trim() }
-        });
-        if (error || json?.error) { toast.error(`Erro: ${json?.error || error?.message}`); setSending(false); return; }
-
-        await (supabase as any).from("chat_messages").insert({
-          user_id: user.id, phone: cleanPhone, nomewpp: contactName,
-          bot_message: message.trim(), whatsapp_instance_name: "meta_official",
-          message_type: "text", message_direction: "outbound", meta_account_id: metaAccount.id,
-          created_at: new Date().toISOString(),
-        });
-
-        toast.success("Mensagem enviada!");
-        setMessage("");
+        if (error || json?.error) {
+          updateOptimistic?.(optimistic.id, { status: "failed" });
+          toast.error(`Erro: ${json?.error || error?.message}`);
+          return;
+        }
+        updateOptimistic?.(optimistic.id, { status: "sent" });
+        // Persistência em background
+        (async () => {
+          const persistentUrl = await saveToStorage(fileSnapshot, user.id);
+          if (persistentUrl) updateOptimistic?.(optimistic.id, { media_url: persistentUrl });
+          await (supabase as any).from("chat_messages").insert({
+            user_id: user.id, phone: cleanPhone, nomewpp: contactName,
+            bot_message: textSnapshot || `[${mediaType}] ${fileSnapshot.name}`,
+            whatsapp_instance_name: "meta_official", message_type: "text", message_direction: "outbound",
+            media_type: mediaType, media_url: persistentUrl,
+            media_mime_type: fileSnapshot.type, media_filename: fileSnapshot.name,
+            meta_account_id: metaAccount.id, created_at: optimistic.created_at,
+          });
+        })().catch((e) => console.error("Erro persist mídia:", e));
+      } finally {
+        setSending(false);
       }
-      onMessageSent();
-    } catch (err: any) {
-      toast.error("Erro ao enviar: " + (err.message || ""));
-    } finally {
-      setSending(false);
+      return;
     }
+
+    // Texto puro: 100% otimista
+    const textSnapshot = message.trim();
+    const optimistic = buildOptimistic({ bot_message: textSnapshot });
+    addOptimistic?.(optimistic);
+    setMessage("");
+
+    performSend(
+      optimistic,
+      async () => {
+        const { data: json, error } = await supabase.functions.invoke("send-whatsapp-message", {
+          body: { to: cleanPhone, type: "text", text: textSnapshot }
+        });
+        if (error || json?.error) return { ok: false, error: json?.error || error?.message };
+        return { ok: true };
+      },
+      async () => {
+        await (supabase as any).from("chat_messages").insert({
+          user_id: user.id, phone: cleanPhone, nomewpp: contactName,
+          bot_message: textSnapshot, whatsapp_instance_name: "meta_official",
+          message_type: "text", message_direction: "outbound", meta_account_id: metaAccount.id,
+          created_at: optimistic.created_at,
+        });
+      }
+    );
   };
 
   const sendRecordedAudio = async () => {
     if (!recordedBlob || !user?.id) return;
+    const blobSnapshot = recordedBlob;
+    const urlSnapshot = recordedUrl;
+    const filename = `audio_${Date.now()}.ogg`;
+    const file = new File([blobSnapshot], filename, { type: "audio/ogg" });
+
+    const optimistic = buildOptimistic({
+      bot_message: "[audio]",
+      message_type: "audio",
+      media_type: "audio",
+      media_url: urlSnapshot,
+      media_mime_type: "audio/ogg",
+      media_filename: filename,
+    });
+    addOptimistic?.(optimistic);
+    // Limpa gravação imediatamente (mantém o objectURL ativo para o preview otimista)
+    setRecordedBlob(null);
+    setRecordedUrl(null);
+    setRecordingSeconds(0);
     setSending(true);
+
     try {
-      const filename = `audio_${Date.now()}.ogg`;
-      const file = new File([recordedBlob], filename, { type: "audio/ogg" });
-
-
-      // Upload via edge function (proxy CORS)
       const proxyForm = new FormData();
       proxyForm.append("file", file);
       proxyForm.append("phone_number_id", metaAccount.phone_number_id);
@@ -309,7 +399,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
       const uploadRes = await supabase.functions.invoke("meta-media-upload", { body: proxyForm });
       const uploadJson = uploadRes.data;
-      if (!uploadJson?.id) { toast.error("Erro ao enviar áudio"); setSending(false); return; }
+      if (!uploadJson?.id) { updateOptimistic?.(optimistic.id, { status: "failed" }); toast.error("Erro ao enviar áudio"); return; }
 
       const res = await fetch(
         `https://graph.facebook.com/${metaAccount.api_version}/${metaAccount.phone_number_id}/messages`,
@@ -323,22 +413,22 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         }
       );
       const msgJson = await res.json();
-      if (msgJson.error) { toast.error(`Erro: ${msgJson.error.message}`); setSending(false); return; }
+      if (msgJson.error) { updateOptimistic?.(optimistic.id, { status: "failed" }); toast.error(`Erro: ${msgJson.error.message}`); return; }
 
-      const persistentUrl = await saveToStorage(file, user.id);
-
-      await (supabase as any).from("chat_messages").insert({
-        user_id: user.id, phone: cleanPhone, nomewpp: contactName,
-        bot_message: "[audio]", whatsapp_instance_name: "meta_official",
-        message_type: "audio", message_direction: "outbound", media_type: "audio", media_url: persistentUrl,
-        media_mime_type: "audio/ogg", media_filename: filename,
-        meta_account_id: metaAccount.id, created_at: new Date().toISOString(),
-      });
-
-      toast.success("Áudio enviado!");
-      discardRecording();
-      onMessageSent();
+      updateOptimistic?.(optimistic.id, { status: "sent" });
+      (async () => {
+        const persistentUrl = await saveToStorage(file, user.id);
+        if (persistentUrl) updateOptimistic?.(optimistic.id, { media_url: persistentUrl });
+        await (supabase as any).from("chat_messages").insert({
+          user_id: user.id, phone: cleanPhone, nomewpp: contactName,
+          bot_message: "[audio]", whatsapp_instance_name: "meta_official",
+          message_type: "audio", message_direction: "outbound", media_type: "audio", media_url: persistentUrl,
+          media_mime_type: "audio/ogg", media_filename: filename,
+          meta_account_id: metaAccount.id, created_at: optimistic.created_at,
+        });
+      })().catch((e) => console.error("Erro persist áudio:", e));
     } catch (err: any) {
+      updateOptimistic?.(optimistic.id, { status: "failed" });
       toast.error("Erro ao enviar áudio: " + (err.message || ""));
     } finally {
       setSending(false);
@@ -349,34 +439,38 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     if (!user?.id || !selectedTemplate) return;
     const template = templates.find((t) => t.id === selectedTemplate);
     if (!template) return;
-    setSending(true);
-    try {
-      const { data: json, error } = await supabase.functions.invoke("send-whatsapp-message", {
-        body: {
-          to: cleanPhone,
-          type: "template",
-          template_name: template.name,
-          template_language: template.language || "pt_BR",
-        }
-      });
-      if (error || json?.error) { toast.error(`Erro: ${json?.error || error?.message}`); return; }
 
-      await (supabase as any).from("chat_messages").insert({
-        user_id: user.id, phone: cleanPhone, nomewpp: contactName,
-        bot_message: template.body || `[Template] ${template.name}`,
-        whatsapp_instance_name: "meta_official", message_type: "text", message_direction: "outbound",
-        meta_account_id: metaAccount.id, created_at: new Date().toISOString(),
-      });
+    const optimistic = buildOptimistic({
+      bot_message: template.body || `[Template] ${template.name}`,
+    });
+    addOptimistic?.(optimistic);
+    setSelectedTemplate("");
 
-      toast.success("Template enviado!");
-      setSelectedTemplate("");
-      onMessageSent();
-    } catch (err: any) {
-      toast.error("Erro ao enviar template: " + (err.message || ""));
-    } finally {
-      setSending(false);
-    }
+    performSend(
+      optimistic,
+      async () => {
+        const { data: json, error } = await supabase.functions.invoke("send-whatsapp-message", {
+          body: {
+            to: cleanPhone, type: "template",
+            template_name: template.name,
+            template_language: template.language || "pt_BR",
+          }
+        });
+        if (error || json?.error) return { ok: false, error: json?.error || error?.message };
+        return { ok: true };
+      },
+      async () => {
+        await (supabase as any).from("chat_messages").insert({
+          user_id: user.id, phone: cleanPhone, nomewpp: contactName,
+          bot_message: template.body || `[Template] ${template.name}`,
+          whatsapp_instance_name: "meta_official", message_type: "text", message_direction: "outbound",
+          meta_account_id: metaAccount.id, created_at: optimistic.created_at,
+        });
+      }
+    );
   };
+
+
 
   if (loading) {
     return (

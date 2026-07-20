@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -18,6 +18,9 @@ export interface ChatMessage {
   meta_account_id: string | null;
   user_id: string | null;
   created_at: string;
+  // Optimistic UI (client-only)
+  status?: "pending" | "sent" | "failed";
+  __retry?: () => void;
 }
 
 export const useChatMessages = (phone: string | null) => {
@@ -25,6 +28,12 @@ export const useChatMessages = (phone: string | null) => {
   const { isAdmin } = useUserRole();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const pendingRef = useRef<ChatMessage[]>([]);
+
+  // Mantém ref sincronizada para uso no handler realtime
+  useEffect(() => {
+    pendingRef.current = messages.filter((m) => m.status === "pending" || m.status === "failed");
+  }, [messages]);
 
   const fetchMessages = useCallback(async () => {
     if (!phone || !user?.id) return;
@@ -39,9 +48,6 @@ export const useChatMessages = (phone: string | null) => {
       .like("phone", `%${cleanPhone.slice(-8)}`)
       .order("created_at", { ascending: true });
 
-    // Para admin: vê tudo
-    // Para assessor: vê todas as mensagens do lead se ele estiver atribuído,
-    // caso contrário filtra por user_id (segurança)
     if (!isAdmin) {
       const cleanPhoneForLead = phone.replace(/\D/g, "");
       const { data: assignedLead } = await (supabase as any)
@@ -53,20 +59,58 @@ export const useChatMessages = (phone: string | null) => {
         .maybeSingle();
 
       if (!assignedLead) {
-        // Não está atribuído — só vê mensagens que ele mesmo enviou
         query = query.eq("user_id", user.id);
       }
-      // Se está atribuído — não aplica filtro, vê todo o histórico do número
     }
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar mensagens:", error); }
-    setMessages((data || []).filter((m: any) => m.user_message || m.bot_message || m.media_url));
+    const serverMsgs = (data || []).filter((m: any) => m.user_message || m.bot_message || m.media_url);
+    // Preserva otimistas ainda pendentes (não reconciliadas)
+    setMessages((prev) => {
+      const stillPending = prev.filter((m) => m.status === "pending" || m.status === "failed");
+      return [...serverMsgs, ...stillPending];
+    });
     setLoading(false);
   }, [phone, user?.id, isAdmin]);
 
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  const addOptimistic = useCallback((msg: ChatMessage) => {
+    setMessages((prev) => [...prev, msg]);
+  }, []);
+
+  const updateOptimistic = useCallback((tempId: string, patch: Partial<ChatMessage>) => {
+    setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, ...patch } : m)));
+  }, []);
+
+  const removeOptimistic = useCallback((tempId: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== tempId));
+  }, []);
+
+  // Reconciliação: quando chega INSERT do servidor, tenta casar com pendente
+  const reconcile = useCallback((serverMsg: ChatMessage) => {
+    setMessages((prev) => {
+      // Já existe (mesmo id)?
+      if (prev.find((m) => m.id === serverMsg.id)) return prev;
+      // Tenta casar com um pendente similar
+      const idx = prev.findIndex((m) => {
+        if (m.status !== "pending" && m.status !== "sent") return false;
+        if (!m.id.startsWith("temp-") && m.status !== "sent") return false;
+        const sameText = (m.bot_message || "") === (serverMsg.bot_message || "");
+        const sameMedia = (m.media_filename || "") === (serverMsg.media_filename || "");
+        const dt = Math.abs(new Date(m.created_at).getTime() - new Date(serverMsg.created_at).getTime());
+        return sameText && sameMedia && dt < 60_000;
+      });
+      if (idx >= 0) {
+        const clone = [...prev];
+        clone[idx] = { ...serverMsg, status: "sent" };
+        return clone;
+      }
+      return [...prev, serverMsg];
+    });
+  }, []);
 
   // Realtime
   useEffect(() => {
@@ -76,28 +120,20 @@ export const useChatMessages = (phone: string | null) => {
       .channel(`chat-${phone}-${user.id}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "chat_messages",
-        },
+        { event: "INSERT", schema: "public", table: "chat_messages" },
         (payload: any) => {
           const msg = payload.new;
           const cleanPhone = phone.replace(/\D/g, "");
           const msgPhone = (msg.phone || "").replace(/\D/g, "");
           if (msg.whatsapp_instance_name !== "meta_official") return;
           if (!msgPhone.includes(cleanPhone.slice(-8)) && !cleanPhone.includes(msgPhone.slice(-8))) return;
-          // Não filtra por user_id aqui — segurança está na lista de conversas
-          setMessages((prev) => {
-            if (prev.find(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
+          reconcile(msg);
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [phone, user?.id, isAdmin]);
+  }, [phone, user?.id, isAdmin, reconcile]);
 
-  return { messages, loading, refetch: fetchMessages };
+  return { messages, loading, refetch: fetchMessages, addOptimistic, updateOptimistic, removeOptimistic };
 };

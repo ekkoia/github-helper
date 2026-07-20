@@ -1,5 +1,6 @@
 import React from "react";
-import { FileText, Download } from "lucide-react";
+import { FileText, Download, Clock, AlertCircle, Check, RotateCw } from "lucide-react";
+
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { ChatMessage } from "@/hooks/useChatMessages";
 
@@ -53,6 +54,7 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
 }) => {
   const placeholder = message.media_type ? `[${message.media_type}]` : null;
   const displayText = text && !["[audio]", "[image]", "[video]", "[document]"].includes(text) ? text : null;
+  const status = message.status;
 
   return (
     <div className={`flex ${isSent ? "justify-end" : "justify-start"} mb-1 items-end gap-1.5`}>
@@ -60,15 +62,28 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
         isSent
           ? "bg-emerald-700 text-white rounded-br-sm"
           : "bg-card border border-border text-foreground rounded-bl-sm"
-      }`}>
+      } ${status === "pending" ? "opacity-80" : ""} ${status === "failed" ? "ring-1 ring-red-500/60" : ""}`}>
         {isSent && <MediaContent message={message} isSent={isSent} />}
         {displayText && <p className="whitespace-pre-wrap break-words leading-relaxed">{displayText}</p>}
         {!isSent && <MediaContent message={message} isSent={isSent} />}
         {!displayText && !message.media_url && placeholder && (
           <p className="text-xs opacity-60">{placeholder}</p>
         )}
-        <div className={`flex justify-end mt-0.5 ${isSent ? "text-white/60" : "text-muted-foreground"}`}>
+        <div className={`flex justify-end items-center gap-1 mt-0.5 ${isSent ? "text-white/70" : "text-muted-foreground"}`}>
           <span className="text-[10px]">{time}</span>
+          {isSent && status === "pending" && <Clock className="h-3 w-3" />}
+          {isSent && status === "sent" && <Check className="h-3 w-3" />}
+          {isSent && status === "failed" && (
+            <button
+              type="button"
+              onClick={() => message.__retry?.()}
+              className="flex items-center gap-0.5 text-red-300 hover:text-red-100"
+              title="Falha ao enviar — clique para reenviar"
+            >
+              <AlertCircle className="h-3 w-3" />
+              <RotateCw className="h-3 w-3" />
+            </button>
+          )}
         </div>
       </div>
       {/* Avatar do assessor — só para mensagens enviadas pelo CRM (meta_account_id preenchido) */}
@@ -83,6 +98,7 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
     </div>
   );
 };
+
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message, usersMap = {}, isAdmin = false }) => {
   const time = TIME(message.created_at);
