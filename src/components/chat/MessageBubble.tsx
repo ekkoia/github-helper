@@ -1,5 +1,5 @@
 import React from "react";
-import { FileText, Download, Clock, AlertCircle, Check, RotateCw } from "lucide-react";
+import { FileText, Download, Clock, AlertCircle, Check, CheckCheck, RotateCw } from "lucide-react";
 
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { ChatMessage } from "@/hooks/useChatMessages";
@@ -74,19 +74,34 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
         )}
         <div className={`flex justify-end items-center gap-1 mt-0.5 ${isSent ? "text-white/70" : "text-muted-foreground"}`}>
           <span className="text-[10px]">{time}</span>
-          {isSent && status === "pending" && <Clock className="h-3 w-3" />}
-          {isSent && status === "sent" && <Check className="h-3 w-3" />}
-          {isSent && status === "failed" && (
-            <button
-              type="button"
-              onClick={() => message.__retry?.()}
-              className="flex items-center gap-0.5 text-red-300 hover:text-red-100"
-              title="Falha ao enviar — clique para reenviar"
-            >
-              <AlertCircle className="h-3 w-3" />
-              <RotateCw className="h-3 w-3" />
-            </button>
-          )}
+          {isSent && (() => {
+            const dstatus = message.delivery_status;
+            const isFailed = status === "failed" || dstatus === "failed";
+            if (isFailed) {
+              return (
+                <button
+                  type="button"
+                  onClick={() => message.__retry?.()}
+                  className="flex items-center gap-0.5 text-red-300 hover:text-red-100"
+                  title={message.failure_reason ? `Falha: ${message.failure_reason}` : "Falha ao enviar — clique para reenviar"}
+                >
+                  <AlertCircle className="h-3 w-3" />
+                  <RotateCw className="h-3 w-3" />
+                </button>
+              );
+            }
+            if (status === "pending" && !dstatus) {
+              return <span title="Enviando..."><Clock className="h-3 w-3" /></span>;
+            }
+            if (dstatus === "read") {
+              return <CheckCheck className="h-3.5 w-3.5 text-sky-300" aria-label="Lida" />;
+            }
+            if (dstatus === "delivered") {
+              return <CheckCheck className="h-3.5 w-3.5" aria-label="Entregue" />;
+            }
+            // "sent" ou fallback quando otimista virou enviada sem status ainda
+            return <Check className="h-3 w-3" aria-label="Enviada" />;
+          })()}
         </div>
       </div>
       {/* Avatar do assessor — só para mensagens enviadas pelo CRM (meta_account_id preenchido) */}

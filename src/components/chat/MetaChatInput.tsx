@@ -269,10 +269,13 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     ...overrides,
   });
 
+  const extractMetaMessageId = (json: any): string | null =>
+    json?.messages?.[0]?.id || null;
+
   const performSend = async (
     optimistic: ChatMessage,
-    sendFn: () => Promise<{ ok: boolean; error?: string }>,
-    persistFn: () => Promise<void>,
+    sendFn: () => Promise<{ ok: boolean; error?: string; metaMessageId?: string | null }>,
+    persistFn: (metaMessageId: string | null) => Promise<void>,
   ) => {
     const tempId = optimistic.id;
     try {
@@ -282,10 +285,11 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         toast.error(`Erro: ${result.error || "falha ao enviar"}`);
         return;
       }
-      // Marca como enviado imediatamente (Realtime reconciliará com id real)
-      updateOptimistic?.(tempId, { status: "sent" });
+      const metaId = result.metaMessageId || null;
+      // Marca como enviado + guarda meta_message_id para status posterior
+      updateOptimistic?.(tempId, { status: "sent", meta_message_id: metaId, delivery_status: "sent" });
       // Persistência em background — não bloqueia UI
-      persistFn().catch((e) => console.error("Erro ao persistir mensagem:", e));
+      persistFn(metaId).catch((e) => console.error("Erro ao persistir mensagem:", e));
     } catch (err: any) {
       updateOptimistic?.(tempId, { status: "failed" });
       toast.error("Erro ao enviar: " + (err.message || ""));
@@ -335,7 +339,8 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           toast.error(`Erro: ${json?.error || error?.message}`);
           return;
         }
-        updateOptimistic?.(optimistic.id, { status: "sent" });
+        const metaId = extractMetaMessageId(json);
+        updateOptimistic?.(optimistic.id, { status: "sent", meta_message_id: metaId, delivery_status: "sent" });
         // Persistência em background
         (async () => {
           const persistentUrl = await saveToStorage(fileSnapshot, user.id);
@@ -347,6 +352,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
             media_type: mediaType, media_url: persistentUrl,
             media_mime_type: fileSnapshot.type, media_filename: fileSnapshot.name,
             meta_account_id: metaAccount.id, created_at: optimistic.created_at,
+            meta_message_id: metaId, delivery_status: "sent",
           });
         })().catch((e) => console.error("Erro persist mídia:", e));
       } finally {
@@ -368,14 +374,15 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           body: { to: cleanPhone, type: "text", text: textSnapshot }
         });
         if (error || json?.error) return { ok: false, error: json?.error || error?.message };
-        return { ok: true };
+        return { ok: true, metaMessageId: extractMetaMessageId(json) };
       },
-      async () => {
+      async (metaId) => {
         await (supabase as any).from("chat_messages").insert({
           user_id: user.id, phone: cleanPhone, nomewpp: contactName,
           bot_message: textSnapshot, whatsapp_instance_name: "meta_official",
           message_type: "text", message_direction: "outbound", meta_account_id: metaAccount.id,
           created_at: optimistic.created_at,
+          meta_message_id: metaId, delivery_status: "sent",
         });
       }
     );
@@ -428,7 +435,8 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
       const msgJson = await res.json();
       if (msgJson.error) { updateOptimistic?.(optimistic.id, { status: "failed" }); toast.error(`Erro: ${msgJson.error.message}`); return; }
 
-      updateOptimistic?.(optimistic.id, { status: "sent" });
+      const metaId = extractMetaMessageId(msgJson);
+      updateOptimistic?.(optimistic.id, { status: "sent", meta_message_id: metaId, delivery_status: "sent" });
       (async () => {
         const persistentUrl = await saveToStorage(file, user.id);
         if (persistentUrl) updateOptimistic?.(optimistic.id, { media_url: persistentUrl });
@@ -438,6 +446,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           message_type: "audio", message_direction: "outbound", media_type: "audio", media_url: persistentUrl,
           media_mime_type: "audio/ogg", media_filename: filename,
           meta_account_id: metaAccount.id, created_at: optimistic.created_at,
+          meta_message_id: metaId, delivery_status: "sent",
         });
       })().catch((e) => console.error("Erro persist áudio:", e));
     } catch (err: any) {
@@ -470,14 +479,15 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           }
         });
         if (error || json?.error) return { ok: false, error: json?.error || error?.message };
-        return { ok: true };
+        return { ok: true, metaMessageId: extractMetaMessageId(json) };
       },
-      async () => {
+      async (metaId) => {
         await (supabase as any).from("chat_messages").insert({
           user_id: user.id, phone: cleanPhone, nomewpp: contactName,
           bot_message: template.body || `[Template] ${template.name}`,
           whatsapp_instance_name: "meta_official", message_type: "text", message_direction: "outbound",
           meta_account_id: metaAccount.id, created_at: optimistic.created_at,
+          meta_message_id: metaId, delivery_status: "sent",
         });
       }
     );

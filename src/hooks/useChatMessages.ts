@@ -18,6 +18,9 @@ export interface ChatMessage {
   meta_account_id: string | null;
   user_id: string | null;
   created_at: string;
+  meta_message_id?: string | null;
+  delivery_status?: string | null;
+  failure_reason?: string | null;
   // Optimistic UI (client-only)
   status?: "pending" | "sent" | "failed";
   __retry?: () => void;
@@ -43,7 +46,7 @@ export const useChatMessages = (phone: string | null) => {
 
     let query = (supabase as any)
       .from("chat_messages")
-      .select("id, phone, nomewpp, user_message, bot_message, message_type, message_direction, media_type, media_url, media_mime_type, media_filename, meta_account_id, user_id, created_at")
+      .select("id, phone, nomewpp, user_message, bot_message, message_type, message_direction, media_type, media_url, media_mime_type, media_filename, meta_account_id, user_id, created_at, meta_message_id, delivery_status, failure_reason")
       .eq("whatsapp_instance_name", "meta_official")
       .like("phone", `%${cleanPhone.slice(-8)}`)
       .order("created_at", { ascending: true });
@@ -133,6 +136,26 @@ export const useChatMessages = (phone: string | null) => {
             if (msg.whatsapp_instance_name !== "meta_official") return;
             if (!msgPhone.includes(cleanPhone.slice(-8)) && !cleanPhone.includes(msgPhone.slice(-8))) return;
             reconcile(msg);
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "chat_messages" },
+          (payload: any) => {
+            const msg = payload.new;
+            if (msg.whatsapp_instance_name !== "meta_official") return;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === msg.id
+                  ? {
+                      ...m,
+                      delivery_status: msg.delivery_status ?? m.delivery_status,
+                      failure_reason: msg.failure_reason ?? m.failure_reason,
+                      meta_message_id: msg.meta_message_id ?? m.meta_message_id,
+                    }
+                  : m
+              )
+            );
           }
         )
         .subscribe();
