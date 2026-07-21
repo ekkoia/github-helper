@@ -1091,6 +1091,7 @@ export type Database = {
           created_at: string | null
           footer: string | null
           header_content: string | null
+          header_media_url: string | null
           header_type: string | null
           id: string
           language: string
@@ -1108,6 +1109,7 @@ export type Database = {
           created_at?: string | null
           footer?: string | null
           header_content?: string | null
+          header_media_url?: string | null
           header_type?: string | null
           id?: string
           language?: string
@@ -1125,6 +1127,7 @@ export type Database = {
           created_at?: string | null
           footer?: string | null
           header_content?: string | null
+          header_media_url?: string | null
           header_type?: string | null
           id?: string
           language?: string
