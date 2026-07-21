@@ -31,6 +31,9 @@ interface MetaTemplate {
   name: string;
   body: string;
   language: string;
+  header_type?: string | null;
+  header_media_url?: string | null;
+  variables_example?: any;
 }
 
 const ACCEPTED_TYPES: Record<string, string[]> = {
@@ -116,7 +119,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         // Buscar templates aprovados
         const { data: tpls } = await (supabase as any)
           .from("whatsapp_meta_templates")
-          .select("id, name, body, language")
+          .select("id, name, body, language, header_type, header_media_url, variables_example")
           .eq("account_id", metaAccount.id)
           .eq("status", "approved");
         setTemplates(tpls || []);
@@ -457,10 +460,66 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     }
   };
 
+  const buildTemplateComponents = (
+    template: MetaTemplate
+  ): { components: any[]; missingMedia: boolean; missingVars: boolean } => {
+    const components: any[] = [];
+    let missingMedia = false;
+    let missingVars = false;
+
+    const headerType = (template.header_type || "").toUpperCase();
+    if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
+      const url = (template.header_media_url || "").trim();
+      if (!url) {
+        missingMedia = true;
+      } else {
+        const key = headerType.toLowerCase();
+        const mediaObj: any = { link: url };
+        components.push({
+          type: "header",
+          parameters: [{ type: key, [key]: mediaObj }],
+        });
+      }
+    }
+
+    // Body variables
+    const matches = (template.body || "").match(/\{\{\s*\d+\s*\}\}/g) || [];
+    const varCount = new Set(matches.map((m) => m.replace(/\D/g, ""))).size;
+    if (varCount > 0) {
+      const examples: string[] = Array.isArray(template.variables_example)
+        ? template.variables_example.map((v: any) => String(v ?? ""))
+        : [];
+      if (examples.length < varCount) {
+        missingVars = true;
+      } else {
+        components.push({
+          type: "body",
+          parameters: examples.slice(0, varCount).map((t) => ({ type: "text", text: t })),
+        });
+      }
+    }
+
+    return { components, missingMedia, missingVars };
+  };
+
   const sendTemplateMessage = async () => {
     if (!user?.id || !selectedTemplate) return;
     const template = templates.find((t) => t.id === selectedTemplate);
     if (!template) return;
+
+    const { components, missingMedia, missingVars } = buildTemplateComponents(template);
+    if (missingMedia) {
+      toast.error(
+        `Template "${template.name}" precisa de mídia no cabeçalho. Peça ao admin global para cadastrar a URL da imagem em Configurações → WhatsApp → Templates.`
+      );
+      return;
+    }
+    if (missingVars) {
+      toast.error(
+        `Template "${template.name}" tem variáveis no corpo sem valores de exemplo cadastrados.`
+      );
+      return;
+    }
 
     const optimistic = buildOptimistic({
       bot_message: template.body || `[Template] ${template.name}`,
@@ -476,6 +535,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
             to: cleanPhone, type: "template",
             template_name: template.name,
             template_language: template.language || "pt_BR",
+            template_components: components.length > 0 ? components : undefined,
           }
         });
         if (error || json?.error) return { ok: false, error: json?.error || error?.message };

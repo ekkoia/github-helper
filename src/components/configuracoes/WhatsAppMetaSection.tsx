@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { MessageCircle, CheckCircle2, AlertCircle, Save, RefreshCw, Lock } from "lucide-react";
+import { MessageCircle, CheckCircle2, AlertCircle, Save, RefreshCw, Lock, Image as ImageIcon } from "lucide-react";
 
 export const WhatsAppMetaSection = () => {
   const { user } = useAuth();
@@ -204,6 +204,108 @@ export const WhatsAppMetaSection = () => {
             </Button>
           )}
         </div>
+      </div>
+
+      {hasAccount && accountId && <TemplateMediaEditor accountId={accountId} />}
+    </div>
+  );
+};
+
+// Editor de mídia dos templates com header IMAGE/VIDEO/DOCUMENT
+interface TplRow {
+  id: string;
+  name: string;
+  header_type: string | null;
+  header_media_url: string | null;
+  status: string;
+}
+
+const TemplateMediaEditor = ({ accountId }: { accountId: string }) => {
+  const [rows, setRows] = useState<TplRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [edits, setEdits] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("whatsapp_meta_templates")
+        .select("id, name, header_type, header_media_url, status")
+        .eq("account_id", accountId)
+        .in("header_type", ["IMAGE", "VIDEO", "DOCUMENT"])
+        .order("name", { ascending: true });
+      setRows(data || []);
+      const initial: Record<string, string> = {};
+      (data || []).forEach((r: TplRow) => (initial[r.id] = r.header_media_url || ""));
+      setEdits(initial);
+      setLoading(false);
+    })();
+  }, [accountId]);
+
+  const handleSave = async (id: string) => {
+    setSavingId(id);
+    try {
+      const url = (edits[id] || "").trim() || null;
+      const { error } = await (supabase as any)
+        .from("whatsapp_meta_templates")
+        .update({ header_media_url: url })
+        .eq("id", id);
+      if (error) throw error;
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, header_media_url: url } : r)));
+      toast.success("URL de mídia salva!");
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + (err.message || ""));
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  if (loading) return null;
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="space-y-4 pt-4 border-t border-border">
+      <div className="flex items-center gap-2">
+        <ImageIcon className="h-4 w-4 text-green-500" />
+        <h3 className="font-medium text-sm">Mídia do cabeçalho dos templates</h3>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Templates aprovados com cabeçalho de imagem/vídeo/documento precisam de uma URL pública da mídia
+        (a mesma usada quando o template foi criado na Meta). Sem isso o envio retorna erro #132012.
+      </p>
+      <div className="space-y-3">
+        {rows.map((r) => (
+          <div key={r.id} className="p-3 rounded-md border border-border bg-muted/20 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium">{r.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  Header: {r.header_type} · Status: {r.status}
+                </p>
+              </div>
+              {r.header_media_url ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://... (URL pública da mídia)"
+                value={edits[r.id] || ""}
+                onChange={(e) => setEdits((s) => ({ ...s, [r.id]: e.target.value }))}
+                className="text-xs font-mono"
+              />
+              <Button
+                size="sm"
+                onClick={() => handleSave(r.id)}
+                disabled={savingId === r.id || (edits[r.id] || "") === (r.header_media_url || "")}
+              >
+                {savingId === r.id ? "..." : "Salvar"}
+              </Button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
