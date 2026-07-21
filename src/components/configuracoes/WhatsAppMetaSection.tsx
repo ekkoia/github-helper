@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { MessageCircle, CheckCircle2, AlertCircle, Save, RefreshCw, Lock } from "lucide-react";
+import { MessageCircle, CheckCircle2, AlertCircle, Save, RefreshCw, Lock, Image as ImageIcon } from "lucide-react";
 
 export const WhatsAppMetaSection = () => {
   const { user } = useAuth();
