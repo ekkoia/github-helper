@@ -334,7 +334,7 @@ const Kanban = () => {
             return (
               <div
                 key={etapa}
-                className="w-[78vw] md:w-auto md:min-w-[320px] flex-shrink-0 snap-start"
+                className="w-[78vw] md:w-[320px] flex-shrink-0 snap-start"
                 role="region"
                 aria-label={`Coluna ${etapa}`}
               >

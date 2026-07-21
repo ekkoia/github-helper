@@ -1,32 +1,26 @@
-## Diagnóstico
+## Problema
 
-O erro da print vem do Supabase Realtime: `cannot add postgres_changes callbacks ... after subscribe()`.
+Na página `/leads` (aba Kanban), as colunas "Leads FDS" e "Lead WhatsApp (não qualificado)" aparecem mais largas que as demais.
 
-Isso acontece quando o app tenta reaproveitar um canal Realtime que já está em processo de inscrição/inscrito e adiciona novos callbacks nele. No `/chat`, há dois pontos mais prováveis:
+## Causa
 
-1. `useConversations` usa um nome fixo por usuário: `conversations-meta-${user.id}` e adiciona dois callbacks no mesmo canal.
-2. `useChatMessages` usa `chat-${phone}-${user.id}`. Se a tela recarrega, troca conversa rápido, ou o cleanup anterior ainda não terminou, o Supabase pode devolver/reusar um canal ainda ativo e o app quebra a tela inteira pelo `ErrorBoundary`.
+Em `src/pages/Kanban.tsx` (linha 337), cada coluna usa:
 
-## Plano de correção
+```
+className="w-[78vw] md:w-auto md:min-w-[320px] flex-shrink-0 snap-start"
+```
 
-1. **Tornar os canais do chat únicos por montagem**
-   - Ajustar `useConversations` para criar canal com sufixo único estável por montagem.
-   - Ajustar `useChatMessages` para criar canal com sufixo único estável por montagem/conversa.
-   - Manter o cleanup com `supabase.removeChannel(channel)`.
+No desktop, `md:w-auto` + `md:min-w-[320px]` faz a largura se ajustar ao conteúdo. Como o header do card exibe o nome da etapa em uma única linha (`CardTitle` sem `truncate`), etapas com títulos longos ("Leads FDS" com badge, e principalmente "Lead WhatsApp (não qualificado)") esticam a coluna além dos 320px, enquanto etapas de nome curto ficam no mínimo.
 
-2. **Evitar que erro de Realtime derrube a tela**
-   - Envolver a criação/subscrição dos canais em `try/catch`.
-   - Se o Realtime falhar, o chat continua carregando por busca normal, em vez de mostrar “Algo deu errado”.
+## Correção
 
-3. **Reduzir risco de loop/reinscrição desnecessária**
-   - Remover dependências que não afetam o canal quando possível.
-   - Manter callbacks estáveis já existentes (`fetchConversations`, `reconcile`) sem recriar canal mais vezes que o necessário.
+Trocar a largura para um valor fixo no desktop, mantendo o comportamento mobile:
 
-4. **Validar no `/chat`**
-   - Abrir `/chat` com conversa selecionada.
-   - Confirmar que a tela não cai no ErrorBoundary.
-   - Verificar console para garantir que o erro `cannot add postgres_changes callbacks` não aparece mais.
+- De: `w-[78vw] md:w-auto md:min-w-[320px] flex-shrink-0 snap-start`
+- Para: `w-[78vw] md:w-[320px] flex-shrink-0 snap-start`
 
-## Resultado esperado
+E garantir que o título não force o crescimento, adicionando `truncate` no `<span>{etapa}</span>` do `CardTitle` (linha 349) e `min-w-0` no `CardTitle` para permitir o truncamento sem afetar o badge de contagem.
 
-Mesmo que o usuário deslogue, recarregue ou atualize várias vezes, o `/chat` não deve quebrar por conflito de canais Realtime. Se o Realtime falhar momentaneamente, a tela permanece utilizável e os dados ainda carregam via consultas normais.
+## Escopo
+
+Apenas o arquivo `src/pages/Kanban.tsx`, restrito ao container da coluna e ao header. Nenhuma outra lógica (drag/drop, filtros, dados) será alterada.
