@@ -10,6 +10,18 @@ interface State {
   retryCount: number;
 }
 
+const RECONCILIATION_HINTS = [
+  "insertBefore",
+  "removeChild",
+  "is not a child of this node",
+  "The node before which",
+];
+
+const isReconciliationError = (error: Error | null) => {
+  if (!error?.message) return false;
+  return RECONCILIATION_HINTS.some((hint) => error.message.includes(hint));
+};
+
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, error: null, retryCount: 0 };
 
@@ -19,6 +31,19 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: unknown) {
     console.error("ErrorBoundary caught:", error, info);
+
+    // Erros de reconciliação (geralmente causados por extensões ou tradução
+    // automática do navegador) costumam ser transientes. Tenta re-renderizar
+    // automaticamente uma vez antes de mostrar a tela de erro.
+    if (isReconciliationError(error) && this.state.retryCount < 1) {
+      setTimeout(() => {
+        this.setState((prev) => ({
+          hasError: false,
+          error: null,
+          retryCount: prev.retryCount + 1,
+        }));
+      }, 50);
+    }
   }
 
   handleReload = () => {
