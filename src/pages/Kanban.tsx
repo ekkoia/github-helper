@@ -33,6 +33,7 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
+import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 
 const Kanban = () => {
   const { logActivity } = useActivityLog();
