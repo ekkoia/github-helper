@@ -10,7 +10,19 @@ import { AlertCircle, MessageCircle, BotOff, Bot, PanelRightOpen, PanelRightClos
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useIsMobile } from "@/hooks/use-mobile";
+
+const useIsBelowLg = () => {
+  const [v, setV] = React.useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 1024 : false
+  );
+  React.useEffect(() => {
+    const mql = window.matchMedia("(max-width: 1023px)");
+    const on = () => setV(mql.matches);
+    mql.addEventListener("change", on);
+    return () => mql.removeEventListener("change", on);
+  }, []);
+  return v;
+};
 
 interface ChatWindowProps {
   phone: string;
