@@ -582,6 +582,38 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
               )}
             </div>
           )}
+
+          {!isRecording && !recordedBlob && templates.length > 0 && (
+            <div className="flex flex-col gap-1.5 pt-1">
+              <div className="flex gap-2">
+                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <SelectTrigger className="flex-1 h-8 text-xs">
+                    <SelectValue placeholder="Enviar template rápido..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={sendTemplateMessage}
+                  disabled={sending || !selectedTemplate}
+                  className="h-8 text-xs"
+                >
+                  <Send className="h-3.5 w-3.5 mr-1" /> Template
+                </Button>
+              </div>
+              {selectedTemplate && templates.find((t) => t.id === selectedTemplate)?.body && (
+                <div className="text-xs text-muted-foreground bg-muted/10 rounded-md p-2 border border-border">
+                  <span className="font-medium">Preview: </span>
+                  {templates.find((t) => t.id === selectedTemplate)?.body}
+                </div>
+              )}
+            </div>
+          )}
         </>
       ) : (
         <>
