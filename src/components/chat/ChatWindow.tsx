@@ -10,7 +10,19 @@ import { AlertCircle, MessageCircle, BotOff, Bot, PanelRightOpen, PanelRightClos
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useIsMobile } from "@/hooks/use-mobile";
+
+const useIsBelowLg = () => {
+  const [v, setV] = React.useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 1024 : false
+  );
+  React.useEffect(() => {
+    const mql = window.matchMedia("(max-width: 1023px)");
+    const on = () => setV(mql.matches);
+    mql.addEventListener("change", on);
+    return () => mql.removeEventListener("change", on);
+  }, []);
+  return v;
+};
 
 interface ChatWindowProps {
   phone: string;
@@ -24,7 +36,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
   const { account, loading: loadingAccount } = useMetaAccount();
   const { isAdmin } = useUserRole();
   const { usersMap } = useUsers();
-  const isMobile = useIsMobile();
+  const isMobile = useIsBelowLg();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [iaStatus, setIaStatus] = useState<string | null>(null);
   const [loadingIA, setLoadingIA] = useState(false);
@@ -103,13 +115,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
     <div className="flex h-full">
       <div className="flex flex-col flex-1 min-w-0">
         {/* Header */}
-        <div className="px-3 md:px-4 py-3 border-b border-border flex items-center gap-2 md:gap-3 bg-card">
+        <div className="px-3 lg:px-4 py-3 border-b border-border flex items-center gap-2 lg:gap-3 bg-card">
           {onBack && (
             <Button
               variant="ghost"
               size="icon"
               onClick={onBack}
-              className="md:hidden h-8 w-8 flex-shrink-0"
+              className="lg:hidden h-8 w-8 flex-shrink-0"
               aria-label="Voltar"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -152,7 +164,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
         </div>
 
         {/* Mensagens */}
-        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1 bg-muted/10">
+        <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1 bg-muted/10">
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
@@ -204,7 +216,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
         </div>
 
         {/* Input */}
-        <div className="px-3 md:px-4 pb-3 md:pb-4">
+        <div className="px-3 lg:px-4 pb-3 lg:pb-4">
           <MetaChatInput
             contactPhone={phone}
             contactName={name}
@@ -223,15 +235,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
         <>
           {isMobile && (
             <div
-              className="fixed inset-0 bg-black/40 z-40 md:hidden"
+              className="fixed inset-0 bg-black/40 z-40 lg:hidden"
               onClick={() => setShowLeadPanel(false)}
             />
           )}
           <div
             className={
               isMobile
-                ? "fixed right-0 top-0 bottom-0 z-50 bg-background shadow-xl md:hidden animate-in slide-in-from-right"
-                : "hidden md:block"
+                ? "fixed right-0 top-0 bottom-0 z-50 bg-background shadow-xl lg:hidden animate-in slide-in-from-right"
+                : "hidden lg:block"
             }
           >
             <LeadInfoPanel phone={phone} />
