@@ -134,9 +134,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
             className="gap-1.5 text-xs flex-shrink-0"
           >
             {isPaused ? (
-              <><Bot className="h-3.5 w-3.5" /> Reativar IA</>
+              <><Bot className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Reativar IA</span></>
             ) : (
-              <><BotOff className="h-3.5 w-3.5" /> Pausar IA</>
+              <><BotOff className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Pausar IA</span></>
             )}
           </Button>
           {/* Toggle painel do lead */}
