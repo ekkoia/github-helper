@@ -23,14 +23,16 @@ const DashboardPage = () => {
   useRealtimeTable(() => fetchLeads(), { table: "leads", channelKey: "dashboard", debounceMs: 800 });
   useVisiblePolling(() => fetchLeads(), 60_000);
 
+  const hasLoadedRef = useState({ done: false })[0];
   const fetchLeads = async () => {
     try {
-      setIsLoading(true);
+      if (!hasLoadedRef.done) setIsLoading(true);
       const data = await fetchAllLeads();
       setLeads(data);
+      hasLoadedRef.done = true;
     } catch (error: any) {
       console.error("Erro ao buscar leads:", error);
-      toast.error("Erro ao carregar dados do dashboard");
+      if (!hasLoadedRef.done) toast.error("Erro ao carregar dados do dashboard");
     } finally {
       setIsLoading(false);
     }
