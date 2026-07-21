@@ -435,7 +435,8 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
       const msgJson = await res.json();
       if (msgJson.error) { updateOptimistic?.(optimistic.id, { status: "failed" }); toast.error(`Erro: ${msgJson.error.message}`); return; }
 
-      updateOptimistic?.(optimistic.id, { status: "sent" });
+      const metaId = extractMetaMessageId(msgJson);
+      updateOptimistic?.(optimistic.id, { status: "sent", meta_message_id: metaId, delivery_status: "sent" });
       (async () => {
         const persistentUrl = await saveToStorage(file, user.id);
         if (persistentUrl) updateOptimistic?.(optimistic.id, { media_url: persistentUrl });
@@ -445,6 +446,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           message_type: "audio", message_direction: "outbound", media_type: "audio", media_url: persistentUrl,
           media_mime_type: "audio/ogg", media_filename: filename,
           meta_account_id: metaAccount.id, created_at: optimistic.created_at,
+          meta_message_id: metaId, delivery_status: "sent",
         });
       })().catch((e) => console.error("Erro persist áudio:", e));
     } catch (err: any) {
