@@ -1,46 +1,58 @@
-## Objetivo
+## Diagnóstico
 
-Fazer o sistema atualizar dados automaticamente, sem que o usuário precise dar F5. Foco nas telas mais usadas: **/leads**, **/kanban**, **/chat**, **/dashboard** e **/equipe**.
+O erro `#132012 Parameter format does not match format in the created template` acontece porque o template `arv_nova_oferta_comissoes_ruais_2` foi aprovado na Meta com **header do tipo IMAGE**, mas o CRM envia o template **sem os `components`** — ou seja, sem o parâmetro de imagem que a Meta exige no header.
 
-## Diagnóstico atual
+Confirmado no banco:
+- `whatsapp_meta_templates.header_type = 'IMAGE'`
+- `header_content = null` (nunca foi salvo o sample/URL da imagem)
 
-Hoje o realtime só existe em `useChatMessages` (mensagens do chat aberto) e parcialmente em `useConversations` (janelas 24h). O resto do sistema busca dados uma única vez, no `useEffect` de montagem — por isso precisa de F5 para ver atualizações.
+Confirmado no código de envio (`supabase/functions/send-whatsapp-message/index.ts`), o payload de template hoje é apenas:
+```json
+{ "template": { "name": "...", "language": { "code": "pt_BR" } } }
+```
+Faltam os `components` com o parâmetro de header (imagem) — e também suporte a variáveis de body (`{{1}}`, `{{2}}`…) caso o template tenha.
 
-## O que será feito
+## O que fazer
 
-### 1. Realtime nas telas de leads (`/leads`, `/kanban`, `/leads-table`)
+### 1. Persistir a mídia do header
+Adicionar campo `header_media_url` (text) em `whatsapp_meta_templates` para guardar a URL pública da imagem/vídeo/documento aprovada na Meta.
 
-Adicionar assinatura Supabase Realtime na tabela `leads` (INSERT / UPDATE / DELETE). Sempre que qualquer lead mudar (etapa do funil no Kanban, novo lead do webhook Meta, atribuição, edição), a lista atualiza sozinha na tela de todos os usuários abertos.
+### 2. UI de cadastro/edição de template (admin)
+Na tela onde se cadastram templates, quando `header_type ∈ (IMAGE, VIDEO, DOCUMENT)`, exibir campo de upload/URL e salvar em `header_media_url`. Para o template atual (`arv_nova_oferta_comissoes_ruais_2`), o admin colará a URL da imagem aprovada.
 
-- Filtro respeitando papel (admin vê tudo, user vê só os seus).
-- Debounce de 400ms para não re-renderizar em rajadas (import em massa).
-- Habilitar `ALTER PUBLICATION supabase_realtime ADD TABLE public.leads` via migration.
+### 3. Ajustar `send-whatsapp-message`
+Aceitar novo parâmetro opcional `components` no body. Montar `payload.template.components` quando:
+- Header for `IMAGE/VIDEO/DOCUMENT` → adiciona `{ type: "header", parameters: [{ type: "image"|"video"|"document", image: { link: header_media_url } }] }`
+- Header for `TEXT` com variáveis → parâmetros de texto
+- Body tiver `{{n}}` → `{ type: "body", parameters: [...] }`
 
-### 2. Realtime na lista de conversas do `/chat`
+### 4. Ajustar `MetaChatInput.tsx` (`sendTemplateMessage`) e `weekend-leads-followup`
+Antes de invocar `send-whatsapp-message`, ler `header_type`, `header_media_url` e `body` do template selecionado, detectar variáveis (`{{1}}` etc.) e montar o array `components`. Para variáveis, no primeiro momento usar `variables_example` do banco (ou vazio se não houver) — evolução futura pode substituir por nome do lead etc.
 
-Ampliar o `useConversations`:
-- INSERT em `chat_messages` → move a conversa pro topo e atualiza a prévia sem precisar recarregar.
-- UPDATE em `whatsapp_conversation_windows` → bolinha verde de janela 24h já reage (existente, garantir).
-- UPDATE em `leads.responsavel_id` → nome do assessor aparece/some em tempo real.
-
-### 3. Auto-refresh em `/dashboard` e `/equipe`
-
-Métricas agregadas não fazem sentido em realtime puro (muito recálculo). Solução:
-- **Polling leve a cada 60s** enquanto a aba está visível (usando `document.visibilityState` para pausar em aba oculta e evitar consumo).
-- Botão manual de refresh continua disponível.
-
-### 4. Notificações e sidebar
-
-- `useNotifications` já pode ter realtime; garantir INSERT em `notifications` filtrado por `user_id`.
-- Badge de contador atualiza sozinho.
+### 5. Teste
+Reenviar o template `arv_nova_oferta_comissoes_ruais_2` para o Erickson e conferir na Meta e no chat.
 
 ## Detalhes técnicos
 
-- Migration para adicionar `leads`, `chat_messages` (se ainda não estiver), `whatsapp_conversation_windows`, `notifications` à publication `supabase_realtime` e setar `REPLICA IDENTITY FULL` onde necessário.
-- Um único canal por hook, nome único (`${entidade}-${user.id}-${random}`), sempre desinscrito no cleanup do `useEffect` (padrão já em uso).
-- Sem alteração de UI/layout — apenas o comportamento.
+Migração:
+```sql
+ALTER TABLE public.whatsapp_meta_templates
+  ADD COLUMN IF NOT EXISTS header_media_url text;
+```
 
-## O que NÃO será feito
+Formato Meta esperado (exemplo para este template, sem variáveis no body):
+```json
+"components": [
+  { "type": "header",
+    "parameters": [
+      { "type": "image", "image": { "link": "https://..." } }
+    ]
+  }
+]
+```
+Botão URL do template atual é **estático** (`https://arvora.app/pt/login` fixo, sem `{{1}}`), então **não precisa** enviar component de button.
 
-- Não vou tocar em `/agenda`, `/atividades`, `/analytics`, `/perfil`, `/usuarios`, `/configuracoes` neste ciclo. Se quiser expandir depois, é só pedir.
-- Sem service worker / push notifications.
+## Fora do escopo (não mexer agora)
+- Fluxo de sincronização de templates da Meta
+- Preenchimento automático de variáveis com dados do lead (nome, valor etc.) — fica para uma iteração seguinte
+- Envio de templates com header VIDEO/DOCUMENT (a estrutura fica pronta, mas o teste ficará no IMAGE)
