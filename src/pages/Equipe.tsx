@@ -17,6 +17,7 @@ import { CalendarIcon } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useRealtimeTable, useVisiblePolling } from "@/hooks/useRealtimeTable";
 
 const getLeadDate = (lead: any): Date => {
   if (lead.created_time_brasil) {
