@@ -28,7 +28,7 @@ export interface ChatMessage {
 
 export const useChatMessages = (phone: string | null) => {
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const pendingRef = useRef<ChatMessage[]>([]);
@@ -40,6 +40,10 @@ export const useChatMessages = (phone: string | null) => {
 
   const fetchMessages = useCallback(async () => {
     if (!phone || !user?.id) return;
+    // Aguarda o papel do usuário estar resolvido antes de consultar,
+    // caso contrário o filtro fallback (user_id) pode rodar com isAdmin
+    // ainda incerto e sobrescrever o estado com resultado vazio.
+    if (roleLoading) return;
 
     setLoading(true);
     const cleanPhone = phone.replace(/\D/g, "");
@@ -71,10 +75,17 @@ export const useChatMessages = (phone: string | null) => {
     // Preserva otimistas ainda pendentes (não reconciliadas)
     setMessages((prev) => {
       const stillPending = prev.filter((m) => m.status === "pending" || m.status === "failed");
+      const prevServer = prev.filter((m) => m.status !== "pending" && m.status !== "failed");
+      // Se o servidor devolveu vazio mas já tínhamos mensagens carregadas,
+      // preserva o estado anterior (evita "piscar vazio" em race conditions).
+      if (serverMsgs.length === 0 && prevServer.length > 0) {
+        return prev;
+      }
       return [...serverMsgs, ...stillPending];
     });
     setLoading(false);
-  }, [phone, user?.id, isAdmin]);
+  }, [phone, user?.id, isAdmin, roleLoading]);
+
 
   useEffect(() => {
     fetchMessages();
