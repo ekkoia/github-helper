@@ -171,26 +171,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       clearTimeout(signOutTimerRef.current);
       signOutTimerRef.current = null;
     }
-    try {
-      if (user) {
-        await supabase.from("user_activities").insert({
-          user_id: user.id,
-          activity_type: "user_logout",
-          description: "Fez logout do sistema",
-          metadata: {},
-        });
-      }
 
-      await supabase.auth.signOut();
-      // Limpar estado local imediatamente
-      setSession(null);
-      setUser(null);
-    } catch (error) {
-      console.error("Error signing out:", error);
-      // Mesmo com erro, limpar estado local
-      setSession(null);
-      setUser(null);
+    // Fire-and-forget log — não bloqueia o logout se o Supabase estiver inacessível
+    if (user) {
+      try {
+        supabase
+          .from("user_activities")
+          .insert({
+            user_id: user.id,
+            activity_type: "user_logout",
+            description: "Fez logout do sistema",
+            metadata: {},
+          })
+          .then(() => {})
+          .then(undefined, () => {});
+      } catch {
+        // ignora
+      }
     }
+
+    // Tenta signOut local (não depende de round-trip global)
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch (error) {
+      console.warn("supabase.auth.signOut falhou, limpando sessão local mesmo assim:", error);
+    }
+
+    // Fallback: remove manualmente qualquer token sb-* do storage
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith("sb-") || key.includes("supabase.auth."))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {
+      // ignora
+    }
+
+    currentAccessTokenRef.current = null;
+    currentUserIdRef.current = null;
+    setSession(null);
+    setUser(null);
   };
 
   const signInWithGoogle = async () => {
