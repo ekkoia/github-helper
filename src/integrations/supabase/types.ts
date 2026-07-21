@@ -190,7 +190,10 @@ export type Database = {
           bot_message: string | null
           conversation_id: string | null
           created_at: string | null
+          delivery_status: string | null
+          delivery_status_updated_at: string | null
           etapa_atendimento: string | null
+          failure_reason: string | null
           id: number
           media_filename: string | null
           media_mime_type: string | null
@@ -211,7 +214,10 @@ export type Database = {
           bot_message?: string | null
           conversation_id?: string | null
           created_at?: string | null
+          delivery_status?: string | null
+          delivery_status_updated_at?: string | null
           etapa_atendimento?: string | null
+          failure_reason?: string | null
           id?: number
           media_filename?: string | null
           media_mime_type?: string | null
@@ -232,7 +238,10 @@ export type Database = {
           bot_message?: string | null
           conversation_id?: string | null
           created_at?: string | null
+          delivery_status?: string | null
+          delivery_status_updated_at?: string | null
           etapa_atendimento?: string | null
+          failure_reason?: string | null
           id?: number
           media_filename?: string | null
           media_mime_type?: string | null
