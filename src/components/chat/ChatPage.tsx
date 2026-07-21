@@ -28,10 +28,16 @@ export const ChatPage: React.FC = () => {
     setSelectedAssessor(assessorName || null);
   };
 
+  const handleBack = () => setSelectedPhone(null);
+
   return (
     <div className="flex h-[calc(100vh-4rem)] rounded-lg border border-border overflow-hidden bg-background">
       {/* Coluna esquerda — lista de conversas */}
-      <div className="w-80 flex-shrink-0 flex flex-col">
+      <div
+        className={`${
+          selectedPhone ? "hidden md:flex" : "flex"
+        } w-full md:w-80 md:flex-shrink-0 flex-col`}
+      >
         <ConversationList
           conversations={conversations}
           loading={loading}
@@ -40,9 +46,18 @@ export const ChatPage: React.FC = () => {
         />
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div
+        className={`${
+          selectedPhone ? "flex" : "hidden md:flex"
+        } flex-1 flex-col min-w-0`}
+      >
         {selectedPhone ? (
-          <ChatWindow phone={selectedPhone} name={selectedName} assessorName={selectedAssessor} />
+          <ChatWindow
+            phone={selectedPhone}
+            name={selectedName}
+            assessorName={selectedAssessor}
+            onBack={handleBack}
+          />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 text-muted-foreground">
             <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
@@ -58,4 +73,3 @@ export const ChatPage: React.FC = () => {
     </div>
   );
 };
-
