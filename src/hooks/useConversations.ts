@@ -180,6 +180,11 @@ export const useConversations = () => {
           { event: "*", schema: "public", table: "whatsapp_conversation_windows" },
           () => fetchConversations()
         )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "leads" },
+          () => fetchConversations()
+        )
         .subscribe();
     } catch (error) {
       console.error("Erro ao assinar conversas em tempo real:", error);
