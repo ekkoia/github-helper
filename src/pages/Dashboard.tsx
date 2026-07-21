@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { getValorEstimadoLead } from "@/lib/investmentUtils";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useRealtimeTable, useVisiblePolling } from "@/hooks/useRealtimeTable";
 
 const DashboardPage = () => {
   const { isAdmin, loading: loadingRole } = useUserRole();
@@ -17,6 +18,10 @@ const DashboardPage = () => {
   useEffect(() => {
     fetchLeads();
   }, []);
+
+  // Auto-refresh: realtime nos leads + polling a cada 60s enquanto a aba está visível
+  useRealtimeTable(() => fetchLeads(), { table: "leads", channelKey: "dashboard", debounceMs: 800 });
+  useVisiblePolling(() => fetchLeads(), 60_000);
 
   const fetchLeads = async () => {
     try {
