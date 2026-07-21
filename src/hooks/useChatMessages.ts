@@ -138,6 +138,26 @@ export const useChatMessages = (phone: string | null) => {
             reconcile(msg);
           }
         )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "chat_messages" },
+          (payload: any) => {
+            const msg = payload.new;
+            if (msg.whatsapp_instance_name !== "meta_official") return;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === msg.id
+                  ? {
+                      ...m,
+                      delivery_status: msg.delivery_status ?? m.delivery_status,
+                      failure_reason: msg.failure_reason ?? m.failure_reason,
+                      meta_message_id: msg.meta_message_id ?? m.meta_message_id,
+                    }
+                  : m
+              )
+            );
+          }
+        )
         .subscribe();
     } catch (error) {
       console.error("Erro ao assinar mensagens em tempo real:", error);
