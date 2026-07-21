@@ -118,6 +118,13 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Extrai meta_message_id da resposta para rastrear entrega/leitura via webhook
+        let metaMessageId: string | null = null;
+        try {
+          const parsed = JSON.parse(respBody);
+          metaMessageId = parsed?.messages?.[0]?.id ?? null;
+        } catch (_) { /* ignore */ }
+
         // Mark as sent
         await supabase
           .from("leads")
@@ -132,6 +139,8 @@ Deno.serve(async (req) => {
           message_type: "template",
           bot_message: `[Template automático] ${TEMPLATE_NAME}`,
           whatsapp_instance_name: "meta_official",
+          meta_message_id: metaMessageId,
+          delivery_status: metaMessageId ? "sent" : null,
         });
 
         // Notify responsavel + admins
