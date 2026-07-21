@@ -152,7 +152,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
         </div>
 
         {/* Mensagens */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-muted/10">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1 bg-muted/10">
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
@@ -204,7 +204,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
         </div>
 
         {/* Input */}
-        <div className="px-4 pb-4">
+        <div className="px-3 md:px-4 pb-3 md:pb-4">
           <MetaChatInput
             contactPhone={phone}
             contactName={name}
@@ -218,8 +218,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
         </div>
       </div>
 
-      {/* Painel lateral do lead */}
-      {showLeadPanel && <LeadInfoPanel phone={phone} />}
+      {/* Painel lateral do lead — overlay em mobile */}
+      {showLeadPanel && (
+        <>
+          {isMobile && (
+            <div
+              className="fixed inset-0 bg-black/40 z-40 md:hidden"
+              onClick={() => setShowLeadPanel(false)}
+            />
+          )}
+          <div
+            className={
+              isMobile
+                ? "fixed right-0 top-0 bottom-0 z-50 bg-background shadow-xl md:hidden animate-in slide-in-from-right"
+                : "hidden md:block"
+            }
+          >
+            <LeadInfoPanel phone={phone} />
+          </div>
+        </>
+      )}
     </div>
   );
 };
