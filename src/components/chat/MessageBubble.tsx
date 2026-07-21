@@ -91,7 +91,7 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
               );
             }
             if (status === "pending" && !dstatus) {
-              return <Clock className="h-3 w-3" title="Enviando..." />;
+              return <span title="Enviando..."><Clock className="h-3 w-3" /></span>;
             }
             if (dstatus === "read") {
               return <CheckCheck className="h-3.5 w-3.5 text-sky-300" aria-label="Lida" />;
