@@ -19,6 +19,7 @@ interface SendBody {
   filename?: string;
   template_name?: string;
   template_language?: string;
+  template_components?: unknown[];
 }
 
 Deno.serve(async (req) => {
