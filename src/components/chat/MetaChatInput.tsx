@@ -269,10 +269,13 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     ...overrides,
   });
 
+  const extractMetaMessageId = (json: any): string | null =>
+    json?.messages?.[0]?.id || null;
+
   const performSend = async (
     optimistic: ChatMessage,
-    sendFn: () => Promise<{ ok: boolean; error?: string }>,
-    persistFn: () => Promise<void>,
+    sendFn: () => Promise<{ ok: boolean; error?: string; metaMessageId?: string | null }>,
+    persistFn: (metaMessageId: string | null) => Promise<void>,
   ) => {
     const tempId = optimistic.id;
     try {
@@ -282,10 +285,11 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         toast.error(`Erro: ${result.error || "falha ao enviar"}`);
         return;
       }
-      // Marca como enviado imediatamente (Realtime reconciliará com id real)
-      updateOptimistic?.(tempId, { status: "sent" });
+      const metaId = result.metaMessageId || null;
+      // Marca como enviado + guarda meta_message_id para status posterior
+      updateOptimistic?.(tempId, { status: "sent", meta_message_id: metaId, delivery_status: "sent" });
       // Persistência em background — não bloqueia UI
-      persistFn().catch((e) => console.error("Erro ao persistir mensagem:", e));
+      persistFn(metaId).catch((e) => console.error("Erro ao persistir mensagem:", e));
     } catch (err: any) {
       updateOptimistic?.(tempId, { status: "failed" });
       toast.error("Erro ao enviar: " + (err.message || ""));
