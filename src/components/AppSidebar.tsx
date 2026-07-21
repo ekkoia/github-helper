@@ -54,10 +54,11 @@ export function AppSidebar() {
     try {
       await signOut();
       toast.success("Logout realizado com sucesso!");
-      // O ProtectedRoute redirecionará automaticamente para /auth
     } catch (error) {
-      toast.error("Erro ao fazer logout");
       console.error("Logout error:", error);
+    } finally {
+      // Garante redirecionamento mesmo se algo travar
+      window.location.href = "/auth";
     }
   };
 
