@@ -6,26 +6,29 @@ import { useUserRole } from "@/hooks/useUserRole";
 import MessageBubble from "./MessageBubble";
 import MetaChatInput from "./MetaChatInput";
 import LeadInfoPanel from "./LeadInfoPanel";
-import { AlertCircle, MessageCircle, BotOff, Bot, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { AlertCircle, MessageCircle, BotOff, Bot, PanelRightOpen, PanelRightClose, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ChatWindowProps {
   phone: string;
   name: string;
   assessorName?: string | null;
+  onBack?: () => void;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBack }) => {
   const { messages, loading, refetch, addOptimistic, updateOptimistic, removeOptimistic } = useChatMessages(phone);
   const { account, loading: loadingAccount } = useMetaAccount();
   const { isAdmin } = useUserRole();
   const { usersMap } = useUsers();
+  const isMobile = useIsMobile();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [iaStatus, setIaStatus] = useState<string | null>(null);
   const [loadingIA, setLoadingIA] = useState(false);
-  const [showLeadPanel, setShowLeadPanel] = useState(true);
+  const [showLeadPanel, setShowLeadPanel] = useState(false);
 
   // Normaliza no mesmo formato armazenado em dados_cliente (55DDDNUMERO, sem 9 extra)
   const normalizePhoneBR = (raw: string) => {
