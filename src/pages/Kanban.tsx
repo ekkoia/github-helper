@@ -334,7 +334,7 @@ const Kanban = () => {
             return (
               <div
                 key={etapa}
-                className="w-[78vw] md:w-auto md:min-w-[320px] flex-shrink-0 snap-start"
+                className="w-[78vw] md:w-[320px] flex-shrink-0 snap-start"
                 role="region"
                 aria-label={`Coluna ${etapa}`}
               >
@@ -345,9 +345,9 @@ const Kanban = () => {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => handleDrop(etapa)}
                   >
-                    <CardTitle className="flex items-center justify-between text-sm font-semibold">
-                      <span>{etapa}</span>
-                      <Badge variant="secondary" className="bg-white/20 text-white font-medium">
+                    <CardTitle className="flex items-center justify-between gap-2 text-sm font-semibold min-w-0">
+                      <span className="truncate">{etapa}</span>
+                      <Badge variant="secondary" className="bg-white/20 text-white font-medium shrink-0">
                         {leadsNaEtapa.length}
                       </Badge>
                     </CardTitle>
