@@ -6,26 +6,29 @@ import { useUserRole } from "@/hooks/useUserRole";
 import MessageBubble from "./MessageBubble";
 import MetaChatInput from "./MetaChatInput";
 import LeadInfoPanel from "./LeadInfoPanel";
-import { AlertCircle, MessageCircle, BotOff, Bot, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { AlertCircle, MessageCircle, BotOff, Bot, PanelRightOpen, PanelRightClose, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ChatWindowProps {
   phone: string;
   name: string;
   assessorName?: string | null;
+  onBack?: () => void;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBack }) => {
   const { messages, loading, refetch, addOptimistic, updateOptimistic, removeOptimistic } = useChatMessages(phone);
   const { account, loading: loadingAccount } = useMetaAccount();
   const { isAdmin } = useUserRole();
   const { usersMap } = useUsers();
+  const isMobile = useIsMobile();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [iaStatus, setIaStatus] = useState<string | null>(null);
   const [loadingIA, setLoadingIA] = useState(false);
-  const [showLeadPanel, setShowLeadPanel] = useState(true);
+  const [showLeadPanel, setShowLeadPanel] = useState(false);
 
   // Normaliza no mesmo formato armazenado em dados_cliente (55DDDNUMERO, sem 9 extra)
   const normalizePhoneBR = (raw: string) => {
@@ -100,7 +103,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
     <div className="flex h-full">
       <div className="flex flex-col flex-1 min-w-0">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border flex items-center gap-3 bg-card">
+        <div className="px-3 md:px-4 py-3 border-b border-border flex items-center gap-2 md:gap-3 bg-card">
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onBack}
+              className="md:hidden h-8 w-8 flex-shrink-0"
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
           <div className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
             {name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
           </div>
@@ -120,9 +134,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
             className="gap-1.5 text-xs flex-shrink-0"
           >
             {isPaused ? (
-              <><Bot className="h-3.5 w-3.5" /> Reativar IA</>
+              <><Bot className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Reativar IA</span></>
             ) : (
-              <><BotOff className="h-3.5 w-3.5" /> Pausar IA</>
+              <><BotOff className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Pausar IA</span></>
             )}
           </Button>
           {/* Toggle painel do lead */}
@@ -138,7 +152,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
         </div>
 
         {/* Mensagens */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-muted/10">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1 bg-muted/10">
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
@@ -190,7 +204,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
         </div>
 
         {/* Input */}
-        <div className="px-4 pb-4">
+        <div className="px-3 md:px-4 pb-3 md:pb-4">
           <MetaChatInput
             contactPhone={phone}
             contactName={name}
@@ -204,8 +218,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName }) =>
         </div>
       </div>
 
-      {/* Painel lateral do lead */}
-      {showLeadPanel && <LeadInfoPanel phone={phone} />}
+      {/* Painel lateral do lead — overlay em mobile */}
+      {showLeadPanel && (
+        <>
+          {isMobile && (
+            <div
+              className="fixed inset-0 bg-black/40 z-40 md:hidden"
+              onClick={() => setShowLeadPanel(false)}
+            />
+          )}
+          <div
+            className={
+              isMobile
+                ? "fixed right-0 top-0 bottom-0 z-50 bg-background shadow-xl md:hidden animate-in slide-in-from-right"
+                : "hidden md:block"
+            }
+          >
+            <LeadInfoPanel phone={phone} />
+          </div>
+        </>
+      )}
     </div>
   );
 };
