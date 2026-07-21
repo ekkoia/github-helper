@@ -35,8 +35,8 @@ export const ChatPage: React.FC = () => {
       {/* Coluna esquerda — lista de conversas */}
       <div
         className={`${
-          selectedPhone ? "hidden md:flex" : "flex"
-        } w-full md:w-80 md:flex-shrink-0 flex-col`}
+          selectedPhone ? "hidden lg:flex" : "flex"
+        } w-full lg:w-80 lg:flex-shrink-0 flex-col`}
       >
         <ConversationList
           conversations={conversations}
@@ -48,7 +48,7 @@ export const ChatPage: React.FC = () => {
 
       <div
         className={`${
-          selectedPhone ? "flex" : "hidden md:flex"
+          selectedPhone ? "flex" : "hidden lg:flex"
         } flex-1 flex-col min-w-0`}
       >
         {selectedPhone ? (
