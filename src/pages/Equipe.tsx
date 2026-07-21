@@ -37,14 +37,24 @@ const Equipe = () => {
   const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>();
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>();
 
-  useEffect(() => {
+  const hasLoadedRef = useState({ done: false })[0];
+  const refetch = () => {
     if (!isAdmin) return;
-    setLeadsLoading(true);
+    if (!hasLoadedRef.done) setLeadsLoading(true);
     fetchAllLeads()
-      .then(setLeads)
+      .then((d) => { setLeads(d); hasLoadedRef.done = true; })
       .catch(console.error)
       .finally(() => setLeadsLoading(false));
+  };
+
+  useEffect(() => {
+    refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
+
+  // Auto-refresh: realtime + polling a cada 60s enquanto a aba está visível
+  useRealtimeTable(() => refetch(), { table: "leads", channelKey: "equipe", debounceMs: 800, enabled: isAdmin });
+  useVisiblePolling(() => refetch(), 60_000, isAdmin);
 
   const filteredLeads = useMemo(() => {
     if (period === "all") return leads;
