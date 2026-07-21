@@ -1,31 +1,38 @@
-## Diagnóstico
+## Objetivo
 
-O webhook da Meta chegou normalmente para o Erickson (`554185386136`) às **14:28:45** com a resposta do botão "Continuar a conversa" (`type: "button"`). Está gravado em `whatsapp_webhook_events`. Porém dois problemas ocorreram:
+Criar uma rede de segurança para garantir que nenhuma mensagem inbound / resposta de template fique fora do CRM, mesmo que o webhook da Meta falhe momentaneamente ou que apareça um payload novo que a trigger ainda não trate.
 
-### Problema 1 — Janela de 24h não abriu
-A função `upsert_window_from_webhook` só lê `value.statuses[].conversation.expiration_timestamp` (que só chega em eventos **outbound** — sent/delivered). Ela **ignora** eventos `value.messages[]` (mensagens inbound do cliente). Ou seja, quando o cliente responde, a janela nunca é atualizada por essa função — só quando o CRM manda algo depois. Como o assessor tentou enviar antes de qualquer status novo chegar, a janela ficou desatualizada.
+Como a Graph API do WhatsApp Cloud **não expõe endpoint para listar mensagens recebidas de um número**, o job não vai "buscar na Meta". Em vez disso, ele vai **reprocessar `whatsapp_webhook_events`** (que já grava todo payload bruto que a Meta manda) + **monitorar ausência de webhook**.
 
-### Problema 2 — Mensagem do botão não apareceu no CRM
-A inserção de mensagens inbound em `chat_messages` é feita pelo n8n (não pelo Supabase). O payload da resposta do template tem `type: "button"` com o texto em `button.text` / `button.payload`, e o fluxo do n8n provavelmente só trata `type: "text"`, então essa mensagem foi descartada silenciosamente.
+## O que será implementado
 
-## Plano
+### 1. Reprocessador periódico (Edge Function `reconcile-whatsapp-webhooks`)
+- Roda a cada 10 minutos via `pg_cron`.
+- Percorre `whatsapp_webhook_events` das últimas 24h.
+- Para cada evento, chama de novo a lógica de `insert_inbound_from_webhook` e `upsert_window_from_webhook` de forma idempotente (dedup por `meta_message_id`, já existe `IF EXISTS ... CONTINUE`).
+- Registra em log quantas mensagens/janelas foram recuperadas em cada rodada.
 
-### 1. Corrigir `upsert_window_from_webhook` para abrir janela em toda mensagem inbound
-Estender a função para percorrer também `value.messages[]`. Sempre que houver um `messages[]` com `from = <cliente>`, gravar/atualizar `whatsapp_conversation_windows` com `expires_at = timestamp da mensagem + 24h`. Fonte marcada como `'meta_inbound'`. Continua respeitando `GREATEST(expires_at, novo)` para não encurtar janela.
+### 2. Função SQL `reprocess_webhook_events(since timestamptz)`
+- Encapsula o loop de reprocessamento acima em uma função `SECURITY DEFINER`.
+- Facilita reexecução manual pelo admin (ex: "reprocessa últimos 7 dias") e é o que a Edge Function vai chamar.
 
-### 2. Garantir persistência da resposta inbound do template no `chat_messages`
-Estender a função/trigger que popula mensagens (ou criar uma nova trigger em `whatsapp_webhook_events`) para inserir em `chat_messages` toda mensagem inbound de tipos `text` **e também** `button`, `interactive` (button_reply / list_reply), mapeando o texto assim:
-- `button` → `button.text`
-- `interactive.button_reply` → `button_reply.title`
-- `interactive.list_reply` → `list_reply.title`
+### 3. Monitor de webhook parado
+- Nova função SQL `check_webhook_health()` que verifica se `whatsapp_webhook_events` recebeu algum evento nos últimos X minutos (default 30) em horário comercial (08h–20h BRT, seg–sex).
+- Se não recebeu, insere um alerta em `notifications` para admins/global.
+- Roda a cada 15 minutos via `pg_cron`.
 
-Sempre com `message_direction = 'inbound'`, `whatsapp_instance_name = 'meta_official'`, `meta_message_id` preenchido e deduplicando por `meta_message_id` (para não conflitar com o n8n caso ele também insira).
+### 4. Backfill sob demanda ao abrir conversa (opcional, leve)
+- No `useConversations` / `useChatMessages`, quando o usuário abre um chat cuja janela está aberta mas a última mensagem do CRM é anterior a `last_inbound_at` do `whatsapp_conversation_windows`, disparar uma chamada única ao reprocessador limitada àquele `phone_e164`.
+- Isso resolve o caso "assessor abriu agora e ainda não veio a atualização automática do cron".
 
-### 3. Backfill do caso do Erickson
-Inserir manualmente a resposta "Continuar a conversa" de 14:28 em `chat_messages` e abrir a janela de 24h dele (expira 22/07 14:28) para que a Juliana consiga responder ainda hoje.
+## Detalhes técnicos
 
-### Detalhes técnicos
-- Alteração exclusivamente em SQL (função + trigger em `whatsapp_webhook_events`).
-- Dedup por `meta_message_id` via `ON CONFLICT` ou `WHERE NOT EXISTS`.
-- Nenhuma alteração no frontend.
-- A proteção anterior ("só abrir janela com `meta_message_id`") continua válida — os inserts agora virão do webhook real.
+- **Migração SQL**: cria `reprocess_webhook_events(since)` e `check_webhook_health()`; agenda dois jobs `pg_cron` (`reconcile-whatsapp-webhooks` a cada 10 min, `check_webhook_health` a cada 15 min).
+- **Edge Function `reconcile-whatsapp-webhooks`**: sem auth (chamada pelo cron via `net.http_post` com anon key), apenas invoca `SELECT public.reprocess_webhook_events(now() - interval '24 hours')` e retorna contadores.
+- **Idempotência**: garantida por `meta_message_id` (unique-check no insert) e por `GREATEST(expires_at, EXCLUDED.expires_at)` nas janelas — reprocessar 100x o mesmo evento não gera duplicata nem retrocede janela.
+- **Sem alteração no frontend** na primeira fase; o item 4 (backfill sob demanda) fica como fase 2 se necessário.
+
+## O que NÃO será feito (e por quê)
+
+- **Buscar mensagens direto na Graph API**: não existe endpoint público para listar mensagens inbound por número. Não é viável.
+- **Rate limiting custom**: sem primitivo pronto no stack; se necessário, tratamos separadamente.
