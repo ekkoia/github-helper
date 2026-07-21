@@ -84,10 +84,14 @@ Deno.serve(async (req) => {
     if (body.type === "text") {
       payload.text = { body: body.text || "" };
     } else if (body.type === "template") {
-      payload.template = {
+      const template: Record<string, unknown> = {
         name: body.template_name,
         language: { code: body.template_language || "pt_BR" },
       };
+      if (Array.isArray(body.template_components) && body.template_components.length > 0) {
+        template.components = body.template_components;
+      }
+      payload.template = template;
     } else if (["image", "video", "audio", "document"].includes(body.type)) {
       const media: Record<string, unknown> = { id: body.media_id };
       if (body.caption && body.type !== "audio") media.caption = body.caption;
