@@ -204,7 +204,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
         </div>
 
         {/* Input */}
-        <div className="px-3 lg:px-4 pb-3 md:pb-4">
+        <div className="px-3 lg:px-4 pb-3 lg:pb-4">
           <MetaChatInput
             contactPhone={phone}
             contactName={name}
