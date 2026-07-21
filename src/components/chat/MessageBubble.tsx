@@ -1,5 +1,5 @@
 import React from "react";
-import { FileText, Download, Clock, AlertCircle, Check, RotateCw } from "lucide-react";
+import { FileText, Download, Clock, AlertCircle, Check, CheckCheck, RotateCw } from "lucide-react";
 
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { ChatMessage } from "@/hooks/useChatMessages";
