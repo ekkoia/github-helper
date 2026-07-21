@@ -125,6 +125,9 @@ const Kanban = () => {
     return () => window.removeEventListener("funil-reordenado", handler);
   }, []);
 
+  // Realtime: atualiza automaticamente quando leads mudam no banco
+  useRealtimeTable(() => fetchLeads(), { table: "leads", channelKey: "kanban" });
+
   const fetchLeads = async () => {
     setIsLoading(true);
     try {
