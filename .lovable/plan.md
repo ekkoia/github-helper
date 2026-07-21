@@ -1,38 +1,46 @@
-## Diagnóstico
+## Objetivo
 
-Olhando os network requests do preview, **todas** as chamadas para `https://omilhfohvstqsonhyuxp.supabase.co` estão falhando com `Failed to fetch` — inclusive:
+Fazer o sistema atualizar dados automaticamente, sem que o usuário precise dar F5. Foco nas telas mais usadas: **/leads**, **/kanban**, **/chat**, **/dashboard** e **/equipe**.
 
-- `GET /rest/v1/profiles`, `/user_roles`, `/leads`, `/notifications`, `/funil_etapas`, `/user_preferences`
-- `POST /rest/v1/user_activities` (log de logout — tenta várias vezes)
-- `POST /auth/v1/logout?scope=global` ← **é essa que trava o logout**
+## Diagnóstico atual
 
-Ou seja, o botão "Sair" **está executando corretamente** no código (`AuthContext.signOut → supabase.auth.signOut()`), mas a requisição HTTP para o Supabase não completa. Não é bug de código nosso — é o navegador não conseguindo alcançar o Supabase.
+Hoje o realtime só existe em `useChatMessages` (mensagens do chat aberto) e parcialmente em `useConversations` (janelas 24h). O resto do sistema busca dados uma única vez, no `useEffect` de montagem — por isso precisa de F5 para ver atualizações.
 
-Causas mais prováveis (nessa ordem):
+## O que será feito
 
-1. **Bloqueio de rede/CORS/extensão no navegador do usuário** — algum adblock, DNS, firewall corporativo ou VPN bloqueando `*.supabase.co`. Um `Failed to fetch` em 100% das chamadas Supabase é a assinatura clássica disso.
-2. **Projeto Supabase pausado / com problema momentâneo** — se acontecer com todos os usuários ao mesmo tempo, é isso.
-3. **Fluxo de logout travado esperando o `insert` em `user_activities`** — hoje o `signOut` faz `await supabase.from("user_activities").insert(...)` **antes** do `signOut()`. Como esse insert está pendurado com `Failed to fetch`, ele lança e o `catch` até limpa o estado local, mas o token continua no `localStorage` do Supabase e, se o `signOut` remoto também falhar, na próxima visita o `getSession()` reidrata o usuário — dando a sensação de "não deslogou".
+### 1. Realtime nas telas de leads (`/leads`, `/kanban`, `/leads-table`)
 
-## Plano de correção (código)
+Adicionar assinatura Supabase Realtime na tabela `leads` (INSERT / UPDATE / DELETE). Sempre que qualquer lead mudar (etapa do funil no Kanban, novo lead do webhook Meta, atribuição, edição), a lista atualiza sozinha na tela de todos os usuários abertos.
 
-Deixar o logout **resiliente a falhas de rede**, para que mesmo com Supabase inacessível o usuário saia da aplicação:
+- Filtro respeitando papel (admin vê tudo, user vê só os seus).
+- Debounce de 400ms para não re-renderizar em rajadas (import em massa).
+- Habilitar `ALTER PUBLICATION supabase_realtime ADD TABLE public.leads` via migration.
 
-### 1. `src/contexts/AuthContext.tsx` — tornar `signOut` à prova de falha
-- Disparar o `insert` em `user_activities` como **fire-and-forget** (`.then().catch()`), sem `await`, para não bloquear.
-- Chamar `supabase.auth.signOut({ scope: 'local' })` (só limpa sessão local, não exige round-trip global) e envolver em `try/catch` sem propagar erro.
-- **Sempre** ao final: limpar `user`/`session` no state, apagar manualmente as chaves `sb-*-auth-token` do `localStorage` como fallback, e redirecionar para `/auth`.
+### 2. Realtime na lista de conversas do `/chat`
 
-### 2. `src/components/AppSidebar.tsx` — não engolir sucesso
-- Como `signOut` agora nunca lança, remover o `toast.error` do catch (mantendo apenas o `toast.success`) e garantir `navigate('/auth')` explícito após o `await signOut()` em vez de depender só do `ProtectedRoute`.
+Ampliar o `useConversations`:
+- INSERT em `chat_messages` → move a conversa pro topo e atualiza a prévia sem precisar recarregar.
+- UPDATE em `whatsapp_conversation_windows` → bolinha verde de janela 24h já reage (existente, garantir).
+- UPDATE em `leads.responsavel_id` → nome do assessor aparece/some em tempo real.
 
-### 3. Mensagem ao usuário (Andre/Kemily/etc.)
-- Se o problema persistir **só para esse usuário**, é rede/extensão local: pedir para testar em aba anônima, sem VPN e sem adblock, e checar se `https://omilhfohvstqsonhyuxp.supabase.co/rest/v1/` abre no navegador dele.
-- Se acontecer para **todos** ao mesmo tempo, checar status do projeto Supabase (pode ter sido pausado por inatividade/billing).
+### 3. Auto-refresh em `/dashboard` e `/equipe`
 
-## Fora de escopo
-Não vou mexer em RLS, triggers, edge functions, nem em nenhum outro fluxo — só no caminho de logout e no tratamento de erro do botão.
+Métricas agregadas não fazem sentido em realtime puro (muito recálculo). Solução:
+- **Polling leve a cada 60s** enquanto a aba está visível (usando `document.visibilityState` para pausar em aba oculta e evitar consumo).
+- Botão manual de refresh continua disponível.
 
-## Como validar
-1. No preview, clicar em "Sair" com DevTools aberto: o usuário deve ir para `/auth` mesmo se a chamada `/auth/v1/logout` falhar.
-2. Recarregar a página depois — não deve reidratar sessão (localStorage limpo).
+### 4. Notificações e sidebar
+
+- `useNotifications` já pode ter realtime; garantir INSERT em `notifications` filtrado por `user_id`.
+- Badge de contador atualiza sozinho.
+
+## Detalhes técnicos
+
+- Migration para adicionar `leads`, `chat_messages` (se ainda não estiver), `whatsapp_conversation_windows`, `notifications` à publication `supabase_realtime` e setar `REPLICA IDENTITY FULL` onde necessário.
+- Um único canal por hook, nome único (`${entidade}-${user.id}-${random}`), sempre desinscrito no cleanup do `useEffect` (padrão já em uso).
+- Sem alteração de UI/layout — apenas o comportamento.
+
+## O que NÃO será feito
+
+- Não vou tocar em `/agenda`, `/atividades`, `/analytics`, `/perfil`, `/usuarios`, `/configuracoes` neste ciclo. Se quiser expandir depois, é só pedir.
+- Sem service worker / push notifications.
