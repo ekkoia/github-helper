@@ -1173,6 +1173,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_webhook_health: { Args: never; Returns: undefined }
       get_lead_interactions: {
         Args: { _lead_id: string }
         Returns: {
@@ -1206,6 +1207,7 @@ export type Database = {
       }
       normalize_telefone_br: { Args: { _phone: string }; Returns: string }
       phone_key: { Args: { _phone: string }; Returns: string }
+      reprocess_webhook_events: { Args: { _since?: string }; Returns: Json }
     }
     Enums: {
       app_role: "user" | "admin" | "global"
