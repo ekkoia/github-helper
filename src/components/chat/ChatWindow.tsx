@@ -103,7 +103,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
     <div className="flex h-full">
       <div className="flex flex-col flex-1 min-w-0">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border flex items-center gap-3 bg-card">
+        <div className="px-3 md:px-4 py-3 border-b border-border flex items-center gap-2 md:gap-3 bg-card">
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onBack}
+              className="md:hidden h-8 w-8 flex-shrink-0"
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
           <div className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
             {name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
           </div>
