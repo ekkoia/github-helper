@@ -374,14 +374,15 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           body: { to: cleanPhone, type: "text", text: textSnapshot }
         });
         if (error || json?.error) return { ok: false, error: json?.error || error?.message };
-        return { ok: true };
+        return { ok: true, metaMessageId: extractMetaMessageId(json) };
       },
-      async () => {
+      async (metaId) => {
         await (supabase as any).from("chat_messages").insert({
           user_id: user.id, phone: cleanPhone, nomewpp: contactName,
           bot_message: textSnapshot, whatsapp_instance_name: "meta_official",
           message_type: "text", message_direction: "outbound", meta_account_id: metaAccount.id,
           created_at: optimistic.created_at,
+          meta_message_id: metaId, delivery_status: "sent",
         });
       }
     );
