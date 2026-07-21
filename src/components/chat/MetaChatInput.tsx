@@ -339,7 +339,8 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           toast.error(`Erro: ${json?.error || error?.message}`);
           return;
         }
-        updateOptimistic?.(optimistic.id, { status: "sent" });
+        const metaId = extractMetaMessageId(json);
+        updateOptimistic?.(optimistic.id, { status: "sent", meta_message_id: metaId, delivery_status: "sent" });
         // Persistência em background
         (async () => {
           const persistentUrl = await saveToStorage(fileSnapshot, user.id);
@@ -351,6 +352,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
             media_type: mediaType, media_url: persistentUrl,
             media_mime_type: fileSnapshot.type, media_filename: fileSnapshot.name,
             meta_account_id: metaAccount.id, created_at: optimistic.created_at,
+            meta_message_id: metaId, delivery_status: "sent",
           });
         })().catch((e) => console.error("Erro persist mídia:", e));
       } finally {
