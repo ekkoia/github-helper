@@ -33,6 +33,7 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
+import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 
 const Kanban = () => {
   const { logActivity } = useActivityLog();
@@ -123,6 +124,9 @@ const Kanban = () => {
     window.addEventListener("funil-reordenado", handler);
     return () => window.removeEventListener("funil-reordenado", handler);
   }, []);
+
+  // Realtime: atualiza automaticamente quando leads mudam no banco
+  useRealtimeTable(() => fetchLeads(), { table: "leads", channelKey: "kanban" });
 
   const fetchLeads = async () => {
     setIsLoading(true);

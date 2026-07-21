@@ -57,6 +57,7 @@ import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { getTopoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
+import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -132,6 +133,9 @@ const LeadsTable = () => {
     fetchLeads();
     fetchCampaignMap();
   }, []);
+
+  // Realtime: atualiza a tabela quando qualquer lead mudar no banco
+  useRealtimeTable(() => fetchLeads(), { table: "leads", channelKey: "leads-table" });
 
   const fetchCampaignMap = async () => {
     const { data, error } = await supabase.from("leadsNativo_feeagro").select("id, adset_name");

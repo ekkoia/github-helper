@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { getValorEstimadoLead } from "@/lib/investmentUtils";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useRealtimeTable, useVisiblePolling } from "@/hooks/useRealtimeTable";
 
 const DashboardPage = () => {
   const { isAdmin, loading: loadingRole } = useUserRole();
@@ -18,14 +19,20 @@ const DashboardPage = () => {
     fetchLeads();
   }, []);
 
+  // Auto-refresh: realtime nos leads + polling a cada 60s enquanto a aba está visível
+  useRealtimeTable(() => fetchLeads(), { table: "leads", channelKey: "dashboard", debounceMs: 800 });
+  useVisiblePolling(() => fetchLeads(), 60_000);
+
+  const hasLoadedRef = useState({ done: false })[0];
   const fetchLeads = async () => {
     try {
-      setIsLoading(true);
+      if (!hasLoadedRef.done) setIsLoading(true);
       const data = await fetchAllLeads();
       setLeads(data);
+      hasLoadedRef.done = true;
     } catch (error: any) {
       console.error("Erro ao buscar leads:", error);
-      toast.error("Erro ao carregar dados do dashboard");
+      if (!hasLoadedRef.done) toast.error("Erro ao carregar dados do dashboard");
     } finally {
       setIsLoading(false);
     }
