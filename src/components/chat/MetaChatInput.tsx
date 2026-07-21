@@ -31,6 +31,9 @@ interface MetaTemplate {
   name: string;
   body: string;
   language: string;
+  header_type?: string | null;
+  header_media_url?: string | null;
+  variables_example?: any;
 }
 
 const ACCEPTED_TYPES: Record<string, string[]> = {
