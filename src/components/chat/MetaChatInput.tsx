@@ -119,7 +119,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         // Buscar templates aprovados
         const { data: tpls } = await (supabase as any)
           .from("whatsapp_meta_templates")
-          .select("id, name, body, language")
+          .select("id, name, body, language, header_type, header_media_url, variables_example")
           .eq("account_id", metaAccount.id)
           .eq("status", "approved");
         setTemplates(tpls || []);
