@@ -7,21 +7,47 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  retryCount: number;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null };
+const RECONCILIATION_HINTS = [
+  "insertBefore",
+  "removeChild",
+  "is not a child of this node",
+  "The node before which",
+];
 
-  static getDerivedStateFromError(error: Error): State {
+const isReconciliationError = (error: Error | null) => {
+  if (!error?.message) return false;
+  return RECONCILIATION_HINTS.some((hint) => error.message.includes(hint));
+};
+
+export class ErrorBoundary extends Component<Props, State> {
+  state: State = { hasError: false, error: null, retryCount: 0 };
+
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: unknown) {
     console.error("ErrorBoundary caught:", error, info);
+
+    // Erros de reconciliação (geralmente causados por extensões ou tradução
+    // automática do navegador) costumam ser transientes. Tenta re-renderizar
+    // automaticamente uma vez antes de mostrar a tela de erro.
+    if (isReconciliationError(error) && this.state.retryCount < 1) {
+      setTimeout(() => {
+        this.setState((prev) => ({
+          hasError: false,
+          error: null,
+          retryCount: prev.retryCount + 1,
+        }));
+      }, 50);
+    }
   }
 
   handleReload = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, retryCount: 0 });
     window.location.reload();
   };
 
@@ -41,6 +67,11 @@ export class ErrorBoundary extends Component<Props, State> {
                 {this.state.error.message}
               </pre>
             )}
+            <p className="text-xs text-muted-foreground mb-4">
+              Se o problema continuar, desative extensões do navegador
+              (tradutores, Grammarly, etc.) e a tradução automática do Chrome
+              nesta página.
+            </p>
             <button
               onClick={this.handleReload}
               className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90"
