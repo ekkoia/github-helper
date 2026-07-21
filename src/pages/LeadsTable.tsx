@@ -134,6 +134,9 @@ const LeadsTable = () => {
     fetchCampaignMap();
   }, []);
 
+  // Realtime: atualiza a tabela quando qualquer lead mudar no banco
+  useRealtimeTable(() => fetchLeads(), { table: "leads", channelKey: "leads-table" });
+
   const fetchCampaignMap = async () => {
     const { data, error } = await supabase.from("leadsNativo_feeagro").select("id, adset_name");
 
