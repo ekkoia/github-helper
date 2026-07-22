@@ -579,6 +579,15 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   return (
     <div className="border-t border-border pt-3 space-y-2">
+      {ecosystemBlocks >= 2 && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/40 text-xs text-amber-700 dark:text-amber-300">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <span>
+            A Meta está bloqueando entregas para este contato por qualidade do ecossistema
+            ({ecosystemBlocks} falhas nos últimos 30 dias). Evite reenviar templates — considere outro canal.
+          </span>
+        </div>
+      )}
       {isWithin24h ? (
         <>
           <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
