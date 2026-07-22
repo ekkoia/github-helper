@@ -22,15 +22,10 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 const ORIGEM_OPTIONS = [
-  { value: "instagram_ads", label: "Instagram Ads" },
-  { value: "facebook_ads", label: "Facebook Ads" },
-  { value: "whatsapp", label: "WhatsApp" },
   { value: "meta_form", label: "Formulário Nativo Meta" },
-  { value: "formulario_meta", label: "Formulário Nativo Meta" },
-  { value: "campanha_mensagem", label: "Campanha de Mensagem" },
-  { value: "indicacao", label: "Indicação" },
-  { value: "site", label: "Site/Landing Page" },
-  { value: "importacao_planilha", label: "Importação" },
+  { value: "Form Arvora Nativo", label: "Form Arvora Nativo" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "landing_page", label: "Site/Landing Page" },
   { value: "outro", label: "Outro" },
 ];
 
