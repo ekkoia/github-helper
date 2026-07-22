@@ -1,58 +1,43 @@
-## Diagnóstico
+# Implementar 3 melhorias para bloqueios da Meta ("ecosystem engagement")
 
-O erro `#132012 Parameter format does not match format in the created template` acontece porque o template `arv_nova_oferta_comissoes_ruais_2` foi aprovado na Meta com **header do tipo IMAGE**, mas o CRM envia o template **sem os `components`** — ou seja, sem o parâmetro de imagem que a Meta exige no header.
+Objetivo: dar visibilidade e evitar reenvios inúteis quando a Meta bloqueia templates por qualidade/engajamento.
 
-Confirmado no banco:
-- `whatsapp_meta_templates.header_type = 'IMAGE'`
-- `header_content = null` (nunca foi salvo o sample/URL da imagem)
+## 1. Aviso na UI do lead antes de enviar template
 
-Confirmado no código de envio (`supabase/functions/send-whatsapp-message/index.ts`), o payload de template hoje é apenas:
-```json
-{ "template": { "name": "...", "language": { "code": "pt_BR" } } }
-```
-Faltam os `components` com o parâmetro de header (imagem) — e também suporte a variáveis de body (`{{1}}`, `{{2}}`…) caso o template tenha.
+Em `src/components/chat/MetaChatInput.tsx`:
+- Ao carregar o chat de um telefone, consultar `chat_messages` das últimas 30 dias filtrando `phone` (normalizado), `message_direction='outbound'`, `delivery_status='failed'` e `failure_reason ILIKE '%ecosystem engagement%'`.
+- Se houver **≥ 2 falhas** desse tipo, exibir um banner amarelo acima do input:
+  > ⚠️ A Meta está bloqueando entregas para este contato por qualidade do ecossistema (N falhas nos últimos 30 dias). Evite reenviar templates — considere outro canal.
+- Não bloquear o envio; apenas alertar. Assessor decide.
 
-## O que fazer
+## 2. Métrica no Dashboard
 
-### 1. Persistir a mídia do header
-Adicionar campo `header_media_url` (text) em `whatsapp_meta_templates` para guardar a URL pública da imagem/vídeo/documento aprovada na Meta.
+Em `src/components/DashboardMetrics.tsx`:
+- Adicionar novo card **"Templates bloqueados (7d)"** (`ShieldAlert` icon, cor destructive).
+- Fetch dedicado (ou hook novo `useBlockedTemplates`) que faz `count` em `chat_messages` com:
+  - `message_direction='outbound'`
+  - `delivery_status='failed'`
+  - `failure_reason ILIKE '%ecosystem engagement%'`
+  - `created_at >= now() - 7 days`
+- Como o dashboard hoje é filtrado por `leads`, a métrica é global (todas as mensagens do CRM) para admin; para não-admin, filtrar por `user_id = auth.uid()` (mesma lógica dos outros gráficos).
+- Subtítulo: "Últimos 7 dias — qualidade do número".
 
-### 2. UI de cadastro/edição de template (admin)
-Na tela onde se cadastram templates, quando `header_type ∈ (IMAGE, VIDEO, DOCUMENT)`, exibir campo de upload/URL e salvar em `header_media_url`. Para o template atual (`arv_nova_oferta_comissoes_ruais_2`), o admin colará a URL da imagem aprovada.
+Reordenar layout para caber 5 cards ou substituir "Taxa de Resposta IA" — proposta: manter 4 cards e trocar temporariamente `Lead Mais Valioso` não; melhor deixar em `grid ... lg:grid-cols-5` (o grid atual já usa `lg:grid-cols-4`, mudar para `xl:grid-cols-5`).
 
-### 3. Ajustar `send-whatsapp-message`
-Aceitar novo parâmetro opcional `components` no body. Montar `payload.template.components` quando:
-- Header for `IMAGE/VIDEO/DOCUMENT` → adiciona `{ type: "header", parameters: [{ type: "image"|"video"|"document", image: { link: header_media_url } }] }`
-- Header for `TEXT` com variáveis → parâmetros de texto
-- Body tiver `{{n}}` → `{ type: "body", parameters: [...] }`
+## 3. Skip automático no `weekend-leads-followup`
 
-### 4. Ajustar `MetaChatInput.tsx` (`sendTemplateMessage`) e `weekend-leads-followup`
-Antes de invocar `send-whatsapp-message`, ler `header_type`, `header_media_url` e `body` do template selecionado, detectar variáveis (`{{1}}` etc.) e montar o array `components`. Para variáveis, no primeiro momento usar `variables_example` do banco (ou vazio se não houver) — evolução futura pode substituir por nome do lead etc.
-
-### 5. Teste
-Reenviar o template `arv_nova_oferta_comissoes_ruais_2` para o Erickson e conferir na Meta e no chat.
+Em `supabase/functions/weekend-leads-followup/index.ts`, dentro do loop `for (const lead of leads)`:
+- Antes de disparar, além do check de outbound existente, consultar `chat_messages` dos últimos 30 dias para o mesmo `phone` com `delivery_status='failed'` e `failure_reason ILIKE '%ecosystem engagement%'`.
+- Se `count >= 2`: incrementar `skipped`, marcar `template_fds_enviado_em = now()` (para não tentar de novo), continuar.
+- Log: `console.log('Skipped by ecosystem-block', lead.id)`.
 
 ## Detalhes técnicos
 
-Migração:
-```sql
-ALTER TABLE public.whatsapp_meta_templates
-  ADD COLUMN IF NOT EXISTS header_media_url text;
-```
+- Filtro SQL padronizado: `.eq('message_direction','outbound').eq('delivery_status','failed').ilike('failure_reason','%ecosystem engagement%').gte('created_at', <cutoff>)`.
+- Nenhuma migration necessária — todos os campos já existem em `chat_messages` (`delivery_status`, `failure_reason`, `created_at`, `phone`, `message_direction`).
+- Nenhum novo secret ou dependência.
 
-Formato Meta esperado (exemplo para este template, sem variáveis no body):
-```json
-"components": [
-  { "type": "header",
-    "parameters": [
-      { "type": "image", "image": { "link": "https://..." } }
-    ]
-  }
-]
-```
-Botão URL do template atual é **estático** (`https://arvora.app/pt/login` fixo, sem `{{1}}`), então **não precisa** enviar component de button.
-
-## Fora do escopo (não mexer agora)
-- Fluxo de sincronização de templates da Meta
-- Preenchimento automático de variáveis com dados do lead (nome, valor etc.) — fica para uma iteração seguinte
-- Envio de templates com header VIDEO/DOCUMENT (a estrutura fica pronta, mas o teste ficará no IMAGE)
+## Fora de escopo
+- Notificação/alerta em tempo real quando a qualidade do número Meta cai.
+- Reprocessamento/reenvio automático para leads bloqueados.
+- Sinal de bloqueio a partir de outras `failure_reason` (ex.: `131047` "re-engagement" — já é caso diferente e o comportamento atual já cobre).
