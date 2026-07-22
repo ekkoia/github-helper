@@ -1,43 +1,43 @@
-# Implementar 3 melhorias para bloqueios da Meta ("ecosystem engagement")
+## Diagnóstico
 
-Objetivo: dar visibilidade e evitar reenvios inúteis quando a Meta bloqueia templates por qualidade/engajamento.
+Consultei o banco e os valores reais de `leads.origem` hoje são apenas:
 
-## 1. Aviso na UI do lead antes de enviar template
+| origem | qtd |
+|---|---|
+| `meta_form` | 1294 |
+| `whatsapp` | 1069 |
+| `Form Arvora Nativo` | 46 |
+| `landing_page` | 1 |
+| `outro` | 1 |
 
-Em `src/components/chat/MetaChatInput.tsx`:
-- Ao carregar o chat de um telefone, consultar `chat_messages` das últimas 30 dias filtrando `phone` (normalizado), `message_direction='outbound'`, `delivery_status='failed'` e `failure_reason ILIKE '%ecosystem engagement%'`.
-- Se houver **≥ 2 falhas** desse tipo, exibir um banner amarelo acima do input:
-  > ⚠️ A Meta está bloqueando entregas para este contato por qualidade do ecossistema (N falhas nos últimos 30 dias). Evite reenviar templates — considere outro canal.
-- Não bloquear o envio; apenas alertar. Assessor decide.
+Mas o `FiltersSidebar.tsx` oferece 10 opções, sendo que:
 
-## 2. Métrica no Dashboard
+- **`meta_form`** e **`formulario_meta`** aparecem duas vezes com o **mesmo rótulo** "Formulário Nativo Meta". Só `meta_form` existe no banco — a segunda opção nunca retorna nada.
+- **`Form Arvora Nativo`** (46 leads) **não tem opção no filtro**, então esses leads ficam invisíveis por origem.
+- **`instagram_ads`, `facebook_ads`, `campanha_mensagem`, `indicacao`, `site`, `importacao_planilha`** não existem no banco — todas retornam vazio.
+- **`landing_page`** existe no banco mas a opção do filtro está como `site`.
 
-Em `src/components/DashboardMetrics.tsx`:
-- Adicionar novo card **"Templates bloqueados (7d)"** (`ShieldAlert` icon, cor destructive).
-- Fetch dedicado (ou hook novo `useBlockedTemplates`) que faz `count` em `chat_messages` com:
-  - `message_direction='outbound'`
-  - `delivery_status='failed'`
-  - `failure_reason ILIKE '%ecosystem engagement%'`
-  - `created_at >= now() - 7 days`
-- Como o dashboard hoje é filtrado por `leads`, a métrica é global (todas as mensagens do CRM) para admin; para não-admin, filtrar por `user_id = auth.uid()` (mesma lógica dos outros gráficos).
-- Subtítulo: "Últimos 7 dias — qualidade do número".
+O filtro usa igualdade estrita (`lead.origem === filters.origem`), por isso qualquer descasamento resulta em "Nenhum lead encontrado".
 
-Reordenar layout para caber 5 cards ou substituir "Taxa de Resposta IA" — proposta: manter 4 cards e trocar temporariamente `Lead Mais Valioso` não; melhor deixar em `grid ... lg:grid-cols-5` (o grid atual já usa `lg:grid-cols-4`, mudar para `xl:grid-cols-5`).
+## Ajuste (só no filtro, sem mexer em lógica de negócio)
 
-## 3. Skip automático no `weekend-leads-followup`
+Reescrever a lista `ORIGEM_OPTIONS` em `src/components/FiltersSidebar.tsx` para refletir os valores reais:
 
-Em `supabase/functions/weekend-leads-followup/index.ts`, dentro do loop `for (const lead of leads)`:
-- Antes de disparar, além do check de outbound existente, consultar `chat_messages` dos últimos 30 dias para o mesmo `phone` com `delivery_status='failed'` e `failure_reason ILIKE '%ecosystem engagement%'`.
-- Se `count >= 2`: incrementar `skipped`, marcar `template_fds_enviado_em = now()` (para não tentar de novo), continuar.
-- Log: `console.log('Skipped by ecosystem-block', lead.id)`.
+- Remover a opção duplicada `formulario_meta`.
+- Adicionar `Form Arvora Nativo` (valor idêntico ao gravado no banco).
+- Trocar `site` por `landing_page` para casar com o dado real.
+- Remover opções sem nenhum lead correspondente (`instagram_ads`, `facebook_ads`, `campanha_mensagem`, `indicacao`, `importacao_planilha`) para não confundir. Se no futuro passarem a existir, adicionamos.
 
-## Detalhes técnicos
+Lista final:
 
-- Filtro SQL padronizado: `.eq('message_direction','outbound').eq('delivery_status','failed').ilike('failure_reason','%ecosystem engagement%').gte('created_at', <cutoff>)`.
-- Nenhuma migration necessária — todos os campos já existem em `chat_messages` (`delivery_status`, `failure_reason`, `created_at`, `phone`, `message_direction`).
-- Nenhum novo secret ou dependência.
+```text
+meta_form           → "Formulário Nativo Meta"
+Form Arvora Nativo  → "Form Arvora Nativo"
+whatsapp            → "WhatsApp"
+landing_page        → "Site/Landing Page"
+outro               → "Outro"
+```
 
-## Fora de escopo
-- Notificação/alerta em tempo real quando a qualidade do número Meta cai.
-- Reprocessamento/reenvio automático para leads bloqueados.
-- Sinal de bloqueio a partir de outras `failure_reason` (ex.: `131047` "re-engagement" — já é caso diferente e o comportamento atual já cobre).
+Também vou garantir que `ORIGEM_LABELS` em `src/pages/LeadsTable.tsx` (usado na coluna da tabela) tenha entrada para `Form Arvora Nativo` e `landing_page`, para o badge exibir rótulo amigável.
+
+Nenhuma migração de banco, nenhuma alteração no fluxo de captura/dedupe.
