@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, UserPlus, Bot } from "lucide-react";
+import { DollarSign, TrendingUp, UserPlus, Bot, ShieldAlert } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DashboardMetricsProps {
   leads: any[];
