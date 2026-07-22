@@ -154,6 +154,19 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           setWindowExpiresAt(null);
           setIsWithin24h(false);
         }
+
+        // Detecta bloqueios da Meta ("ecosystem engagement") nos últimos 30 dias
+        const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+        const last8 = rawDigits.slice(-8);
+        const { count: blockCount } = await (supabase as any)
+          .from("chat_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("message_direction", "outbound")
+          .eq("delivery_status", "failed")
+          .ilike("failure_reason", "%ecosystem engagement%")
+          .like("phone", `%${last8}`)
+          .gte("created_at", cutoff);
+        setEcosystemBlocks(blockCount || 0);
       } catch (err) {
         console.error("Erro ao inicializar MetaChatInput:", err);
       } finally {
