@@ -90,6 +90,27 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Skip se a Meta já bloqueou 2+ vezes nos últimos 30 dias (ecosystem engagement)
+      const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+      const { count: blockCount } = await supabase
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("phone", phone)
+        .eq("message_direction", "outbound")
+        .eq("delivery_status", "failed")
+        .ilike("failure_reason", "%ecosystem engagement%")
+        .gte("created_at", cutoff);
+
+      if ((blockCount || 0) >= 2) {
+        console.log("Skipped by ecosystem-block", lead.id, "count=", blockCount);
+        await supabase
+          .from("leads")
+          .update({ template_fds_enviado_em: new Date().toISOString() })
+          .eq("id", lead.id);
+        skipped++;
+        continue;
+      }
+
       // Send template via Meta Graph API
       try {
         const resp = await fetch(graphUrl, {
