@@ -99,6 +99,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   const [windowExpiresAt, setWindowExpiresAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [ecosystemBlocks, setEcosystemBlocks] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isRecording, setIsRecording] = useState(false);
@@ -153,6 +154,19 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           setWindowExpiresAt(null);
           setIsWithin24h(false);
         }
+
+        // Detecta bloqueios da Meta ("ecosystem engagement") nos últimos 30 dias
+        const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+        const last8 = rawDigits.slice(-8);
+        const { count: blockCount } = await (supabase as any)
+          .from("chat_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("message_direction", "outbound")
+          .eq("delivery_status", "failed")
+          .ilike("failure_reason", "%ecosystem engagement%")
+          .like("phone", `%${last8}`)
+          .gte("created_at", cutoff);
+        setEcosystemBlocks(blockCount || 0);
       } catch (err) {
         console.error("Erro ao inicializar MetaChatInput:", err);
       } finally {
@@ -565,6 +579,15 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   return (
     <div className="border-t border-border pt-3 space-y-2">
+      {ecosystemBlocks >= 2 && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/40 text-xs text-amber-700 dark:text-amber-300">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <span>
+            A Meta está bloqueando entregas para este contato por qualidade do ecossistema
+            ({ecosystemBlocks} falhas nos últimos 30 dias). Evite reenviar templates — considere outro canal.
+          </span>
+        </div>
+      )}
       {isWithin24h ? (
         <>
           <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">

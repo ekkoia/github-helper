@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, UserPlus, Bot } from "lucide-react";
+import { DollarSign, TrendingUp, UserPlus, Bot, ShieldAlert } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DashboardMetricsProps {
   leads: any[];
@@ -76,6 +77,23 @@ export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
     return (leadsProcessadosIA / totalLeads) * 100;
   }, [leads]);
 
+  // Templates bloqueados pela Meta (ecosystem engagement) últimos 7 dias
+  const [blockedCount, setBlockedCount] = useState(0);
+  useEffect(() => {
+    const fetchBlocked = async () => {
+      const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      const { count } = await (supabase as any)
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("message_direction", "outbound")
+        .eq("delivery_status", "failed")
+        .ilike("failure_reason", "%ecosystem engagement%")
+        .gte("created_at", cutoff);
+      setBlockedCount(count || 0);
+    };
+    fetchBlocked();
+  }, []);
+
   const metrics = [
     {
       title: "Ticket Médio",
@@ -108,11 +126,19 @@ export const DashboardMetrics = ({ leads }: DashboardMetricsProps) => {
       icon: Bot,
       color: "text-status-humano",
       bgColor: "bg-status-humano/10"
+    },
+    {
+      title: "Templates bloqueados (7d)",
+      value: blockedCount.toString(),
+      subtitle: "Bloqueios da Meta por qualidade",
+      icon: ShieldAlert,
+      color: "text-destructive",
+      bgColor: "bg-destructive/10"
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {metrics.map((metric) => {
         const Icon = metric.icon;
         return (
