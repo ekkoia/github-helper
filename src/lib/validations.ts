@@ -1,15 +1,18 @@
 import { z } from "zod";
 
-// Regex para telefone brasileiro: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
-const phoneRegex = /^\(\d{2}\)\s?\d{4,5}-?\d{4}$/;
-
 export const leadSchema = z.object({
   nome_completo: z.string()
     .min(3, "Nome deve ter no mínimo 3 caracteres")
     .max(100, "Nome deve ter no máximo 100 caracteres"),
-  
-  telefone: z.string()
-    .regex(phoneRegex, "Telefone deve estar no formato (XX) XXXXX-XXXX"),
+
+  telefone: z.string().refine(
+    (v) => {
+      const d = (v || "").replace(/\D/g, "");
+      // aceita 10 (fixo) ou 11 (celular) dígitos; opcionalmente com DDI 55
+      return d.length === 10 || d.length === 11 || d.length === 12 || d.length === 13;
+    },
+    { message: "Telefone deve estar no formato (XX) XXXXX-XXXX" }
+  ),
   
   email: z.string()
     .email("Email inválido")
