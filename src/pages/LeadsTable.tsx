@@ -64,12 +64,11 @@ import { useAuth } from "@/contexts/AuthContext";
 const ITEMS_PER_PAGE = 20;
 
 const ORIGEM_LABELS: Record<string, string> = {
-  instagram_ads: "Instagram Ads",
-  facebook_ads: "Facebook Ads",
-  whatsapp: "WhatsApp",
+  meta_form: "Formulário Nativo Meta",
   formulario_meta: "Formulário Nativo Meta",
-  campanha_mensagem: "Campanha de Mensagem",
-  indicacao: "Indicação",
+  "Form Arvora Nativo": "Form Arvora Nativo",
+  whatsapp: "WhatsApp",
+  landing_page: "Site/Landing Page",
   site: "Site/Landing Page",
   outro: "Outro",
 };
