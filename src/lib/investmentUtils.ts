@@ -17,6 +17,17 @@ export const getTopoDaFaixa = (valor: number): number => {
 };
 
 /**
+ * Retorna o PISO (mínimo) da faixa de investimento em que o valor bruto se encaixa.
+ * Baseado nas faixas gravadas pelo webhook (até 10k / 10-50k / 50-100k / acima 100k).
+ */
+export const getPisoDaFaixa = (valor: number): number => {
+  if (valor <= 10000)  return 0;
+  if (valor <= 50000)  return 10000;
+  if (valor <= 100000) return 50000;
+  return 100000;
+};
+
+/**
  * Retorna o valor estimado (ponto médio conservador) de um lead
  * com base em faixa_investimento ou investimento_real.
  */
