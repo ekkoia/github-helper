@@ -54,7 +54,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { cn, getWhatsAppUrl } from "@/lib/utils";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
-import { getTopoDaFaixa } from "@/lib/investmentUtils";
+import { getTopoDaFaixa, getPisoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
