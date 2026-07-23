@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { getWhatsAppUrl } from "@/lib/utils";
+import { getPisoDaFaixa } from "@/lib/investmentUtils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus, Mail, Phone, User, Package, DollarSign, MoreVertical, Eye, Edit, AlertCircle, MessageCircle } from "lucide-react";
@@ -448,7 +449,7 @@ const Kanban = () => {
                                           {new Intl.NumberFormat("pt-BR", {
                                             style: "currency",
                                             currency: "BRL",
-                                          }).format(lead.valor_produto)}
+                                          }).format(getPisoDaFaixa(Number(lead.valor_produto)))}
                                           /sc
                                         </span>
                                       )}

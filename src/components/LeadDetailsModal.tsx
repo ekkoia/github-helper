@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { toast } from "sonner";
 import { getWhatsAppUrl } from "@/lib/utils";
+import { getPisoDaFaixa } from "@/lib/investmentUtils";
 
 const ORIGEM_LABELS: Record<string, string> = {
   instagram_ads: "Instagram Ads",
@@ -311,9 +312,9 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                   <p className="font-medium">{currentLead.volume || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Valor Investido</p>
+                  <p className="text-sm text-muted-foreground">Pretensão</p>
                   <p className="font-medium">
-                    {currentLead.valor_produto ? formatCurrency(currentLead.valor_produto) : "-"}
+                    {currentLead.valor_produto ? formatCurrency(getPisoDaFaixa(Number(currentLead.valor_produto))) : "-"}
                   </p>
                 </div>
                 <div>

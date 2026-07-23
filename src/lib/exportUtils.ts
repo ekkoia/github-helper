@@ -1,4 +1,5 @@
 import { Tables } from "@/integrations/supabase/types";
+import { getPisoDaFaixa } from "@/lib/investmentUtils";
 import * as XLSX from "xlsx";
 
 type Lead = Tables<"leads">;
@@ -15,7 +16,7 @@ const HEADERS = [
   "Telefone",
   "Email",
   "Qtd Cotas",
-  "Valor Investido",
+  "Pretensão",
   "Investimento Real",
   "Etapa do Funil",
   "Origem",
@@ -43,7 +44,7 @@ const buildRows = (leads: Lead[], usersMap: Record<string, UserProfile>): string
     lead.telefone || "",
     lead.email || "",
     lead.volume || "",
-    lead.valor_produto?.toString() || "",
+    lead.valor_produto ? getPisoDaFaixa(Number(lead.valor_produto)).toString() : "",
     lead.investimento_real?.toString() || "",
     lead.etapa_funil || "",
     getOrigemLabel(lead.origem),
