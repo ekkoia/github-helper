@@ -838,7 +838,7 @@ const LeadsTable = () => {
                     <TableHead>Qtd Cotas</TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted" onClick={() => toggleSort("valor_produto")}>
                       <div className="flex items-center gap-2">
-                        Valor Investido
+                        Pretensão
                         <ArrowUpDown className="h-3 w-3" />
                       </div>
                     </TableHead>
