@@ -1,4 +1,5 @@
 import { Tables } from "@/integrations/supabase/types";
+import { getPisoDaFaixa } from "@/lib/investmentUtils";
 import * as XLSX from "xlsx";
 
 type Lead = Tables<"leads">;
