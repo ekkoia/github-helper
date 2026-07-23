@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { toast } from "sonner";
 import { getWhatsAppUrl } from "@/lib/utils";
+import { getPisoDaFaixa } from "@/lib/investmentUtils";
 
 const ORIGEM_LABELS: Record<string, string> = {
   instagram_ads: "Instagram Ads",
