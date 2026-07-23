@@ -902,7 +902,7 @@ const LeadsTable = () => {
                             ? new Intl.NumberFormat("pt-BR", {
                                 style: "currency",
                                 currency: "BRL",
-                              }).format(getTopoDaFaixa(parseFloat(lead.valor_produto)))
+                              }).format(getPisoDaFaixa(parseFloat(lead.valor_produto)))
                             : "-"}
                         </TableCell>
                         <TableCell>
