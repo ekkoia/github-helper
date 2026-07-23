@@ -443,16 +443,20 @@ const Kanban = () => {
                                       <span className="block">
                                         {lead.tipo_grao} - {lead.volume || "Volume não informado"}
                                       </span>
-                                      {lead.valor_produto && (
-                                        <span className="text-xs flex items-center gap-1 mt-0.5">
-                                          <DollarSign className="h-3 w-3" aria-hidden="true" />
-                                          {new Intl.NumberFormat("pt-BR", {
-                                            style: "currency",
-                                            currency: "BRL",
-                                          }).format(getPisoDaFaixa(Number(lead.valor_produto)))}
-                                          /sc
-                                        </span>
-                                      )}
+                                      {(() => {
+                                        const piso = getPisoDaFaixa(lead);
+                                        if (piso <= 0) return null;
+                                        return (
+                                          <span className="text-xs flex items-center gap-1 mt-0.5">
+                                            <DollarSign className="h-3 w-3" aria-hidden="true" />
+                                            {new Intl.NumberFormat("pt-BR", {
+                                              style: "currency",
+                                              currency: "BRL",
+                                            }).format(piso)}
+                                            /sc
+                                          </span>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                 )}
