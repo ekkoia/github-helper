@@ -16,7 +16,7 @@ const HEADERS = [
   "Telefone",
   "Email",
   "Qtd Cotas",
-  "Valor Investido",
+  "Pretensão",
   "Investimento Real",
   "Etapa do Funil",
   "Origem",
