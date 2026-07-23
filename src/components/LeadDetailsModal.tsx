@@ -314,7 +314,7 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                 <div>
                   <p className="text-sm text-muted-foreground">Pretensão</p>
                   <p className="font-medium">
-                    {currentLead.valor_produto ? formatCurrency(getPisoDaFaixa(Number(currentLead.valor_produto))) : "-"}
+                    {(() => { const p = getPisoDaFaixa(currentLead); return p > 0 ? formatCurrency(p) : "-"; })()}
                   </p>
                 </div>
                 <div>
