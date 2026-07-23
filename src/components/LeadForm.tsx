@@ -91,18 +91,22 @@ export const LeadForm = ({ onSuccess, onCancel, initialData }: LeadFormProps) =>
           .from("leads")
           .insert([submitData])
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
-        
-        // Registrar atividade de criação
-        await logActivity(
-          'lead_created',
-          `Criou o lead "${data.nome_completo}"`,
-          { lead_id: newLead?.id, lead_nome: data.nome_completo }
-        );
-        
-        toast.success("Lead criado com sucesso!");
+
+        if (newLead?.id) {
+          // Registrar atividade de criação
+          await logActivity(
+            'lead_created',
+            `Criou o lead "${data.nome_completo}"`,
+            { lead_id: newLead.id, lead_nome: data.nome_completo }
+          );
+          toast.success("Lead criado com sucesso!");
+        } else {
+          // Trigger de dedupe fez merge no lead existente (mesmo telefone)
+          toast.success("Lead já existia — informações mescladas ao registro existente.");
+        }
       }
 
       onSuccess();
