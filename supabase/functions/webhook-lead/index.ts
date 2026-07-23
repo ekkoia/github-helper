@@ -156,10 +156,78 @@ serve(async (req) => {
     const normalizedEmail = leadData.email.trim().toLowerCase();
     const normalizedPhone = leadData.telefone.trim().replace(/[^0-9]/g, '');
 
+    // ---------- Shared parsers/normalizers (used by both merge and insert paths) ----------
+    const parseNumericValue = (value: any): number | null => {
+      if (value === null || value === undefined || value === '' || value === 'nao_informado' || value === 'N/A') return null;
+      const parsed = typeof value === 'string' ? parseFloat(value) : value;
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    const parseValorInvestido = (value: any): number | null => {
+      if (value === null || value === undefined || value === '' || value === 'nao_informado') return null;
+      if (typeof value === 'number') return value;
+      const valorStr = String(value).toLowerCase().trim();
+      const faixas: Record<string, number> = {
+        'até r$10 mil': 10000,
+        'ate r$10 mil': 10000,
+        'de r$10 mil a r$50 mil': 50000,
+        'de r$50 mil a r$100 mil': 100000,
+        'acima de r$100 mil': 150000,
+      };
+      for (const [faixa, valor] of Object.entries(faixas)) {
+        if (valorStr.includes(faixa) || faixa.includes(valorStr)) return valor;
+      }
+      const numStr = valorStr.replace(/[^\d.,]/g, '').replace(',', '.');
+      const parsed = parseFloat(numStr);
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    const parseVolumeToString = (value: any): string | null => {
+      if (value === null || value === undefined || value === '' || value === 'nao_informado') return null;
+      return String(value);
+    };
+
+    const normalizeText = (value: string) =>
+      value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+    const validArmazenamentos = ['Silo Bolsa', 'Silo Metálico', 'Colheitadeira', 'Outro'] as const;
+    const armazenamentoLookup = new Map<string, (typeof validArmazenamentos)[number]>(
+      validArmazenamentos.map((v) => [normalizeText(v), v])
+    );
+    const armazenamentoInput = typeof leadData.armazenamento === 'string' ? leadData.armazenamento.trim() : '';
+    const armazenamento =
+      !armazenamentoInput || armazenamentoInput === 'nao_informado'
+        ? null
+        : armazenamentoLookup.get(normalizeText(armazenamentoInput)) ?? null;
+
+    if (armazenamentoInput && armazenamentoInput !== 'nao_informado' && !armazenamento) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Armazenamento inválido. Valores aceitos: ${validArmazenamentos.join(', ')}`,
+          received: leadData.armazenamento,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const validSentidos = ['Norte', 'Sul', 'Leste', 'Oeste', 'Nordeste', 'Noroeste', 'Sudeste', 'Sudoeste'] as const;
+    const sentidoLookup = new Map<string, (typeof validSentidos)[number]>(
+      validSentidos.map((v) => [normalizeText(v), v])
+    );
+    const sentidoInput = typeof leadData.sentido === 'string' ? leadData.sentido.trim() : '';
+    const sentido = !sentidoInput || sentidoInput === 'nao_informado'
+      ? null
+      : sentidoLookup.get(normalizeText(sentidoInput)) ?? null;
+
+    const valorProdutoRaw = leadData.valor_produto ?? leadData.valor_investido;
+    const valorProduto = parseValorInvestido(valorProdutoRaw);
+    console.log('Valor produto raw:', valorProdutoRaw, '-> parsed:', valorProduto);
+
     // DEDUPLICATION: Check if a lead with same email or phone already exists
     const { data: existingLead } = await supabase
       .from('leads')
-      .select('id, responsavel_id, nome_completo, protocolo_atendimento, observacoes, etapa_funil')
+      .select('id, responsavel_id, nome_completo, protocolo_atendimento, observacoes, etapa_funil, origens, valor_produto, perfil, intencao, tipo_grao, volume, cidade, uf, localizacao_embarque, distancia_km, sentido, estrada_terra_km, armazenamento, qualidade, tem_royalties, percentual_royalties')
       .or(`email.eq.${normalizedEmail},telefone.eq.${leadData.telefone.trim()}`)
       .order('data_criacao', { ascending: true })
       .limit(1)
@@ -168,35 +236,43 @@ serve(async (req) => {
     if (existingLead) {
       console.log('Existing lead found, merging data:', existingLead.id);
 
-      // Build merge observation
-      const mergeNote = `\n[${new Date().toISOString()}] Dados atualizados via webhook (origem: ${leadData.origem || 'webhook'})`;
-      const updatedObservacoes = (existingLead.observacoes || '') + mergeNote;
+      // Build observacoes: append incoming payload observacoes (if not already present) + merge note
+      const isEmpty = (v: any) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+      const incomingObs = typeof leadData.observacoes === 'string' ? leadData.observacoes.trim() : '';
+      let updatedObservacoes = existingLead.observacoes || '';
+      if (incomingObs && !updatedObservacoes.includes(incomingObs)) {
+        updatedObservacoes = updatedObservacoes
+          ? `${updatedObservacoes}\n\n${incomingObs}`
+          : incomingObs;
+      }
+      updatedObservacoes += `\n[${new Date().toISOString()}] Dados atualizados via webhook (origem: ${leadData.origem || 'webhook'})`;
 
-      // Fetch current origens to append
-      const { data: currentLeadData } = await supabase
-        .from('leads')
-        .select('origens')
-        .eq('id', existingLead.id)
-        .single();
-
-      const currentOrigens: string[] = Array.isArray(currentLeadData?.origens) ? currentLeadData.origens : [];
+      const currentOrigens: string[] = Array.isArray((existingLead as any).origens) ? (existingLead as any).origens : [];
       const newOrigem = leadData.origem || 'webhook';
       const updatedOrigens = currentOrigens.includes(newOrigem) ? currentOrigens : [...currentOrigens, newOrigem];
 
-      // Merge: update existing lead with new data (only fill empty fields)
       const mergeData: Record<string, any> = {
         observacoes: updatedObservacoes,
         data_atualizacao: new Date().toISOString(),
         origens: updatedOrigens,
       };
 
-      // Only update fields that are currently null/empty on the existing lead
-      if (leadData.perfil) mergeData.perfil = leadData.perfil;
-      if (leadData.intencao) mergeData.intencao = leadData.intencao;
-      if (leadData.tipo_grao) mergeData.tipo_grao = leadData.tipo_grao;
-      if (leadData.volume) mergeData.volume = String(leadData.volume);
-      if (leadData.cidade) mergeData.cidade = leadData.cidade;
-      if (leadData.uf) mergeData.uf = leadData.uf;
+      // Fill-only-if-empty for all payload fields
+      if (isEmpty(existingLead.valor_produto) && valorProduto !== null) mergeData.valor_produto = valorProduto;
+      if (isEmpty(existingLead.perfil) && leadData.perfil) mergeData.perfil = leadData.perfil;
+      if (isEmpty(existingLead.intencao) && leadData.intencao) mergeData.intencao = leadData.intencao;
+      if (isEmpty(existingLead.tipo_grao) && leadData.tipo_grao) mergeData.tipo_grao = leadData.tipo_grao;
+      if (isEmpty(existingLead.volume) && parseVolumeToString(leadData.volume)) mergeData.volume = parseVolumeToString(leadData.volume);
+      if (isEmpty(existingLead.cidade) && leadData.cidade) mergeData.cidade = leadData.cidade;
+      if (isEmpty(existingLead.uf) && leadData.uf) mergeData.uf = leadData.uf;
+      if (isEmpty(existingLead.localizacao_embarque) && leadData.localizacao_embarque) mergeData.localizacao_embarque = leadData.localizacao_embarque;
+      if (isEmpty(existingLead.distancia_km) && parseNumericValue(leadData.distancia_km) !== null) mergeData.distancia_km = parseNumericValue(leadData.distancia_km);
+      if (isEmpty(existingLead.sentido) && sentido) mergeData.sentido = sentido;
+      if (isEmpty(existingLead.estrada_terra_km) && parseNumericValue(leadData.estrada_terra_km) !== null) mergeData.estrada_terra_km = parseNumericValue(leadData.estrada_terra_km);
+      if (isEmpty(existingLead.armazenamento) && armazenamento) mergeData.armazenamento = armazenamento;
+      if (isEmpty(existingLead.qualidade) && leadData.qualidade) mergeData.qualidade = leadData.qualidade;
+      if (isEmpty(existingLead.tem_royalties) && leadData.tem_royalties) mergeData.tem_royalties = leadData.tem_royalties;
+      if (isEmpty(existingLead.percentual_royalties) && parseNumericValue(leadData.percentual_royalties) !== null) mergeData.percentual_royalties = parseNumericValue(leadData.percentual_royalties);
       if (leadData.origem) mergeData.origem = leadData.origem;
 
       const { error: updateError } = await supabase
