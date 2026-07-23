@@ -898,13 +898,17 @@ const LeadsTable = () => {
                         </TableCell>
                         <TableCell>{lead.volume || "-"}</TableCell>
                         <TableCell>
-                          {lead.valor_produto
-                            ? new Intl.NumberFormat("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                              }).format(getPisoDaFaixa(parseFloat(lead.valor_produto)))
-                            : "-"}
+                          {(() => {
+                            const piso = getPisoDaFaixa(lead);
+                            return piso > 0
+                              ? new Intl.NumberFormat("pt-BR", {
+                                  style: "currency",
+                                  currency: "BRL",
+                                }).format(piso)
+                              : "-";
+                          })()}
                         </TableCell>
+
                         <TableCell>
                           {(() => {
                             const origens: string[] = Array.isArray(lead.origens) ? lead.origens : [];

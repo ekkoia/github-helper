@@ -44,7 +44,7 @@ const buildRows = (leads: Lead[], usersMap: Record<string, UserProfile>): string
     lead.telefone || "",
     lead.email || "",
     lead.volume || "",
-    lead.valor_produto ? getPisoDaFaixa(Number(lead.valor_produto)).toString() : "",
+    (() => { const p = getPisoDaFaixa(lead); return p > 0 ? p.toString() : ""; })(),
     lead.investimento_real?.toString() || "",
     lead.etapa_funil || "",
     getOrigemLabel(lead.origem),
