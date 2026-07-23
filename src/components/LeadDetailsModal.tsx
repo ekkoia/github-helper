@@ -311,9 +311,9 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                   <p className="font-medium">{currentLead.volume || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Valor Investido</p>
+                  <p className="text-sm text-muted-foreground">Pretensão</p>
                   <p className="font-medium">
-                    {currentLead.valor_produto ? formatCurrency(currentLead.valor_produto) : "-"}
+                    {currentLead.valor_produto ? formatCurrency(getPisoDaFaixa(Number(currentLead.valor_produto))) : "-"}
                   </p>
                 </div>
                 <div>
