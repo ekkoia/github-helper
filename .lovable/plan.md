@@ -1,46 +1,40 @@
-## Diagnóstico
 
-Analisando `supabase/functions/webhook-lead/index.ts` no bloco de deduplicação (linhas 168-250), identifiquei a causa:
+## Contexto do problema
 
-Quando o lead **já existe** (caso do print — o mesmo contato entrou primeiro pela sincronização Meta e depois pelo "Form Arvora Nativo"), o merge atual:
+Hoje, na tabela `/leads`, a coluna **Valor Investido** exibe `getTopoDaFaixa(valor_produto)`, ou seja, o **teto** da faixa de investimento. Já o modal de **Detalhes do Lead** mostra o `valor_produto` bruto (que o webhook grava como o teto da faixa detectada).
 
-1. **Ignora completamente o `observacoes` recebido no payload** — só anexa a nota genérica `"[timestamp] Dados atualizados via webhook (origem: Form Arvora Nativo)"`. Por isso o campo Observações só mostra o header do primeiro cadastro + os timestamps, sem o bloco "INFORMAÇÕES COMPLEMENTARES / Valor pretendido / Hora do cadastro".
-2. **Não atualiza `valor_produto`** (o campo que armazena o valor investido) — o merge só toca em `perfil, intencao, tipo_grao, volume, cidade, uf, origem`. Se o lead veio primeiro sem valor, ele fica sem valor pra sempre.
-3. Não preenche outros campos numéricos/texto vazios (`distancia_km`, `qualidade`, `armazenamento`, etc.) que também podem chegar pelo Form Arvora Nativo.
+Exemplos observados:
+- Webhook recebe "até R$10 mil" → grava `valor_produto = 10000` → tabela aplica `getTopoDaFaixa(10000)` = 20000 → aparece **R$ 20 mil** na lista e **R$ 10 mil** no detalhe.
+- Webhook recebe "R$1.000" → grava `valor_produto = 1000` → `getTopoDaFaixa(1000)` = 5000 → **R$ 5 mil** na lista, **R$ 1.000** no detalhe.
 
-Para leads **novos** (não duplicados) tudo funciona — o bloco de inserção (linhas 358-388) já parseia `valor_investido` corretamente via `parseValorInvestido`.
+O usuário quer que a coluna passe a mostrar o **piso** da faixa (o mínimo) e que o cabeçalho seja renomeado para **Pretensão**.
 
-## Correção
+## O que muda
 
-Editar apenas o bloco de merge em `supabase/functions/webhook-lead/index.ts`:
+### 1. Nova função `getPisoDaFaixa` em `src/lib/investmentUtils.ts`
 
-1. **Ampliar o `select` do `existingLead`** para trazer também `valor_produto`, `volume`, `tipo_grao`, `perfil`, `intencao`, `cidade`, `uf`, `distancia_km`, `sentido`, `estrada_terra_km`, `armazenamento`, `qualidade`, `tem_royalties`, `percentual_royalties`, `localizacao_embarque` — para poder decidir "só preenche se estiver vazio".
+Mapeia `valor_produto` (que hoje já vem como topo de faixa do webhook) para o mínimo da faixa:
 
-2. **Anexar `observacoes` recebidas do payload** ao campo `observacoes` do lead existente, além da nota de merge:
-   ```
-   observacoes_atual
-   + "\n\n" + observacoes_recebidas   (se vieram no payload e ainda não estão lá)
-   + "\n[timestamp] Dados atualizados via webhook (origem: ...)"
-   ```
-   Com dedupe simples pra não duplicar o mesmo bloco em disparos repetidos (checar se o texto já está contido).
+```text
+valor_produto  →  piso exibido
+10000  (até R$10 mil)       →  R$ 0        (faixa "até 10 mil")
+50000  (R$10 mil – R$50 mil) →  R$ 10.000
+100000 (R$50 mil – R$100 mil)→  R$ 50.000
+150000 (acima de R$100 mil)  →  R$ 100.000
+Outros valores intermediários caem na faixa correspondente pelo mesmo critério.
+```
 
-3. **Atualizar `valor_produto` quando estiver vazio no lead existente**, reutilizando o mesmo `parseValorInvestido` já definido mais abaixo no arquivo (mover a função pra antes do bloco de merge, ou duplicar a lógica). Aceita `valor_produto` ou `valor_investido` do payload.
+Regra: escolher o piso da faixa em que o valor bruto se encaixa (`≤10k → 0`, `≤50k → 10k`, `≤100k → 50k`, `>100k → 100k`). `getTopoDaFaixa` continua existindo para uso em somas/dashboards (memory: "top-of-range for sums").
 
-4. **Preencher demais campos vazios** com "fill only if empty": para cada campo do payload, só grava se `existingLead.<campo>` for null/vazio. Reutilizar os parsers/normalizações (`parseNumericValue`, `parseVolumeToString`, `armazenamentoLookup`, `sentidoLookup`) — mover essas helpers/constantes pra antes do bloco de merge para poderem ser usadas nos dois caminhos (merge e insert).
+### 2. `src/pages/LeadsTable.tsx`
 
-5. **Não alterar** o comportamento do path de inserção nova, nem qualquer outra função/tabela/trigger.
+- Trocar o texto do cabeçalho da coluna de **"Valor Investido"** para **"Pretensão"** (linha 841).
+- Substituir `getTopoDaFaixa(...)` por `getPisoDaFaixa(...)` na renderização da célula (linha 905).
+- Mantido: ordenação por `valor_produto`, filtros e somatórios do dashboard (esses continuam usando o valor bruto/topo conforme a memória).
 
-## Detalhes técnicos
+## Escopo intencionalmente fora
 
-- Arquivo único alterado: `supabase/functions/webhook-lead/index.ts`.
-- Sem migrations, sem mudanças de schema, sem mudanças em outros edge functions ou no frontend.
-- Deploy automático ao salvar.
-- Efeito colateral esperado: próximos disparos do "Form Arvora Nativo" pra leads já existentes passam a preencher `valor_produto` e a acumular o bloco "INFORMAÇÕES COMPLEMENTARES" em `observacoes`.
+- **Modal de Detalhes do Lead**, **LeadForm**, **Kanban**, **Dashboard**, **exports (CSV/XLSX)** e **Equipe** não serão alterados — a mudança pedida foi só o que aparece "no CRM" (tabela) segundo os exemplos.
+- Nada muda no banco nem no webhook: `valor_produto` continua sendo gravado do jeito que está.
 
-## Backfill (opcional, pergunto antes de fazer)
-
-Os leads que **já foram** duplicados no passado continuam com `valor_produto = null` e sem o bloco complementar em `observacoes` — o fix só corrige do momento do deploy pra frente. Se quiser, posso depois:
-- rodar um script que reprocesse os últimos N dias de eventos do Form Arvora Nativo (se tivermos o payload guardado em algum lugar), ou
-- pedir pro n8n reenviar os disparos recentes.
-
-Me diz se quer que eu inclua o backfill nesta rodada ou deixe só o fix do fluxo daqui pra frente.
+Se você quiser que a renomeação para "Pretensão" e a exibição do piso também apareçam no modal de Detalhes, exports e/ou Kanban, me avise antes de aprovar que eu incluo no mesmo passo.

@@ -54,7 +54,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { cn, getWhatsAppUrl } from "@/lib/utils";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
-import { getTopoDaFaixa } from "@/lib/investmentUtils";
+import { getTopoDaFaixa, getPisoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
@@ -838,7 +838,7 @@ const LeadsTable = () => {
                     <TableHead>Qtd Cotas</TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted" onClick={() => toggleSort("valor_produto")}>
                       <div className="flex items-center gap-2">
-                        Valor Investido
+                        Pretensão
                         <ArrowUpDown className="h-3 w-3" />
                       </div>
                     </TableHead>
@@ -902,7 +902,7 @@ const LeadsTable = () => {
                             ? new Intl.NumberFormat("pt-BR", {
                                 style: "currency",
                                 currency: "BRL",
-                              }).format(getTopoDaFaixa(parseFloat(lead.valor_produto)))
+                              }).format(getPisoDaFaixa(parseFloat(lead.valor_produto)))
                             : "-"}
                         </TableCell>
                         <TableCell>
