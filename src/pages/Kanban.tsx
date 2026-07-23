@@ -449,7 +449,7 @@ const Kanban = () => {
                                           {new Intl.NumberFormat("pt-BR", {
                                             style: "currency",
                                             currency: "BRL",
-                                          }).format(lead.valor_produto)}
+                                          }).format(getPisoDaFaixa(Number(lead.valor_produto)))}
                                           /sc
                                         </span>
                                       )}
