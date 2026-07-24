@@ -13,6 +13,7 @@ export interface Conversation {
   windowOpen: boolean;
   userId: string;
   assessorName: string | null;
+  leadId: string | null;
 }
 
 /**
