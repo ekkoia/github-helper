@@ -54,6 +54,12 @@ const ACCEPTED_TYPES: Record<string, string[]> = {
 
 const ALL_ACCEPTED = Object.values(ACCEPTED_TYPES).flat().join(",");
 
+const formatPhoneForMeta = (raw: string | null | undefined): string => {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.startsWith("55") ? digits : `55${digits}`;
+};
+
 const getMediaType = (mime: string): string => {
   for (const [type, mimes] of Object.entries(ACCEPTED_TYPES)) {
     if (mimes.includes(mime)) return type;
@@ -77,22 +83,9 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   addOptimistic, updateOptimistic, removeOptimistic,
 }) => {
 
-  // Normaliza número BR: garante DDI 55 + 9º dígito em celulares
-  const cleanPhone = (() => {
-    const raw = contactPhone.replace(/\D/g, "");
-    const withDDI = raw.startsWith("55") ? raw : `55${raw}`;
-    // Se tem 13 dígitos: 55 + DDD(2) + 9 + numero(8) = possível 9 adicionado incorretamente
-    // Remove o 9 e deixa a Meta decidir o formato correto
-    if (withDDI.length === 13) {
-      const ddi = withDDI.slice(0, 2);
-      const ddd = withDDI.slice(2, 4);
-      const nono = withDDI.slice(4, 5);
-      const numero = withDDI.slice(5);
-      // Se o 5º dígito (após DDI+DDD) for 9, remove
-      if (nono === "9") return `${ddi}${ddd}${numero}`;
-    }
-    return withDDI;
-  })();
+  const fallbackPhone = formatPhoneForMeta(contactPhone);
+  const [resolvedRecipient, setResolvedRecipient] = useState<{ contactPhone: string; phone: string } | null>(null);
+  const cleanPhone = resolvedRecipient?.contactPhone === contactPhone ? resolvedRecipient.phone : fallbackPhone;
   const { user } = useAuth();
   const [message, setMessage] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
@@ -144,6 +137,24 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     const init = async () => {
       setLoading(true);
       try {
+        let metaRecipient = fallbackPhone;
+        const rawDigits = contactPhone.replace(/\D/g, "");
+        const withDDI = rawDigits.startsWith("55") ? rawDigits : `55${rawDigits}`;
+        const last8 = withDDI.slice(-8);
+
+        if (last8) {
+          const { data: linkedLead } = await (supabase as any)
+            .from("leads")
+            .select("telefone")
+            .like("telefone", `%${last8}`)
+            .order("data_atualizacao", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const leadPhone = formatPhoneForMeta(linkedLead?.telefone);
+          if (leadPhone) metaRecipient = leadPhone;
+        }
+        setResolvedRecipient({ contactPhone, phone: metaRecipient });
+
         // Buscar templates aprovados
         const { data: tpls } = await (supabase as any)
           .from("whatsapp_meta_templates")
@@ -156,9 +167,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         // pelo webhook (status oficial da Meta) e por triggers de inbound.
         // A Meta pode registrar o wa_id com ou sem o 9 do celular (ex: 552498240251
         // vs 5524998240251). Consultamos os dois formatos e usamos o que existir.
-        const rawDigits = contactPhone.replace(/\D/g, "");
-        const withDDI = rawDigits.startsWith("55") ? rawDigits : `55${rawDigits}`;
-        const candidates = new Set<string>([cleanPhone, withDDI]);
+        const candidates = new Set<string>([metaRecipient, withDDI]);
         if (withDDI.length === 13 && withDDI[4] === "9") {
           candidates.add(withDDI.slice(0, 4) + withDDI.slice(5));
         }
@@ -184,7 +193,6 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
         // Detecta bloqueios da Meta ("ecosystem engagement") nos últimos 30 dias
         const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-        const last8 = rawDigits.slice(-8);
         const { count: blockCount } = await (supabase as any)
           .from("chat_messages")
           .select("id", { count: "exact", head: true })
@@ -201,7 +209,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
       }
     };
     init();
-  }, [contactPhone, metaAccount.id]);
+  }, [contactPhone, fallbackPhone, metaAccount.id]);
 
   const makeTimestamp = () => {
     const now = new Date();

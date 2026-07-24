@@ -102,8 +102,14 @@ export const useConversations = () => {
 
     const nowMs = Date.now();
     const windowByPhone = new Map<string, number>();
+    const windowByMatch = new Map<string, number>();
     for (const w of windows || []) {
-      if (w.expires_at) windowByPhone.set(w.phone_e164, new Date(w.expires_at).getTime());
+      if (w.expires_at) {
+        const exp = new Date(w.expires_at).getTime();
+        windowByPhone.set(w.phone_e164, exp);
+        const key = normalizeForMatch(w.phone_e164);
+        if (key) windowByMatch.set(key, Math.max(windowByMatch.get(key) || 0, exp));
+      }
     }
 
     const profileMap = new Map<string, string>();
@@ -116,9 +122,14 @@ export const useConversations = () => {
 
 
     const leadByKey = new Map<string, string>();
+    const leadPhoneByKey = new Map<string, string>();
     for (const lead of leadsData || []) {
-      if (!lead.responsavel_id) continue;
       const key = normalizeForMatch(lead.telefone);
+      const canonicalPhone = (lead.telefone || "").replace(/\D/g, "");
+      if (key && canonicalPhone && !leadPhoneByKey.has(key)) {
+        leadPhoneByKey.set(key, canonicalPhone);
+      }
+      if (!lead.responsavel_id) continue;
       if (key && !leadByKey.has(key)) {
         leadByKey.set(key, lead.responsavel_id);
       }
@@ -139,12 +150,14 @@ export const useConversations = () => {
         if (!isMine && !isAssigned) continue;
       }
 
-      if (!map.has(normalizedPhone)) {
+      const displayPhone = (matchKey ? leadPhoneByKey.get(matchKey) : undefined) || normalizedPhone;
+
+      if (!map.has(displayPhone)) {
         const lastMessage = msg.user_message || msg.bot_message || "";
         const responsavelId = matchKey ? leadByKey.get(matchKey) : undefined;
-        const expMs = windowByPhone.get(normalizedPhone);
-        map.set(normalizedPhone, {
-          phone: normalizedPhone,
+        const expMs = windowByPhone.get(displayPhone) ?? windowByPhone.get(normalizedPhone) ?? (matchKey ? windowByMatch.get(matchKey) : undefined);
+        map.set(displayPhone, {
+          phone: displayPhone,
           name: msg.nomewpp || normalizedPhone,
           lastMessage,
           lastTime: msg.created_at,

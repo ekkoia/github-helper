@@ -22,6 +22,12 @@ interface SendBody {
   template_components?: unknown[];
 }
 
+const normalizeRecipientPhone = (raw: string | null | undefined): string => {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.startsWith("55") ? digits : `55${digits}`;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -60,6 +66,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    const inputTo = normalizeRecipientPhone(body.to);
+    let recipientTo = inputTo;
+    const last8 = inputTo.slice(-8);
+    if (last8) {
+      const { data: linkedLead } = await supabase
+        .from("leads")
+        .select("telefone")
+        .like("telefone", `%${last8}`)
+        .order("data_atualizacao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const leadPhone = normalizeRecipientPhone(linkedLead?.telefone as string | null | undefined);
+      if (leadPhone) recipientTo = leadPhone;
+    }
+
     // Conta Meta compartilhada (primeira/única configurada)
     const { data: account, error: accErr } = await supabase
       .from("whatsapp_meta_accounts")
@@ -77,7 +98,7 @@ Deno.serve(async (req) => {
     // Monta payload conforme tipo
     let payload: Record<string, unknown> = {
       messaging_product: "whatsapp",
-      to: body.to,
+      to: recipientTo,
       type: body.type,
     };
 
