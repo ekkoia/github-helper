@@ -1,10 +1,13 @@
-import React from "react";
-import { FileText, Download, Clock, AlertCircle, Check, CheckCheck, RotateCw } from "lucide-react";
+import React, { useState } from "react";
+import { FileText, Download, Clock, AlertCircle, Check, CheckCheck, RotateCw, FileJson, Copy } from "lucide-react";
 
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { ChatMessage } from "@/hooks/useChatMessages";
 import { detectMediaKind, MediaPreviewInline } from "./mediaPreview";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 
 interface MessageBubbleProps {
