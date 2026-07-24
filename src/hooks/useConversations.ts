@@ -148,6 +148,8 @@ export const useConversations = () => {
           name: msg.nomewpp || normalizedPhone,
           lastMessage,
           lastTime: msg.created_at,
+          lastMediaType: msg.media_type ?? null,
+          lastMediaFilename: msg.media_filename ?? null,
           windowOpen: expMs != null && expMs > nowMs,
           userId: msg.user_id,
           assessorName: responsavelId ? profileMap.get(responsavelId) || null : null,
