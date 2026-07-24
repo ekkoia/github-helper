@@ -22,6 +22,7 @@ export interface ChatMessage {
   meta_message_id?: string | null;
   delivery_status?: string | null;
   failure_reason?: string | null;
+  meta_raw_payload?: any | null;
   // Optimistic UI (client-only)
   status?: "pending" | "sent" | "failed";
   __retry?: () => void;
@@ -56,7 +57,7 @@ export const useChatMessages = (phone: string | null) => {
 
     let query = (supabase as any)
       .from("chat_messages")
-      .select("id, phone, nomewpp, user_message, bot_message, message_type, message_direction, media_type, media_url, media_mime_type, media_filename, meta_account_id, user_id, created_at, meta_message_id, delivery_status, failure_reason")
+      .select("id, phone, nomewpp, user_message, bot_message, message_type, message_direction, media_type, media_url, media_mime_type, media_filename, meta_account_id, user_id, created_at, meta_message_id, delivery_status, failure_reason, meta_raw_payload")
       .eq("whatsapp_instance_name", "meta_official")
       .like("phone", `%${cleanPhone.slice(-8)}`)
       .order("created_at", { ascending: true });
@@ -173,6 +174,7 @@ export const useChatMessages = (phone: string | null) => {
                       delivery_status: msg.delivery_status ?? m.delivery_status,
                       failure_reason: msg.failure_reason ?? m.failure_reason,
                       meta_message_id: msg.meta_message_id ?? m.meta_message_id,
+                      meta_raw_payload: msg.meta_raw_payload ?? m.meta_raw_payload,
                     }
                   : m
               )

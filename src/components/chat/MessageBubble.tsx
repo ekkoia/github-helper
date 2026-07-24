@@ -1,10 +1,13 @@
-import React from "react";
-import { FileText, Download, Clock, AlertCircle, Check, CheckCheck, RotateCw } from "lucide-react";
+import React, { useState } from "react";
+import { FileText, Download, Clock, AlertCircle, Check, CheckCheck, RotateCw, FileJson, Copy } from "lucide-react";
 
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { ChatMessage } from "@/hooks/useChatMessages";
 import { detectMediaKind, MediaPreviewInline } from "./mediaPreview";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 
 interface MessageBubbleProps {
@@ -61,27 +64,85 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
   const isPlaceholderText = !!(text && detectMediaKind(text));
   const displayText = text && !isPlaceholderText ? text : null;
   const status = message.status;
+  const [logOpen, setLogOpen] = useState(false);
+
+  const hasRawLog = !!message.meta_raw_payload || !!message.meta_message_id || !!message.failure_reason;
+
+  const buildLogText = () => {
+    const obj = {
+      timestamp_local: new Date(message.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+      timestamp_iso: message.created_at,
+      chat_message_id: message.id,
+      phone: message.phone,
+      direction: message.message_direction,
+      meta_message_id: message.meta_message_id ?? null,
+      delivery_status: message.delivery_status ?? null,
+      failure_reason: message.failure_reason ?? null,
+      text: message.bot_message || message.user_message || null,
+      media: message.media_url
+        ? { type: message.media_type, url: message.media_url, filename: message.media_filename }
+        : null,
+      meta_raw_status_payload: message.meta_raw_payload ?? null,
+    };
+    return JSON.stringify(obj, null, 2);
+  };
+
+  const handleCopyLog = async () => {
+    try {
+      await navigator.clipboard.writeText(buildLogText());
+      toast.success("Log copiado para a área de transferência");
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
+  };
+
+  const handleDownloadLog = () => {
+    const blob = new Blob([buildLogText()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `meta-log-${message.meta_message_id || message.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const renderStatus = () => {
     const dstatus = message.delivery_status;
     const isFailed = status === "failed" || dstatus === "failed";
     if (isFailed) {
       return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={() => message.__retry?.()}
-              className="flex items-center gap-0.5 text-red-300 hover:text-red-100"
-            >
-              <AlertCircle className="h-3 w-3" />
-              <RotateCw className="h-3 w-3" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="max-w-[260px] text-xs">
-            {message.failure_reason ? `Falha: ${message.failure_reason}` : "Falha ao enviar — clique para reenviar."}
-          </TooltipContent>
-        </Tooltip>
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => message.__retry?.()}
+                className="flex items-center gap-0.5 text-red-300 hover:text-red-100"
+              >
+                <AlertCircle className="h-3 w-3" />
+                <RotateCw className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-[260px] text-xs">
+              {message.failure_reason ? `Falha: ${message.failure_reason}` : "Falha ao enviar — clique para reenviar."}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setLogOpen(true)}
+                className="flex items-center text-red-200 hover:text-white ml-0.5"
+                aria-label="Ver log bruto da Meta"
+              >
+                <FileJson className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              Ver log bruto da Meta (evidência)
+            </TooltipContent>
+          </Tooltip>
+        </>
       );
     }
     if (status === "pending" && !dstatus) {
@@ -144,6 +205,23 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
         <div className={`flex justify-end items-center gap-1 mt-0.5 ${isSent ? "text-white/70" : "text-muted-foreground"}`}>
           <span className="text-[10px]">{time}</span>
           {isSent && <TooltipProvider delayDuration={150}>{renderStatus()}</TooltipProvider>}
+          {isSent && hasRawLog && status !== "failed" && message.delivery_status !== "failed" && (
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setLogOpen(true)}
+                    className="opacity-60 hover:opacity-100"
+                    aria-label="Ver log bruto da Meta"
+                  >
+                    <FileJson className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">Ver log bruto da Meta</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
       {/* Avatar do assessor — só para mensagens enviadas pelo CRM (meta_account_id preenchido) */}
@@ -155,6 +233,28 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
           {getInitials(senderName)}
         </div>
       )}
+
+      <Dialog open={logOpen} onOpenChange={setLogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Log bruto da chamada à Meta</DialogTitle>
+            <DialogDescription>
+              Evidência do envio: timestamp, identificadores e payload de status retornado pela Meta.
+            </DialogDescription>
+          </DialogHeader>
+          <pre className="max-h-[420px] overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-all">
+            {buildLogText()}
+          </pre>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={handleCopyLog}>
+              <Copy className="h-4 w-4 mr-1" /> Copiar
+            </Button>
+            <Button size="sm" onClick={handleDownloadLog}>
+              <Download className="h-4 w-4 mr-1" /> Baixar JSON
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -203,6 +203,7 @@ export type Database = {
           message_type: string | null
           meta_account_id: string | null
           meta_message_id: string | null
+          meta_raw_payload: Json | null
           nomewpp: string | null
           phone: string | null
           user_id: string | null
@@ -227,6 +228,7 @@ export type Database = {
           message_type?: string | null
           meta_account_id?: string | null
           meta_message_id?: string | null
+          meta_raw_payload?: Json | null
           nomewpp?: string | null
           phone?: string | null
           user_id?: string | null
@@ -251,6 +253,7 @@ export type Database = {
           message_type?: string | null
           meta_account_id?: string | null
           meta_message_id?: string | null
+          meta_raw_payload?: Json | null
           nomewpp?: string | null
           phone?: string | null
           user_id?: string | null
