@@ -164,6 +164,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
           </Button>
         </div>
 
+        {/* Painel-resumo de status */}
+        {!loading && messages.length > 0 && (
+          <ChatStatusSummary messages={messages as any} contactPhone={phone} />
+        )}
+
         {/* Mensagens */}
         <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1 bg-muted/10">
           {loading ? (
