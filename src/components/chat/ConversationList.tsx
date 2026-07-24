@@ -1,11 +1,15 @@
 import React from "react";
 import { Conversation } from "@/hooks/useConversations";
-import { MessageCircle, Search } from "lucide-react";
+import { MessageCircle, Search, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { detectMediaKind, MediaPreviewInline } from "./mediaPreview";
 import { useAllLeadTagAssignments, useLeadTagsCatalog, LeadTag } from "@/hooks/useLeadTags";
+import { useUsers } from "@/hooks/useUsers";
+import { useConversationFilters } from "@/hooks/useConversationFilters";
+import ConversationFiltersDialog from "./ConversationFiltersDialog";
 
 // Escolhe cor de texto de acordo com o contraste com o fundo
 const getContrastText = (hex: string): string => {
