@@ -193,10 +193,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
                 return new Date(iso).toLocaleDateString("pt-BR", { timeZone: tz });
               };
               let lastKey = "";
+              const lastInboundAt = messages.reduce<string | null>((acc, m) => {
+                const isInbound = m.message_direction === "inbound" || (!!m.user_message && !m.bot_message);
+                if (!isInbound) return acc;
+                return !acc || new Date(m.created_at) > new Date(acc) ? m.created_at : acc;
+              }, null);
               return messages.map((msg) => {
                 const key = dayKey(msg.created_at);
                 const showSep = key !== lastKey;
                 lastKey = key;
+                const hasLaterInbound = !!lastInboundAt && new Date(lastInboundAt) > new Date(msg.created_at);
                 return (
                   <React.Fragment key={msg.id}>
                     {showSep && (
@@ -206,10 +212,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
                         </span>
                       </div>
                     )}
-                    <MessageBubble message={msg} usersMap={usersMap} isAdmin={isAdmin} />
+                    <MessageBubble message={msg} usersMap={usersMap} isAdmin={isAdmin} hasLaterInbound={hasLaterInbound} />
                   </React.Fragment>
                 );
               });
+
             })()
           )}
           <div ref={bottomRef} />
