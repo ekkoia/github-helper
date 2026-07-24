@@ -5,6 +5,18 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { detectMediaKind, MediaPreviewInline } from "./mediaPreview";
+import { useAllLeadTagAssignments, useLeadTagsCatalog, LeadTag } from "@/hooks/useLeadTags";
+
+// Escolhe cor de texto de acordo com o contraste com o fundo
+const getContrastText = (hex: string): string => {
+  const h = (hex || "").replace("#", "");
+  if (h.length !== 6) return "#fff";
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? "#000" : "#fff";
+};
 
 
 interface ConversationListProps {
