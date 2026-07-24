@@ -1,47 +1,34 @@
+Corrigir dois pontos de UX que fazem a abertura de conversa em /chat parecer "carregando":
 
-## Objetivo
-Adicionar um botão de filtro ao lado da busca em "Conversas WhatsApp" (/chat) que abre um modal com filtros combináveis e persistentes entre sessões.
+## 1) Rolagem "correndo" até a última mensagem
+Arquivo: `src/components/chat/ChatWindow.tsx`
 
-## Filtros disponíveis
+Causa: o `useEffect` faz `scrollIntoView({ behavior: "smooth" })` toda vez que `messages` muda — inclusive na primeira renderização da conversa, o que anima a rolagem por todas as bolhas.
 
-1. **Por Tags** (múltipla seleção)
-   - Lista todas as tags ativas do catálogo (`lead_tags`)
-   - Conversa aparece se o lead tiver pelo menos uma das tags selecionadas (OR)
+Correção:
+- Trocar o `useEffect` por `useLayoutEffect` que:
+  - Se mudou o `phone` (conversa recém-aberta) → `scrollIntoView({ behavior: "auto" })` (instantâneo, sem animação).
+  - Se só aumentou a quantidade de mensagens na mesma conversa → mantém `behavior: "smooth"` (mensagem nova chegando continua com animação suave).
+- Guardar `phone` anterior e `messages.length` anterior em `useRef` para diferenciar os dois casos.
 
-2. **Leads atribuídos sem conversa iniciada pelo assessor**
-   - Toggle on/off
-   - Mostra apenas conversas onde o lead tem `responsavel_id` definido, mas ainda não há nenhuma mensagem enviada por aquele assessor (`chat_messages.bot_message` do próprio assessor ausente / apenas mensagens inbound do lead)
+## 2) Loading spinner no lugar do input
+Arquivo: `src/components/chat/MetaChatInput.tsx`
 
-3. **Por Assessor** (múltipla seleção, apenas admin/global)
-   - Lista de assessores (de `profiles`)
-   - Filtra conversas cujo lead vinculado tem `responsavel_id` em um dos selecionados
-   - Para usuário comum: filtro oculto (ele já só vê os próprios)
+Causa: o componente começa com `loading = true` e renderiza um spinner no lugar de todo o input enquanto busca telefone canônico, templates, janela 24h e contagem de bloqueios de ecossistema. Isso deixa a área de digitação em branco por ~200–800 ms sempre que uma conversa é aberta.
 
-## UI
+Correção:
+- Remover o bloco `if (loading) return <spinner>` (perto da linha 665).
+- Renderizar `<Textarea>`, botão de emoji, anexo e enviar imediatamente, desde o primeiro frame.
+- Manter o `loading` interno apenas como flag de "ainda carregando dados auxiliares", sem esconder a UI:
+  - Templates aparecem no `<Select>` assim que chegam (populate incremental, já funciona).
+  - Badge da janela 24h atualiza assim que `refreshWindow()` responde.
+  - Aviso de "ecosystem engagement" aparece assim que a contagem retorna.
+- Regras de negócio (envio bloqueado fora da janela 24h, templates só quando aprovados, validação da Edge Function) permanecem intactas — a Edge Function `send-whatsapp-message` já valida no servidor.
 
-- Botão ícone `SlidersHorizontal` (lucide) ao lado direito do input de busca no header do `ConversationList`
-- Badge com contador quando há filtros ativos
-- Abre `Dialog` do shadcn com 3 seções (Tags / Não iniciadas / Assessores) + botões "Limpar" e "Aplicar"
-- Chips resumo dos filtros ativos abaixo da busca, cada um removível com X
+## Escopo
+- Apenas 2 arquivos frontend, ~15 linhas no total.
+- Sem mudanças em hooks, Edge Functions, banco, RLS, triggers ou lógica de janela/dedupe.
+- Sem alterar nada em envio, templates, tags, filtros ou realtime.
 
-## Persistência
-
-- Salvar em `localStorage` com chave `chat:conversation-filters:v1` (por usuário: sufixo `user.id`)
-- Carregar no mount do `ConversationList`
-- Sem necessidade de tabela; é preferência puramente de UI local
-
-## Alterações técnicas
-
-- `src/hooks/useConversations.ts`: expor `hasAssessorMessage` por conversa (verificar se existe alguma linha em `chat_messages` para aquele phone onde `user_id = responsavel_id do lead` e `bot_message` não nulo). Retornar `responsavelId` além do `assessorName`.
-- Novo `src/components/chat/ConversationFiltersDialog.tsx`: modal com as três seções, controlado por props `open`, `value`, `onChange`.
-- Novo hook `src/hooks/useConversationFilters.ts`: gerencia estado + persistência no localStorage.
-- `src/components/chat/ConversationList.tsx`:
-  - adiciona botão filtro no header
-  - aplica filtros ao array `filtered` (combinando com a busca atual)
-  - renderiza chips de filtros ativos
-- Reuso: `useLeadTagsCatalog`, `useAllLeadTagAssignments`, `useUsers` (para lista de assessores).
-
-## Fora do escopo
-- Não altera lógica de RLS/visibilidade.
-- Não persiste filtros no banco (apenas localStorage por enquanto).
-- Não altera design system nem cores.
+## Resultado esperado
+Abrir uma conversa em /chat passa a se comportar como no WhatsApp Web: as mensagens já aparecem posicionadas na última (sem animação de rolagem) e a barra de digitação está pronta desde o primeiro frame.

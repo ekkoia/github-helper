@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useMetaAccount } from "@/hooks/useMetaAccount";
 import { useUsers } from "@/hooks/useUsers";
@@ -54,9 +54,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
   };
   const phoneKey = normalizePhoneBR(phone);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const prevPhoneRef = useRef<string | null>(null);
+  const prevCountRef = useRef<number>(0);
+  useLayoutEffect(() => {
+    const phoneChanged = prevPhoneRef.current !== phone;
+    const countIncreased = messages.length > prevCountRef.current;
+    if (phoneChanged) {
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    } else if (countIncreased) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevPhoneRef.current = phone;
+    prevCountRef.current = messages.length;
+  }, [messages, phone]);
 
   // Busca status da IA
   useEffect(() => {
