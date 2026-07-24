@@ -11,16 +11,19 @@ export interface MetaAccount {
   account_name: string | null;
 }
 
+let cachedMetaAccount: MetaAccount | null = null;
+let hasFetchedMetaAccount = false;
+
 export const useMetaAccount = () => {
   const { user } = useAuth();
-  const [account, setAccount] = useState<MetaAccount | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [account, setAccount] = useState<MetaAccount | null>(cachedMetaAccount);
+  const [loading, setLoading] = useState(!hasFetchedMetaAccount);
 
   useEffect(() => {
     if (!user?.id) return;
 
     const fetch = async () => {
-      setLoading(true);
+      setLoading(!hasFetchedMetaAccount);
       // Conta Meta compartilhada: usa a primeira (e única) configurada por um global admin.
       const { data } = await (supabase as any)
         .from("whatsapp_meta_accounts")
@@ -28,7 +31,9 @@ export const useMetaAccount = () => {
         .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
-      setAccount(data || null);
+      cachedMetaAccount = data || null;
+      hasFetchedMetaAccount = true;
+      setAccount(cachedMetaAccount);
       setLoading(false);
     };
 
