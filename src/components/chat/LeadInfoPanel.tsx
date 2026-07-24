@@ -5,6 +5,7 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { useNotifications } from "@/hooks/useNotifications";
 import { User, Mail, Phone, Tag, UserCheck, StickyNote, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { LeadTagsSection } from "@/components/leads/LeadTagsSection";
 
 interface LeadInfoPanelProps {
   phone: string;
@@ -164,6 +165,11 @@ const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
             <span className="truncate">{lead.origem}</span>
           </div>
         )}
+      </div>
+
+      {/* Tags */}
+      <div className="p-4 border-b border-border">
+        <LeadTagsSection leadId={lead.id} compact />
       </div>
 
       {/* Etapa do funil */}

@@ -58,6 +58,8 @@ import { getTopoDaFaixa, getPisoDaFaixa } from "@/lib/investmentUtils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
+import { useAllLeadTagAssignments, useLeadTagsCatalog } from "@/hooks/useLeadTags";
+import { TagChip } from "@/components/leads/LeadTagsSection";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -78,6 +80,9 @@ const LeadsTable = () => {
   const { etapasNomes, coresMap } = useFunilEtapas();
   const { isAdmin } = useUserRole();
   const { usersMap, users } = useUsers();
+  const { map: tagAssignmentsMap } = useAllLeadTagAssignments();
+  const { tags: tagCatalog } = useLeadTagsCatalog();
+  const tagById = useMemo(() => Object.fromEntries(tagCatalog.map((t) => [t.id, t])), [tagCatalog]);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [leads, setLeads] = useState<any[]>([]);
@@ -114,6 +119,7 @@ const LeadsTable = () => {
     periodo: string;
     dataInicio?: Date;
     dataFim?: Date;
+    tag: string;
   }>({
     etapa: "all",
     protocolo: "",
@@ -123,6 +129,7 @@ const LeadsTable = () => {
     periodo: "all",
     dataInicio: undefined,
     dataFim: undefined,
+    tag: "all",
   });
 
   // Mapa de meta_lead_id -> adset_name para filtro por campanha
@@ -221,6 +228,15 @@ const LeadsTable = () => {
       });
     }
 
+    // Filtro por tag
+    if (filters.tag && filters.tag !== "all") {
+      if (filters.tag === "none") {
+        filtered = filtered.filter((lead) => !tagAssignmentsMap[lead.id] || tagAssignmentsMap[lead.id].length === 0);
+      } else {
+        filtered = filtered.filter((lead) => (tagAssignmentsMap[lead.id] || []).includes(filters.tag));
+      }
+    }
+
     // Filtro por período/data
     if (filters.periodo && filters.periodo !== "all") {
       const now = new Date();
@@ -279,7 +295,7 @@ const LeadsTable = () => {
     });
 
     return filtered;
-  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin, campaignMap, getLeadDate]);
+  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin, campaignMap, getLeadDate, tagAssignmentsMap]);
 
   // Paginação
   const totalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
@@ -356,6 +372,7 @@ const LeadsTable = () => {
       periodo: "all",
       dataInicio: undefined,
       dataFim: undefined,
+      tag: "all",
     });
   };
 

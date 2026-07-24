@@ -11,10 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, AlertCircle, User, CalendarIcon } from "lucide-react";
+import { X, AlertCircle, User, CalendarIcon, Tag as TagIcon } from "lucide-react";
 import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUsers } from "@/hooks/useUsers";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useLeadTagsCatalog } from "@/hooks/useLeadTags";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -39,6 +40,7 @@ interface FiltersSidebarProps {
     periodo?: string;
     dataInicio?: Date;
     dataFim?: Date;
+    tag?: string;
   };
   onFilterChange: (key: string, value: string) => void;
   onDateChange?: (key: string, value: Date | undefined) => void;
@@ -58,6 +60,7 @@ export const FiltersSidebar = ({
   const { etapasNomes, isLoading: isLoadingEtapas } = useFunilEtapas();
   const { users, loading: isLoadingUsers } = useUsers();
   const { isAdmin } = useUserRole();
+  const { tags: tagCatalog } = useLeadTagsCatalog();
   const [campanhas, setCampanhas] = useState<string[]>([]);
   
   const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
@@ -235,6 +238,27 @@ export const FiltersSidebar = ({
               <SelectItem value="all">Todas</SelectItem>
               {campanhas.map((campanha) => (
                 <SelectItem key={campanha} value={campanha}>{campanha}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Filtro por Tag */}
+        <div>
+          <Label className="text-sm flex items-center gap-1.5">
+            <TagIcon className="h-3.5 w-3.5" /> Tag
+          </Label>
+          <Select value={filters.tag || "all"} onValueChange={(value) => onFilterChange("tag", value)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="none">Sem tag</SelectItem>
+              {tagCatalog.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.emoji ? `${t.emoji} ` : ""}{t.nome}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>

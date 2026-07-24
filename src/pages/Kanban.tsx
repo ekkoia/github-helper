@@ -35,12 +35,17 @@ import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
+import { useAllLeadTagAssignments, useLeadTagsCatalog } from "@/hooks/useLeadTags";
+import { TagChip } from "@/components/leads/LeadTagsSection";
 
 const Kanban = () => {
   const { logActivity } = useActivityLog();
   const { etapasNomes, coresMap, isLoading: isLoadingEtapas } = useFunilEtapas();
   const { isAdmin } = useUserRole();
   const { usersMap } = useUsers();
+  const { map: tagAssignmentsMap } = useAllLeadTagAssignments();
+  const { tags: tagCatalog } = useLeadTagsCatalog();
+  const tagById = useMemo(() => Object.fromEntries(tagCatalog.map((t) => [t.id, t])), [tagCatalog]);
   const navigate = useNavigate();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -405,6 +410,17 @@ const Kanban = () => {
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
+                              {(tagAssignmentsMap[lead.id]?.length ?? 0) > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {tagAssignmentsMap[lead.id]
+                                    .map((tid) => tagById[tid])
+                                    .filter(Boolean)
+                                    .slice(0, 4)
+                                    .map((t) => (
+                                      <TagChip key={t.id} tag={t} size="xs" />
+                                    ))}
+                                </div>
+                              )}
                               <div className="space-y-1.5 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                   <User className="h-3.5 w-3.5" aria-hidden="true" />
