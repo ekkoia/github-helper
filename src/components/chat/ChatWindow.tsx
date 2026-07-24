@@ -6,6 +6,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import MessageBubble from "./MessageBubble";
 import MetaChatInput from "./MetaChatInput";
 import LeadInfoPanel from "./LeadInfoPanel";
+import ChatStatusSummary from "./ChatStatusSummary";
 import { AlertCircle, MessageCircle, BotOff, Bot, PanelRightOpen, PanelRightClose, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -162,6 +163,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
             {showLeadPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
           </Button>
         </div>
+
+        {/* Painel-resumo de status */}
+        {!loading && messages.length > 0 && (
+          <ChatStatusSummary messages={messages as any} contactPhone={phone} />
+        )}
 
         {/* Mensagens */}
         <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1 bg-muted/10">
