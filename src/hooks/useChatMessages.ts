@@ -22,6 +22,7 @@ export interface ChatMessage {
   meta_message_id?: string | null;
   delivery_status?: string | null;
   failure_reason?: string | null;
+  meta_raw_payload?: any | null;
   // Optimistic UI (client-only)
   status?: "pending" | "sent" | "failed";
   __retry?: () => void;
