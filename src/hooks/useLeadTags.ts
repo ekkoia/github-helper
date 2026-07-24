@@ -71,9 +71,9 @@ export const useLeadTagsForLead = (leadId: string | null | undefined) => {
     fetch();
     if (!leadId) return;
     const channel = supabase
-      .channel(`lead-tag-assign-${leadId}`)
+      .channel(`lead-tag-assign-${leadId}-${Math.random().toString(36).slice(2)}`)
       .on(
-        "postgres_changes",
+        "postgres_changes" as any,
         { event: "*", schema: "public", table: "lead_tag_assignments", filter: `lead_id=eq.${leadId}` },
         () => fetch(),
       )
