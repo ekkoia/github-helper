@@ -43,6 +43,14 @@ const ConversationList: React.FC<ConversationListProps> = ({
 }) => {
   const [search, setSearch] = useState("");
   const { isAdmin } = useUserRole();
+  const { map: tagAssignmentsMap } = useAllLeadTagAssignments();
+  const { tags: tagCatalog } = useLeadTagsCatalog();
+  const tagById = React.useMemo(() => {
+    const m = new Map<string, LeadTag>();
+    tagCatalog.forEach((t) => m.set(t.id, t));
+    return m;
+  }, [tagCatalog]);
+
 
   const filtered = conversations.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
