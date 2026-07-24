@@ -76,7 +76,9 @@ export const useChatMessages = (phone: string | null) => {
     }
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar mensagens:", error); }
-    const serverMsgs = (data || []).filter((m: any) => m.user_message || m.bot_message || m.media_url);
+    const serverMsgs = (data || [])
+      .filter((m: any) => m.user_message || m.bot_message || m.media_url)
+      .map(normalizeChatMessage);
     // Preserva otimistas ainda pendentes (não reconciliadas)
     setMessages((prev) => {
       const stillPending = prev.filter((m) => m.status === "pending" || m.status === "failed");
@@ -148,7 +150,7 @@ export const useChatMessages = (phone: string | null) => {
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "chat_messages" },
           (payload: any) => {
-            const msg = payload.new;
+            const msg = normalizeChatMessage(payload.new);
             const cleanPhone = phone.replace(/\D/g, "");
             const msgPhone = (msg.phone || "").replace(/\D/g, "");
             if (msg.whatsapp_instance_name !== "meta_official") return;
@@ -160,11 +162,11 @@ export const useChatMessages = (phone: string | null) => {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "chat_messages" },
           (payload: any) => {
-            const msg = payload.new;
+            const msg = normalizeChatMessage(payload.new);
             if (msg.whatsapp_instance_name !== "meta_official") return;
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === msg.id
+                String(m.id) === msg.id
                   ? {
                       ...m,
                       delivery_status: msg.delivery_status ?? m.delivery_status,
