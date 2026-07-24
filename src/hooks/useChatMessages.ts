@@ -174,6 +174,7 @@ export const useChatMessages = (phone: string | null) => {
                       delivery_status: msg.delivery_status ?? m.delivery_status,
                       failure_reason: msg.failure_reason ?? m.failure_reason,
                       meta_message_id: msg.meta_message_id ?? m.meta_message_id,
+                      meta_raw_payload: msg.meta_raw_payload ?? m.meta_raw_payload,
                     }
                   : m
               )
