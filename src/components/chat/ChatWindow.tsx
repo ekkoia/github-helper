@@ -41,6 +41,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, init
   const isMobile = useIsBelowLg();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
+  const [hasPositionedInitialMessages, setHasPositionedInitialMessages] = useState(false);
   const [iaStatus, setIaStatus] = useState<string | null>(null);
   const [loadingIA, setLoadingIA] = useState(false);
   const [showLeadPanel, setShowLeadPanel] = useState(false);
@@ -77,11 +78,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, init
 
     if (openedConversation || (countIncreased && isAtBottomRef.current)) {
       scrollMessagesToBottom();
-      requestAnimationFrame(scrollMessagesToBottom);
+      requestAnimationFrame(() => {
+        scrollMessagesToBottom();
+        if (openedConversation) setHasPositionedInitialMessages(true);
+      });
+    } else if (!loading && messages.length === 0) {
+      setHasPositionedInitialMessages(true);
     }
 
     prevCountRef.current = messages.length;
-  }, [messages.length, scrollMessagesToBottom]);
+  }, [loading, messages.length, scrollMessagesToBottom]);
 
   // Busca status da IA
   useEffect(() => {
@@ -115,15 +121,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, init
     setLoadingIA(false);
   };
 
-  if (loadingAccount) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (!account) {
+  if (!loadingAccount && !account) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
         <AlertCircle className="h-10 w-10 opacity-40" />
@@ -198,7 +196,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, init
         <div
           ref={messagesContainerRef}
           onScroll={handleMessagesScroll}
-          className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1 bg-muted/10"
+          className={`flex-1 overflow-y-auto scroll-auto p-3 lg:p-4 space-y-1 bg-muted/10 ${hasPositionedInitialMessages ? "opacity-100" : "opacity-0"}`}
         >
           {!loading && messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-2">
@@ -254,16 +252,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, init
 
         {/* Input */}
         <div className="px-3 lg:px-4 pb-3 lg:pb-4">
-          <MetaChatInput
-            contactPhone={phone}
-            contactName={name}
-            metaAccount={account}
-            initialWindowOpen={initialWindowOpen}
-            onMessageSent={refetch}
-            addOptimistic={addOptimistic}
-            updateOptimistic={updateOptimistic}
-            removeOptimistic={removeOptimistic}
-          />
+          {account ? (
+            <MetaChatInput
+              contactPhone={phone}
+              contactName={name}
+              metaAccount={account}
+              initialWindowOpen={initialWindowOpen}
+              onMessageSent={refetch}
+              addOptimistic={addOptimistic}
+              updateOptimistic={updateOptimistic}
+              removeOptimistic={removeOptimistic}
+            />
+          ) : (
+            <div className="min-h-[54px] rounded-full border border-border bg-muted" />
+          )}
 
         </div>
       </div>

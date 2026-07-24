@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useConversations } from "@/hooks/useConversations";
+import { useMetaAccount } from "@/hooks/useMetaAccount";
 import ConversationList from "./ConversationList";
 import ChatWindow from "./ChatWindow";
 import { MessageCircle } from "lucide-react";
@@ -12,6 +13,7 @@ export const ChatPage: React.FC = () => {
   const [selectedAssessor, setSelectedAssessor] = useState<string | null>(null);
   const [selectedWindowOpen, setSelectedWindowOpen] = useState<boolean>(false);
   const { conversations, loading } = useConversations();
+  useMetaAccount();
 
   useEffect(() => {
     const phone = searchParams.get("phone");
