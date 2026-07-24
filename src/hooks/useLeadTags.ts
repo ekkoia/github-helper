@@ -125,8 +125,8 @@ export const useAllLeadTagAssignments = () => {
   useEffect(() => {
     fetch();
     const channel = supabase
-      .channel("lead-tag-assign-all")
-      .on("postgres_changes", { event: "*", schema: "public", table: "lead_tag_assignments" }, () => fetch())
+      .channel(`lead-tag-assign-all-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "lead_tag_assignments" }, () => fetch())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
