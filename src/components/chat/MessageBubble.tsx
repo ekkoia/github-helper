@@ -205,6 +205,23 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
         <div className={`flex justify-end items-center gap-1 mt-0.5 ${isSent ? "text-white/70" : "text-muted-foreground"}`}>
           <span className="text-[10px]">{time}</span>
           {isSent && <TooltipProvider delayDuration={150}>{renderStatus()}</TooltipProvider>}
+          {isSent && hasRawLog && status !== "failed" && message.delivery_status !== "failed" && (
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setLogOpen(true)}
+                    className="opacity-60 hover:opacity-100"
+                    aria-label="Ver log bruto da Meta"
+                  >
+                    <FileJson className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">Ver log bruto da Meta</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
       {/* Avatar do assessor — só para mensagens enviadas pelo CRM (meta_account_id preenchido) */}
@@ -216,6 +233,28 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
           {getInitials(senderName)}
         </div>
       )}
+
+      <Dialog open={logOpen} onOpenChange={setLogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Log bruto da chamada à Meta</DialogTitle>
+            <DialogDescription>
+              Evidência do envio: timestamp, identificadores e payload de status retornado pela Meta.
+            </DialogDescription>
+          </DialogHeader>
+          <pre className="max-h-[420px] overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-all">
+            {buildLogText()}
+          </pre>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={handleCopyLog}>
+              <Copy className="h-4 w-4 mr-1" /> Copiar
+            </Button>
+            <Button size="sm" onClick={handleDownloadLog}>
+              <Download className="h-4 w-4 mr-1" /> Baixar JSON
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
