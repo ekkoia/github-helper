@@ -4,13 +4,16 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Send, Clock, AlertCircle, Paperclip, X, FileText,
-  Image, Video, Music, Mic, Square, Trash2, Check,
+  Image, Video, Music, Mic, Square, Trash2, Check, Smile,
 } from "lucide-react";
+import EmojiPicker, { EmojiStyle, Theme as EmojiTheme } from "emoji-picker-react";
 import { supabase } from "@/integrations/supabase/client";
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { MetaAccount } from "@/hooks/useMetaAccount";
 import { ChatMessage } from "@/hooks/useChatMessages";
 import { toast } from "sonner";
