@@ -6,6 +6,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import MessageBubble from "./MessageBubble";
 import MetaChatInput from "./MetaChatInput";
 import LeadInfoPanel from "./LeadInfoPanel";
+import ChatStatusSummary from "./ChatStatusSummary";
 import { AlertCircle, MessageCircle, BotOff, Bot, PanelRightOpen, PanelRightClose, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
