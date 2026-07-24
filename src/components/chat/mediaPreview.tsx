@@ -52,13 +52,15 @@ const ICON: Record<MediaKind, React.ComponentType<{ className?: string }>> = {
 
 export const MediaPreviewInline: React.FC<{
   kind: MediaKind;
+  filename?: string | null;
   className?: string;
-}> = ({ kind, className = "" }) => {
+}> = ({ kind, filename, className = "" }) => {
   const Icon = ICON[kind];
+  const label = kind === "document" && filename ? filename : LABEL[kind];
   return (
-    <span className={`inline-flex items-center gap-1 ${className}`}>
-      <Icon className="h-3.5 w-3.5" />
-      <span>{LABEL[kind]}</span>
+    <span className={`inline-flex items-center gap-1 min-w-0 ${className}`}>
+      <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+      <span className="truncate">{label}</span>
     </span>
   );
 };
