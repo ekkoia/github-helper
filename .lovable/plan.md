@@ -1,34 +1,37 @@
-Corrigir dois pontos de UX que fazem a abertura de conversa em /chat parecer "carregando":
+## Plano corrigido para `/chat`
 
-## 1) Rolagem "correndo" até a última mensagem
-Arquivo: `src/components/chat/ChatWindow.tsx`
+O ajuste anterior não resolveu porque ainda existe rolagem suave no `ChatWindow.tsx` quando a quantidade de mensagens aumenta, e a conversa troca de telefone mantendo o mesmo componente/hook montado. Isso permite renderizar estado antigo ou iniciar no topo antes de reposicionar no fim.
 
-Causa: o `useEffect` faz `scrollIntoView({ behavior: "smooth" })` toda vez que `messages` muda — inclusive na primeira renderização da conversa, o que anima a rolagem por todas as bolhas.
+### O que vou alterar
 
-Correção:
-- Trocar o `useEffect` por `useLayoutEffect` que:
-  - Se mudou o `phone` (conversa recém-aberta) → `scrollIntoView({ behavior: "auto" })` (instantâneo, sem animação).
-  - Se só aumentou a quantidade de mensagens na mesma conversa → mantém `behavior: "smooth"` (mensagem nova chegando continua com animação suave).
-- Guardar `phone` anterior e `messages.length` anterior em `useRef` para diferenciar os dois casos.
+1. **Eliminar a rolagem animada na abertura da conversa**
+   - Remover o `scrollIntoView({ behavior: "smooth" })` do chat.
+   - Usar o próprio container de mensagens com `scrollTop = scrollHeight`, sempre de forma instantânea.
+   - Na troca de conversa, posicionar no fim antes do usuário ver a lista, evitando o efeito de “esteira”.
 
-## 2) Loading spinner no lugar do input
-Arquivo: `src/components/chat/MetaChatInput.tsx`
+2. **Impedir reaproveitamento visual da conversa anterior**
+   - Fazer o `ChatWindow` remontar ao trocar de telefone usando `key={selectedPhone}`.
+   - Isso evita que mensagens da conversa anterior apareçam brevemente enquanto a nova conversa carrega.
 
-Causa: o componente começa com `loading = true` e renderiza um spinner no lugar de todo o input enquanto busca telefone canônico, templates, janela 24h e contagem de bloqueios de ecossistema. Isso deixa a área de digitação em branco por ~200–800 ms sempre que uma conversa é aberta.
+3. **Remover spinner/estado de carregamento dentro da área de mensagens**
+   - Não mostrar spinner no meio da conversa ao abrir um lead.
+   - Enquanto busca as mensagens, a área fica estável; quando os dados chegam, já entram posicionados no final.
 
-Correção:
-- Remover o bloco `if (loading) return <spinner>` (perto da linha 665).
-- Renderizar `<Textarea>`, botão de emoji, anexo e enviar imediatamente, desde o primeiro frame.
-- Manter o `loading` interno apenas como flag de "ainda carregando dados auxiliares", sem esconder a UI:
-  - Templates aparecem no `<Select>` assim que chegam (populate incremental, já funciona).
-  - Badge da janela 24h atualiza assim que `refreshWindow()` responde.
-  - Aviso de "ecosystem engagement" aparece assim que a contagem retorna.
-- Regras de negócio (envio bloqueado fora da janela 24h, templates só quando aprovados, validação da Edge Function) permanecem intactas — a Edge Function `send-whatsapp-message` já valida no servidor.
+4. **Deixar a barra de envio estável imediatamente**
+   - Passar para o `MetaChatInput` o estado inicial da janela de 24h vindo da conversa selecionada quando disponível.
+   - Assim, se a lista já sabe que a janela está aberta, o campo de digitação aparece direto, sem piscar como “fora da janela” antes da consulta terminar.
 
-## Escopo
-- Apenas 2 arquivos frontend, ~15 linhas no total.
-- Sem mudanças em hooks, Edge Functions, banco, RLS, triggers ou lógica de janela/dedupe.
-- Sem alterar nada em envio, templates, tags, filtros ou realtime.
+5. **Preservar o comportamento esperado para novas mensagens**
+   - Quando uma nova mensagem chegar e o usuário estiver no fim da conversa, o chat continua acompanhando o final.
+   - Sem animação longa e sem rolar por todo o histórico.
 
-## Resultado esperado
-Abrir uma conversa em /chat passa a se comportar como no WhatsApp Web: as mensagens já aparecem posicionadas na última (sem animação de rolagem) e a barra de digitação está pronta desde o primeiro frame.
+### Arquivos envolvidos
+
+- `src/components/chat/ChatPage.tsx`
+- `src/components/chat/ChatWindow.tsx`
+- `src/components/chat/MetaChatInput.tsx`
+- Possivelmente `src/hooks/useChatMessages.ts`, apenas se for necessário limpar estado por telefone além do `key`.
+
+### Resultado esperado
+
+Ao clicar em uma conversa no `/chat`, a tela abre já no final da conversa, sem mostrar a rolagem passando por todas as mensagens e sem spinner na área de digitação.
