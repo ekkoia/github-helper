@@ -27,7 +27,7 @@ interface ConversationListProps {
   conversations: Conversation[];
   loading: boolean;
   selectedPhone: string | null;
-  onSelect: (phone: string, name: string, assessorName?: string | null) => void;
+  onSelect: (phone: string, name: string, assessorName?: string | null, windowOpen?: boolean) => void;
 }
 
 const formatTime = (dateStr: string) => {
@@ -193,7 +193,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
           filtered.map((conv) => (
             <button
               key={conv.phone}
-              onClick={() => onSelect(conv.phone, conv.name, conv.assessorName)}
+              onClick={() => onSelect(conv.phone, conv.name, conv.assessorName, conv.windowOpen)}
               className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left border-b border-border/50 ${
                 selectedPhone === conv.phone ? "bg-muted/70" : ""
               }`}

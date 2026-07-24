@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useConversations } from "@/hooks/useConversations";
+import { useMetaAccount } from "@/hooks/useMetaAccount";
 import ConversationList from "./ConversationList";
 import ChatWindow from "./ChatWindow";
 import { MessageCircle } from "lucide-react";
@@ -10,7 +11,9 @@ export const ChatPage: React.FC = () => {
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [selectedName, setSelectedName] = useState<string>("");
   const [selectedAssessor, setSelectedAssessor] = useState<string | null>(null);
+  const [selectedWindowOpen, setSelectedWindowOpen] = useState<boolean>(false);
   const { conversations, loading } = useConversations();
+  useMetaAccount();
 
   useEffect(() => {
     const phone = searchParams.get("phone");
@@ -19,13 +22,15 @@ export const ChatPage: React.FC = () => {
       setSelectedPhone(phone);
       setSelectedName(name || phone);
       setSelectedAssessor(null);
+      setSelectedWindowOpen(false);
     }
   }, [searchParams]);
 
-  const handleSelect = (phone: string, name: string, assessorName?: string | null) => {
+  const handleSelect = (phone: string, name: string, assessorName?: string | null, windowOpen?: boolean) => {
     setSelectedPhone(phone);
     setSelectedName(name);
     setSelectedAssessor(assessorName || null);
+    setSelectedWindowOpen(Boolean(windowOpen));
   };
 
   const handleBack = () => setSelectedPhone(null);
@@ -53,9 +58,11 @@ export const ChatPage: React.FC = () => {
       >
         {selectedPhone ? (
           <ChatWindow
+            key={selectedPhone}
             phone={selectedPhone}
             name={selectedName}
             assessorName={selectedAssessor}
+            initialWindowOpen={selectedWindowOpen}
             onBack={handleBack}
           />
         ) : (

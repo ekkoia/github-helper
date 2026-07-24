@@ -22,6 +22,7 @@ interface MetaChatInputProps {
   contactPhone: string;
   contactName: string;
   metaAccount: MetaAccount;
+  initialWindowOpen?: boolean;
   onMessageSent: () => void;
   addOptimistic?: (msg: ChatMessage) => void;
   updateOptimistic?: (tempId: string, patch: Partial<ChatMessage>) => void;
@@ -79,7 +80,7 @@ const MediaTypeIcon: React.FC<{ type: string; className?: string }> = ({ type, c
 const ENCODER_WORKER_URL = "/encoderWorker.min.js";
 
 const MetaChatInput: React.FC<MetaChatInputProps> = ({
-  contactPhone, contactName, metaAccount, onMessageSent,
+  contactPhone, contactName, metaAccount, initialWindowOpen = false, onMessageSent,
   addOptimistic, updateOptimistic, removeOptimistic,
 }) => {
 
@@ -91,9 +92,8 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<MetaTemplate[]>([]);
-  const [isWithin24h, setIsWithin24h] = useState(false);
+  const [isWithin24h, setIsWithin24h] = useState(initialWindowOpen);
   const [windowExpiresAt, setWindowExpiresAt] = useState<Date | null>(null);
-  const [loading, setLoading] = useState(true);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [ecosystemBlocks, setEcosystemBlocks] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -173,7 +173,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
+      setIsWithin24h(initialWindowOpen);
       try {
         let metaRecipient = fallbackPhone;
         const rawDigits = contactPhone.replace(/\D/g, "");
@@ -218,12 +218,10 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         setEcosystemBlocks(blockCount || 0);
       } catch (err) {
         console.error("Erro ao inicializar MetaChatInput:", err);
-      } finally {
-        setLoading(false);
       }
     };
     init();
-  }, [contactPhone, fallbackPhone, metaAccount.id, refreshWindow]);
+  }, [contactPhone, fallbackPhone, initialWindowOpen, metaAccount.id, refreshWindow]);
 
   // Realtime: reabre/atualiza a janela de 24h assim que o webhook grava
   // uma mudança em whatsapp_conversation_windows ou chega um inbound.

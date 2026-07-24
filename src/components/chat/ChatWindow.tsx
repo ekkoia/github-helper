@@ -29,16 +29,19 @@ interface ChatWindowProps {
   phone: string;
   name: string;
   assessorName?: string | null;
+  initialWindowOpen?: boolean;
   onBack?: () => void;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBack }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, initialWindowOpen = false, onBack }) => {
   const { messages, loading, refetch, addOptimistic, updateOptimistic, removeOptimistic } = useChatMessages(phone);
   const { account, loading: loadingAccount } = useMetaAccount();
   const { isAdmin } = useUserRole();
   const { usersMap } = useUsers();
   const isMobile = useIsBelowLg();
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+  const [hasPositionedInitialMessages, setHasPositionedInitialMessages] = useState(false);
   const [iaStatus, setIaStatus] = useState<string | null>(null);
   const [loadingIA, setLoadingIA] = useState(false);
   const [showLeadPanel, setShowLeadPanel] = useState(false);
@@ -54,19 +57,37 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
   };
   const phoneKey = normalizePhoneBR(phone);
 
-  const prevPhoneRef = useRef<string | null>(null);
   const prevCountRef = useRef<number>(0);
+
+  const scrollMessagesToBottom = React.useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, []);
+
+  const handleMessagesScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
   useLayoutEffect(() => {
-    const phoneChanged = prevPhoneRef.current !== phone;
-    const countIncreased = messages.length > prevCountRef.current;
-    if (phoneChanged) {
-      bottomRef.current?.scrollIntoView({ behavior: "auto" });
-    } else if (countIncreased) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const previousCount = prevCountRef.current;
+    const openedConversation = previousCount === 0 && messages.length > 0;
+    const countIncreased = messages.length > previousCount;
+
+    if (openedConversation || (countIncreased && isAtBottomRef.current)) {
+      scrollMessagesToBottom();
+      requestAnimationFrame(() => {
+        scrollMessagesToBottom();
+        if (openedConversation) setHasPositionedInitialMessages(true);
+      });
+    } else if (!loading && messages.length === 0) {
+      setHasPositionedInitialMessages(true);
     }
-    prevPhoneRef.current = phone;
+
     prevCountRef.current = messages.length;
-  }, [messages, phone]);
+  }, [loading, messages.length, scrollMessagesToBottom]);
 
   // Busca status da IA
   useEffect(() => {
@@ -100,15 +121,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
     setLoadingIA(false);
   };
 
-  if (loadingAccount) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (!account) {
+  if (!loadingAccount && !account) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
         <AlertCircle className="h-10 w-10 opacity-40" />
@@ -180,12 +193,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
         )}
 
         {/* Mensagens */}
-        <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1 bg-muted/10">
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-            </div>
-          ) : messages.length === 0 ? (
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleMessagesScroll}
+          className={`flex-1 overflow-y-auto scroll-auto p-3 lg:p-4 space-y-1 bg-muted/10 ${hasPositionedInitialMessages ? "opacity-100" : "opacity-0"}`}
+        >
+          {!loading && messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-2">
               <MessageCircle className="h-8 w-8 opacity-30" />
               <p className="text-sm">Nenhuma mensagem ainda</p>
@@ -235,20 +248,24 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
 
             })()
           )}
-          <div ref={bottomRef} />
         </div>
 
         {/* Input */}
         <div className="px-3 lg:px-4 pb-3 lg:pb-4">
-          <MetaChatInput
-            contactPhone={phone}
-            contactName={name}
-            metaAccount={account}
-            onMessageSent={refetch}
-            addOptimistic={addOptimistic}
-            updateOptimistic={updateOptimistic}
-            removeOptimistic={removeOptimistic}
-          />
+          {account ? (
+            <MetaChatInput
+              contactPhone={phone}
+              contactName={name}
+              metaAccount={account}
+              initialWindowOpen={initialWindowOpen}
+              onMessageSent={refetch}
+              addOptimistic={addOptimistic}
+              updateOptimistic={updateOptimistic}
+              removeOptimistic={removeOptimistic}
+            />
+          ) : (
+            <div className="min-h-[54px] rounded-full border border-border bg-muted" />
+          )}
 
         </div>
       </div>
