@@ -121,6 +121,31 @@ const ConversationList: React.FC<ConversationListProps> = ({
                     return conv.lastMessage || "Mídia";
                   })()}
                 </div>
+                {/* Tags do lead */}
+                {conv.leadId && tagAssignmentsMap[conv.leadId]?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {tagAssignmentsMap[conv.leadId].slice(0, 3).map((tagId) => {
+                      const t = tagById.get(tagId);
+                      if (!t) return null;
+                      return (
+                        <span
+                          key={tagId}
+                          className="inline-flex items-center gap-0.5 text-[10px] leading-none px-1.5 py-0.5 rounded font-medium max-w-full truncate"
+                          style={{ backgroundColor: t.cor, color: getContrastText(t.cor) }}
+                          title={t.nome}
+                        >
+                          {t.emoji && <span>{t.emoji}</span>}
+                          <span className="truncate">{t.nome}</span>
+                        </span>
+                      );
+                    })}
+                    {tagAssignmentsMap[conv.leadId].length > 3 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        +{tagAssignmentsMap[conv.leadId].length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               {/* Janela de 24h aberta */}
               {conv.windowOpen && (
