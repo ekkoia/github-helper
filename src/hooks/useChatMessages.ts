@@ -26,6 +26,11 @@ export interface ChatMessage {
   __retry?: () => void;
 }
 
+const normalizeChatMessage = (message: any): ChatMessage => ({
+  ...message,
+  id: String(message?.id ?? ""),
+});
+
 export const useChatMessages = (phone: string | null) => {
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
@@ -96,33 +101,35 @@ export const useChatMessages = (phone: string | null) => {
   }, []);
 
   const updateOptimistic = useCallback((tempId: string, patch: Partial<ChatMessage>) => {
-    setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, ...patch } : m)));
+    setMessages((prev) => prev.map((m) => (String(m.id) === tempId ? { ...m, ...patch } : m)));
   }, []);
 
   const removeOptimistic = useCallback((tempId: string) => {
-    setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    setMessages((prev) => prev.filter((m) => String(m.id) !== tempId));
   }, []);
 
   // Reconciliação: quando chega INSERT do servidor, tenta casar com pendente
   const reconcile = useCallback((serverMsg: ChatMessage) => {
+    const normalizedServerMsg = normalizeChatMessage(serverMsg);
     setMessages((prev) => {
       // Já existe (mesmo id)?
-      if (prev.find((m) => m.id === serverMsg.id)) return prev;
+      if (prev.find((m) => String(m.id) === normalizedServerMsg.id)) return prev;
       // Tenta casar com um pendente similar
       const idx = prev.findIndex((m) => {
         if (m.status !== "pending" && m.status !== "sent") return false;
-        if (!m.id.startsWith("temp-") && m.status !== "sent") return false;
-        const sameText = (m.bot_message || "") === (serverMsg.bot_message || "");
-        const sameMedia = (m.media_filename || "") === (serverMsg.media_filename || "");
-        const dt = Math.abs(new Date(m.created_at).getTime() - new Date(serverMsg.created_at).getTime());
+        const messageId = String(m.id ?? "");
+        if (!messageId.startsWith("temp-") && m.status !== "sent") return false;
+        const sameText = (m.bot_message || "") === (normalizedServerMsg.bot_message || "");
+        const sameMedia = (m.media_filename || "") === (normalizedServerMsg.media_filename || "");
+        const dt = Math.abs(new Date(m.created_at).getTime() - new Date(normalizedServerMsg.created_at).getTime());
         return sameText && sameMedia && dt < 60_000;
       });
       if (idx >= 0) {
         const clone = [...prev];
-        clone[idx] = { ...serverMsg, status: "sent" };
+        clone[idx] = { ...normalizedServerMsg, status: "sent" };
         return clone;
       }
-      return [...prev, serverMsg];
+      return [...prev, normalizedServerMsg];
     });
   }, []);
 
