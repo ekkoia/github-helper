@@ -21,6 +21,7 @@ import Configuracoes from "./pages/Configuracoes";
 import Atividades from "./pages/Atividades";
 import Agenda from "./pages/Agenda";
 import Chat from "./pages/Chat";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,7 +33,9 @@ const queryClient = new QueryClient({
 });
 
 
-const App = () => (
+const App = () => {
+  useVersionCheck();
+  return (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <TooltipProvider>
@@ -66,7 +69,8 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
-  </QueryClientProvider>
-);
+    </QueryClientProvider>
+  );
+};
 
 export default App;
