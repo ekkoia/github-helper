@@ -31,6 +31,7 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { toast } from "sonner";
 import { getWhatsAppUrl } from "@/lib/utils";
 import { getPisoDaFaixa } from "@/lib/investmentUtils";
+import { LeadTagsSection } from "@/components/leads/LeadTagsSection";
 
 const ORIGEM_LABELS: Record<string, string> = {
   instagram_ads: "Instagram Ads",
@@ -272,6 +273,13 @@ export const LeadDetailsModal = ({ lead, isOpen, onClose, onEdit, onLeadUpdated 
                   </div>
                 )}
               </div>
+            </div>
+
+            <Separator />
+
+            {/* Tags */}
+            <div>
+              <LeadTagsSection leadId={currentLead.id} />
             </div>
 
             <Separator />
