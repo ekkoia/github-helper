@@ -410,6 +410,17 @@ const Kanban = () => {
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
+                              {(tagAssignmentsMap[lead.id]?.length ?? 0) > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {tagAssignmentsMap[lead.id]
+                                    .map((tid) => tagById[tid])
+                                    .filter(Boolean)
+                                    .slice(0, 4)
+                                    .map((t) => (
+                                      <TagChip key={t.id} tag={t} size="xs" />
+                                    ))}
+                                </div>
+                              )}
                               <div className="space-y-1.5 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                   <User className="h-3.5 w-3.5" aria-hidden="true" />
