@@ -660,7 +660,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           )}
 
           {!isRecording && !recordedBlob && (
-            <div className="flex gap-2">
+            <div className="flex items-end gap-2">
               <input
                 ref={fileInputRef} type="file" accept={ALL_ACCEPTED} className="hidden"
                 onChange={(e) => {
@@ -672,22 +672,72 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
                   e.target.value = "";
                 }}
               />
-              <Button type="button" variant="ghost" size="icon" className="h-[60px] w-10 flex-shrink-0 text-muted-foreground" onClick={() => fileInputRef.current?.click()}>
-                <Paperclip className="h-4 w-4" />
-              </Button>
-              <Textarea
-                value={message} onChange={(e) => setMessage(e.target.value)}
-                placeholder={attachedFile ? "Legenda (opcional)..." : "Digite sua mensagem..."}
-                className="min-h-[60px] max-h-[100px] text-sm resize-none"
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendTextMessage(); } }}
-              />
+              <div className="flex-1 flex items-end gap-1 rounded-3xl bg-muted px-2 py-1.5 min-h-[48px]">
+                <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 rounded-full flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-background/60"
+                      aria-label="Inserir emoji"
+                    >
+                      <Smile className="h-5 w-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    side="top"
+                    align="start"
+                    className="p-0 border-0 bg-transparent shadow-none w-auto"
+                  >
+                    <EmojiPicker
+                      theme={emojiTheme}
+                      emojiStyle={EmojiStyle.NATIVE}
+                      lazyLoadEmojis
+                      searchPlaceHolder="Buscar emoji"
+                      width={320}
+                      height={380}
+                      onEmojiClick={(e) => { insertEmoji(e.emoji); }}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-background/60"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Anexar arquivo"
+                >
+                  <Paperclip className="h-5 w-5" />
+                </Button>
+                <Textarea
+                  ref={textareaRef}
+                  value={message} onChange={(e) => setMessage(e.target.value)}
+                  placeholder={attachedFile ? "Legenda (opcional)..." : "Digite uma mensagem"}
+                  className="flex-1 min-h-[36px] max-h-[120px] text-sm resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-1.5"
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendTextMessage(); } }}
+                />
+              </div>
               {!message.trim() && !attachedFile ? (
-                <Button type="button" variant="ghost" size="icon" className="h-[60px] w-[60px] flex-shrink-0 text-muted-foreground" onClick={startRecording}>
+                <Button
+                  type="button"
+                  size="icon"
+                  className="h-12 w-12 rounded-full flex-shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  onClick={startRecording}
+                  aria-label="Gravar áudio"
+                >
                   <Mic className="h-5 w-5" />
                 </Button>
               ) : (
-                <Button onClick={sendTextMessage} disabled={sending || (!message.trim() && !attachedFile)} size="icon" className="h-[60px] w-[60px]">
-                  <Send className="h-4 w-4" />
+                <Button
+                  onClick={sendTextMessage}
+                  disabled={sending || (!message.trim() && !attachedFile)}
+                  size="icon"
+                  className="h-12 w-12 rounded-full flex-shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  aria-label="Enviar mensagem"
+                >
+                  <Send className="h-5 w-5" />
                 </Button>
               )}
             </div>
