@@ -1,37 +1,31 @@
-# Indicador de "por que não aparece como lida"
 
 ## Objetivo
-Quando uma mensagem outbound estiver marcada como **entregue** (✓✓ cinza) e não avançar para **lida** (✓✓ azul), mostrar no chat uma explicação clara: o destinatário provavelmente tem "Confirmações de leitura" desativado no WhatsApp — não é falha do sistema. Se o lead já respondeu depois da mensagem, isso é evidência de que ele leu.
+Adicionar um painel-resumo compacto no topo da conversa em `/chat` que mostre, por contato, o status agregado das últimas mensagens: entregues, lidas, "leitura oculta por privacidade" e horário da última resposta recebida do lead.
 
-## Mudanças de UI (somente `src/components/chat/MessageBubble.tsx`)
+## O que será exibido
+Painel em linha, logo abaixo do cabeçalho do lead (acima da lista de mensagens), com 4 indicadores:
 
-1. **Tooltip enriquecido no ✓✓ (delivered)**
-   - Ao passar o mouse no check duplo cinza, texto:
-     > "Entregue no WhatsApp. O check azul (lida) só aparece se o destinatário tiver 'Confirmações de leitura' ativadas nas configurações de privacidade do WhatsApp dele."
-   - Se existir uma resposta do lead posterior a essa mensagem, acrescenta:
-     > "O lead respondeu depois desta mensagem, então foi lida."
-   - Implementação: usar `<Tooltip>` do shadcn (já disponível no projeto) em vez de `aria-label` seco.
+1. **Entregues** — total de mensagens outbound com status `delivered` ou `read` (últimos 30 dias).
+2. **Lidas** — total com status `read`.
+3. **Leitura oculta** — mensagens `delivered` para as quais existe pelo menos uma resposta inbound posterior, mas nunca receberam evento `read` da Meta. Sinaliza que o lead provavelmente desativou confirmação de leitura.
+4. **Última resposta** — timestamp relativo da última mensagem inbound (`há 2h`, `ontem 14:30`), no fuso Brasil.
 
-2. **Badge sutil "provavelmente lida"** (opcional, só na última mensagem outbound de cada bloco do assessor)
-   - Quando o status for `delivered` e houver uma inbound do lead mais recente que essa mensagem, renderizar o ✓✓ em tom levemente mais claro com o mesmo tooltip acima. Sem alterar a cor azul (que continua reservada ao evento `read` real da Meta).
+Extras leves:
+- Badge "Janela 24h aberta / fechada" reaproveitando o dado que já vem de `whatsapp_conversation_windows`.
+- Se houver mensagens `failed` recentes (7 dias), um chip vermelho com a contagem e tooltip explicando (reaproveita a lógica de erro 131049 / 131047 já existente).
 
-3. **Tooltip no ✓ (sent)** e no relógio (pending)
-   - `sent`: "Enviada ao WhatsApp, aguardando confirmação de entrega."
-   - `pending`: "Enviando..."
-   - Apenas para consistência; não muda comportamento.
-
-## Como saber se o lead respondeu depois
-- A `MessageBubble` já recebe a mensagem individual. Para saber se há inbound posterior, o `ChatWindow` (pai) passa uma prop nova `hasLaterInbound: boolean` calculada uma vez por render, comparando `created_at` de cada outbound com o `created_at` da inbound mais recente da conversa. Custo O(n) em cima do array já ordenado.
-
-## Fora de escopo
-- Não alterar `delivery_status`, webhook, edge functions, nem forçar marcação como "lida" no banco. O check azul continua exclusivo para eventos `read` reais da Meta.
-- Não mexer em envio, template, janela de 24h ou qualquer lógica de negócio.
-
-## Arquivos afetados
-- `src/components/chat/MessageBubble.tsx` — tooltips + leitura da nova prop.
-- `src/components/chat/ChatWindow.tsx` — calcular `lastInboundAt` e passar `hasLaterInbound` para cada bubble outbound.
+## Onde entra
+- Novo componente `src/components/chat/ChatStatusSummary.tsx`.
+- Renderizado em `src/components/chat/ChatWindow.tsx`, entre o header do lead e a área de mensagens.
+- Cálculo derivado das mensagens já carregadas em `useChatMessages` (mesma fonte que hoje alimenta `hasLaterInbound` no `MessageBubble`), sem nova query — mantém tudo em memória e atualiza junto com o Realtime existente.
 
 ## Detalhes técnicos
-- Usar `TooltipProvider` / `Tooltip` / `TooltipTrigger` / `TooltipContent` de `@/components/ui/tooltip`.
-- Mensagem do tooltip em pt-BR, curta em duas linhas.
-- Não mudar cores fora dos tokens do design system; manter `text-sky-300` só para `read` real.
+- Reutiliza `msg.status`, `msg.direction`, `msg.created_at` e `msg.error_code` já disponíveis em `chat_messages`.
+- "Leitura oculta" = para cada outbound `delivered`, verifica se existe inbound com `created_at` maior; se sim e status nunca virou `read`, conta como leitura oculta. Cálculo memoizado com `useMemo`.
+- Formatação de tempo com o helper de timezone Brasil já usado no `ChatWindow` (`created_time_brasil` pattern).
+- Tooltips em cada indicador reaproveitando o `Tooltip` do shadcn, mesmo padrão já aplicado no `MessageBubble`.
+- Estilo alinhado ao design system (tokens semânticos, sem cores hardcoded); no mobile, colapsa para uma linha com ícones + números, sem labels.
+
+## Fora de escopo
+- Nenhuma alteração em edge functions, banco, RLS, webhooks ou lógica de envio.
+- Sem novos endpoints ou queries — só leitura do estado já carregado no cliente.
