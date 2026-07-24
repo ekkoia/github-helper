@@ -13,7 +13,9 @@ export interface Conversation {
   windowOpen: boolean;
   userId: string;
   assessorName: string | null;
+  assessorId: string | null;
   leadId: string | null;
+  hasAssessorMessage: boolean;
 }
 
 /**
