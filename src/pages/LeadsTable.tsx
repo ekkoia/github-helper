@@ -228,6 +228,15 @@ const LeadsTable = () => {
       });
     }
 
+    // Filtro por tag
+    if (filters.tag && filters.tag !== "all") {
+      if (filters.tag === "none") {
+        filtered = filtered.filter((lead) => !tagAssignmentsMap[lead.id] || tagAssignmentsMap[lead.id].length === 0);
+      } else {
+        filtered = filtered.filter((lead) => (tagAssignmentsMap[lead.id] || []).includes(filters.tag));
+      }
+    }
+
     // Filtro por período/data
     if (filters.periodo && filters.periodo !== "all") {
       const now = new Date();
@@ -363,6 +372,7 @@ const LeadsTable = () => {
       periodo: "all",
       dataInicio: undefined,
       dataFim: undefined,
+      tag: "all",
     });
   };
 
