@@ -104,6 +104,30 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [ecosystemBlocks, setEcosystemBlocks] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const { theme } = useTheme();
+  const emojiTheme: EmojiTheme = (() => {
+    if (theme === "dark") return EmojiTheme.DARK;
+    if (theme === "light") return EmojiTheme.LIGHT;
+    return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? EmojiTheme.DARK
+      : EmojiTheme.LIGHT;
+  })();
+
+  const insertEmoji = (emoji: string) => {
+    const ta = textareaRef.current;
+    if (!ta) { setMessage((m) => m + emoji); return; }
+    const start = ta.selectionStart ?? message.length;
+    const end = ta.selectionEnd ?? message.length;
+    const next = message.slice(0, start) + emoji + message.slice(end);
+    setMessage(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const pos = start + emoji.length;
+      ta.setSelectionRange(pos, pos);
+    });
+  };
 
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
