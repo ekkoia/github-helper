@@ -81,6 +81,28 @@ Deno.serve(async (req) => {
       if (leadPhone) recipientTo = leadPhone;
     }
 
+    // Bloqueia envio para números fixos de DDDs 11-28 (assinante inicia com 2-5).
+    // Fixos não recebem WhatsApp — evita gastar tentativa na Meta.
+    {
+      const digits = recipientTo.replace(/\D/g, "");
+      const base = digits.startsWith("55") ? digits.slice(2) : digits;
+      if (base.length >= 10) {
+        const ddd = parseInt(base.slice(0, 2), 10);
+        // assinante começa após o DDD; se tem 9 dígitos e começa com 9, é celular
+        const local = base.slice(2);
+        const firstDigit = local.length === 9 && local[0] === "9" ? local[1] : local[0];
+        if (ddd >= 11 && ddd <= 28 && ["2", "3", "4", "5"].includes(firstDigit)) {
+          return new Response(
+            JSON.stringify({
+              error: "Número fixo — não recebe WhatsApp",
+              code: "phone_is_landline",
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
     // Conta Meta compartilhada (primeira/única configurada)
     const { data: account, error: accErr } = await supabase
       .from("whatsapp_meta_accounts")
