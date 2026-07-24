@@ -1,31 +1,49 @@
+# Emoji + Visual estilo WhatsApp na barra de mensagem
 
-## Objetivo
-Adicionar um painel-resumo compacto no topo da conversa em `/chat` que mostre, por contato, o status agregado das últimas mensagens: entregues, lidas, "leitura oculta por privacidade" e horário da última resposta recebida do lead.
+Escopo restrito ao componente `src/components/chat/MetaChatInput.tsx`. Nenhuma lógica de envio, template, áudio, upload, janela 24h ou otimista será alterada — apenas o wrapper visual e um novo botão de emoji.
 
-## O que será exibido
-Painel em linha, logo abaixo do cabeçalho do lead (acima da lista de mensagens), com 4 indicadores:
+## O que muda
 
-1. **Entregues** — total de mensagens outbound com status `delivered` ou `read` (últimos 30 dias).
-2. **Lidas** — total com status `read`.
-3. **Leitura oculta** — mensagens `delivered` para as quais existe pelo menos uma resposta inbound posterior, mas nunca receberam evento `read` da Meta. Sinaliza que o lead provavelmente desativou confirmação de leitura.
-4. **Última resposta** — timestamp relativo da última mensagem inbound (`há 2h`, `ontem 14:30`), no fuso Brasil.
+**1. Emoji picker**
+- Adicionar dependência `emoji-picker-react` (leve, sem backend, funciona offline).
+- Novo botão smile ao lado do botão de anexo (`Paperclip`), abrindo um `Popover` (shadcn) com o picker.
+- Ao selecionar, o emoji é inserido na posição atual do cursor do `Textarea` (usando `selectionStart/End`), mantendo o resto do texto intacto. Foco volta ao textarea.
+- Picker respeita tema claro/escuro via prop `theme` lida do `ThemeContext`.
 
-Extras leves:
-- Badge "Janela 24h aberta / fechada" reaproveitando o dado que já vem de `whatsapp_conversation_windows`.
-- Se houver mensagens `failed` recentes (7 dias), um chip vermelho com a contagem e tooltip explicando (reaproveita a lógica de erro 131049 / 131047 já existente).
+**2. Visual estilo WhatsApp (apenas CSS/estrutura JSX)**
+- Barra inferior vira uma "pill" arredondada: fundo `bg-muted` (cinza claro / cinza escuro no dark), `rounded-full`, com padding interno. Botão de enviar fica separado, circular, verde (`bg-primary`) à direita — como no WhatsApp.
+- Ordem dos controles dentro da pill: `[😊 emoji] [📎 anexo] [textarea sem borda, transparente] [🎤 mic]`. Botão enviar (círculo verde) fora da pill, à direita, aparece quando há texto/anexo/áudio; caso contrário mostra o mic (já existe hoje, só ajustar posição).
+- Textarea: remover borda/background próprios (`border-0 bg-transparent focus-visible:ring-0`), placeholder "Digite uma mensagem".
+- Botões viram `variant="ghost"` circulares, cor `text-muted-foreground`, hover suave.
+- Selector de template e banners (fora janela 24h, aviso de bloqueio, preview de anexo, gravação de áudio) permanecem exatamente como estão — apenas a linha final de composição ganha o novo visual.
 
-## Onde entra
-- Novo componente `src/components/chat/ChatStatusSummary.tsx`.
-- Renderizado em `src/components/chat/ChatWindow.tsx`, entre o header do lead e a área de mensagens.
-- Cálculo derivado das mensagens já carregadas em `useChatMessages` (mesma fonte que hoje alimenta `hasLaterInbound` no `MessageBubble`), sem nova query — mantém tudo em memória e atualiza junto com o Realtime existente.
+## Onde não vou mexer
+
+- Nenhuma lógica de `handleSend`, `handleSendTemplate`, upload, `MediaRecorder`, verificação de janela 24h, otimismo, retry, permissões.
+- Layout das mensagens no `ChatWindow`, `MessageBubble`, `ConversationList`.
+- Tokens de cor globais em `index.css` (uso apenas classes semânticas existentes).
 
 ## Detalhes técnicos
-- Reutiliza `msg.status`, `msg.direction`, `msg.created_at` e `msg.error_code` já disponíveis em `chat_messages`.
-- "Leitura oculta" = para cada outbound `delivered`, verifica se existe inbound com `created_at` maior; se sim e status nunca virou `read`, conta como leitura oculta. Cálculo memoizado com `useMemo`.
-- Formatação de tempo com o helper de timezone Brasil já usado no `ChatWindow` (`created_time_brasil` pattern).
-- Tooltips em cada indicador reaproveitando o `Tooltip` do shadcn, mesmo padrão já aplicado no `MessageBubble`.
-- Estilo alinhado ao design system (tokens semânticos, sem cores hardcoded); no mobile, colapsa para uma linha com ícones + números, sem labels.
 
-## Fora de escopo
-- Nenhuma alteração em edge functions, banco, RLS, webhooks ou lógica de envio.
-- Sem novos endpoints ou queries — só leitura do estado já carregado no cliente.
+- `bun add emoji-picker-react` (~1 dep, tree-shakeable).
+- Import lazy opcional se peso incomodar; inicialmente import direto.
+- Inserção do emoji:
+  ```ts
+  const insertEmoji = (emoji: string) => {
+    const ta = textareaRef.current;
+    if (!ta) { setMessage(m => m + emoji); return; }
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    setMessage(m => m.slice(0, start) + emoji + m.slice(end));
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(start + emoji.length, start + emoji.length);
+    });
+  };
+  ```
+- Se `textareaRef` ainda não existir no componente, adiciono um `useRef<HTMLTextAreaElement>` e ligo no `<Textarea>`.
+
+## Verificação
+
+- Build passa.
+- Enviar texto simples, texto com emoji, template, anexo e áudio continuam funcionando (fluxos não tocados).
+- Visual conferido no desktop e no mobile (o layout responsivo do /chat já existente é preservado).
