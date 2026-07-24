@@ -5,6 +5,18 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { detectMediaKind, MediaPreviewInline } from "./mediaPreview";
+import { useAllLeadTagAssignments, useLeadTagsCatalog, LeadTag } from "@/hooks/useLeadTags";
+
+// Escolhe cor de texto de acordo com o contraste com o fundo
+const getContrastText = (hex: string): string => {
+  const h = (hex || "").replace("#", "");
+  if (h.length !== 6) return "#fff";
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? "#000" : "#fff";
+};
 
 
 interface ConversationListProps {
@@ -31,6 +43,14 @@ const ConversationList: React.FC<ConversationListProps> = ({
 }) => {
   const [search, setSearch] = useState("");
   const { isAdmin } = useUserRole();
+  const { map: tagAssignmentsMap } = useAllLeadTagAssignments();
+  const { tags: tagCatalog } = useLeadTagsCatalog();
+  const tagById = React.useMemo(() => {
+    const m = new Map<string, LeadTag>();
+    tagCatalog.forEach((t) => m.set(t.id, t));
+    return m;
+  }, [tagCatalog]);
+
 
   const filtered = conversations.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -101,6 +121,31 @@ const ConversationList: React.FC<ConversationListProps> = ({
                     return conv.lastMessage || "Mídia";
                   })()}
                 </div>
+                {/* Tags do lead */}
+                {conv.leadId && tagAssignmentsMap[conv.leadId]?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {tagAssignmentsMap[conv.leadId].slice(0, 3).map((tagId) => {
+                      const t = tagById.get(tagId);
+                      if (!t) return null;
+                      return (
+                        <span
+                          key={tagId}
+                          className="inline-flex items-center gap-0.5 text-[10px] leading-none px-1.5 py-0.5 rounded font-medium max-w-full truncate"
+                          style={{ backgroundColor: t.cor, color: getContrastText(t.cor) }}
+                          title={t.nome}
+                        >
+                          {t.emoji && <span>{t.emoji}</span>}
+                          <span className="truncate">{t.nome}</span>
+                        </span>
+                      );
+                    })}
+                    {tagAssignmentsMap[conv.leadId].length > 3 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        +{tagAssignmentsMap[conv.leadId].length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               {/* Janela de 24h aberta */}
               {conv.windowOpen && (

@@ -13,6 +13,7 @@ export interface Conversation {
   windowOpen: boolean;
   userId: string;
   assessorName: string | null;
+  leadId: string | null;
 }
 
 /**
@@ -37,14 +38,14 @@ const normalizeForMatch = (raw: string | null | undefined): string => {
 };
 
 // Busca todos os leads paginando (contorna limite de 1000 do PostgREST)
-const fetchAllLeadsForMatch = async (): Promise<Array<{ telefone: string | null; responsavel_id: string | null }>> => {
+const fetchAllLeadsForMatch = async (): Promise<Array<{ id: string; telefone: string | null; responsavel_id: string | null }>> => {
   const pageSize = 1000;
   let all: any[] = [];
   let from = 0;
   while (true) {
     const { data, error } = await (supabase as any)
       .from("leads")
-      .select("telefone, responsavel_id")
+      .select("id, telefone, responsavel_id")
       .order("data_criacao", { ascending: false })
       .range(from, from + pageSize - 1);
 
@@ -122,12 +123,16 @@ export const useConversations = () => {
 
 
     const leadByKey = new Map<string, string>();
+    const leadIdByKey = new Map<string, string>();
     const leadPhoneByKey = new Map<string, string>();
     for (const lead of leadsData || []) {
       const key = normalizeForMatch(lead.telefone);
       const canonicalPhone = (lead.telefone || "").replace(/\D/g, "");
       if (key && canonicalPhone && !leadPhoneByKey.has(key)) {
         leadPhoneByKey.set(key, canonicalPhone);
+      }
+      if (key && lead.id && !leadIdByKey.has(key)) {
+        leadIdByKey.set(key, lead.id);
       }
       if (!lead.responsavel_id) continue;
       if (key && !leadByKey.has(key)) {
@@ -166,6 +171,7 @@ export const useConversations = () => {
           windowOpen: expMs != null && expMs > nowMs,
           userId: msg.user_id,
           assessorName: responsavelId ? profileMap.get(responsavelId) || null : null,
+          leadId: matchKey ? leadIdByKey.get(matchKey) || null : null,
         });
       }
     }
