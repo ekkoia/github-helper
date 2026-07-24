@@ -18,6 +18,7 @@ export interface ChatMessage {
   meta_account_id: string | null;
   user_id: string | null;
   created_at: string;
+  whatsapp_instance_name?: string | null;
   meta_message_id?: string | null;
   delivery_status?: string | null;
   failure_reason?: string | null;
@@ -25,6 +26,11 @@ export interface ChatMessage {
   status?: "pending" | "sent" | "failed";
   __retry?: () => void;
 }
+
+const normalizeChatMessage = (message: any): ChatMessage => ({
+  ...message,
+  id: String(message?.id ?? ""),
+});
 
 export const useChatMessages = (phone: string | null) => {
   const { user } = useAuth();
@@ -71,7 +77,9 @@ export const useChatMessages = (phone: string | null) => {
     }
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar mensagens:", error); }
-    const serverMsgs = (data || []).filter((m: any) => m.user_message || m.bot_message || m.media_url);
+    const serverMsgs = (data || [])
+      .filter((m: any) => m.user_message || m.bot_message || m.media_url)
+      .map(normalizeChatMessage);
     // Preserva otimistas ainda pendentes (não reconciliadas)
     setMessages((prev) => {
       const stillPending = prev.filter((m) => m.status === "pending" || m.status === "failed");
@@ -96,33 +104,35 @@ export const useChatMessages = (phone: string | null) => {
   }, []);
 
   const updateOptimistic = useCallback((tempId: string, patch: Partial<ChatMessage>) => {
-    setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, ...patch } : m)));
+    setMessages((prev) => prev.map((m) => (String(m.id) === tempId ? { ...m, ...patch } : m)));
   }, []);
 
   const removeOptimistic = useCallback((tempId: string) => {
-    setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    setMessages((prev) => prev.filter((m) => String(m.id) !== tempId));
   }, []);
 
   // Reconciliação: quando chega INSERT do servidor, tenta casar com pendente
   const reconcile = useCallback((serverMsg: ChatMessage) => {
+    const normalizedServerMsg = normalizeChatMessage(serverMsg);
     setMessages((prev) => {
       // Já existe (mesmo id)?
-      if (prev.find((m) => m.id === serverMsg.id)) return prev;
+      if (prev.find((m) => String(m.id) === normalizedServerMsg.id)) return prev;
       // Tenta casar com um pendente similar
       const idx = prev.findIndex((m) => {
         if (m.status !== "pending" && m.status !== "sent") return false;
-        if (!m.id.startsWith("temp-") && m.status !== "sent") return false;
-        const sameText = (m.bot_message || "") === (serverMsg.bot_message || "");
-        const sameMedia = (m.media_filename || "") === (serverMsg.media_filename || "");
-        const dt = Math.abs(new Date(m.created_at).getTime() - new Date(serverMsg.created_at).getTime());
+        const messageId = String(m.id ?? "");
+        if (!messageId.startsWith("temp-") && m.status !== "sent") return false;
+        const sameText = (m.bot_message || "") === (normalizedServerMsg.bot_message || "");
+        const sameMedia = (m.media_filename || "") === (normalizedServerMsg.media_filename || "");
+        const dt = Math.abs(new Date(m.created_at).getTime() - new Date(normalizedServerMsg.created_at).getTime());
         return sameText && sameMedia && dt < 60_000;
       });
       if (idx >= 0) {
         const clone = [...prev];
-        clone[idx] = { ...serverMsg, status: "sent" };
+        clone[idx] = { ...normalizedServerMsg, status: "sent" };
         return clone;
       }
-      return [...prev, serverMsg];
+      return [...prev, normalizedServerMsg];
     });
   }, []);
 
@@ -141,7 +151,7 @@ export const useChatMessages = (phone: string | null) => {
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "chat_messages" },
           (payload: any) => {
-            const msg = payload.new;
+            const msg = normalizeChatMessage(payload.new);
             const cleanPhone = phone.replace(/\D/g, "");
             const msgPhone = (msg.phone || "").replace(/\D/g, "");
             if (msg.whatsapp_instance_name !== "meta_official") return;
@@ -153,11 +163,11 @@ export const useChatMessages = (phone: string | null) => {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "chat_messages" },
           (payload: any) => {
-            const msg = payload.new;
+            const msg = normalizeChatMessage(payload.new);
             if (msg.whatsapp_instance_name !== "meta_official") return;
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === msg.id
+                String(m.id) === msg.id
                   ? {
                       ...m,
                       delivery_status: msg.delivery_status ?? m.delivery_status,
