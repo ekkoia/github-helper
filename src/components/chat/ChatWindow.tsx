@@ -29,16 +29,18 @@ interface ChatWindowProps {
   phone: string;
   name: string;
   assessorName?: string | null;
+  initialWindowOpen?: boolean;
   onBack?: () => void;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBack }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, initialWindowOpen = false, onBack }) => {
   const { messages, loading, refetch, addOptimistic, updateOptimistic, removeOptimistic } = useChatMessages(phone);
   const { account, loading: loadingAccount } = useMetaAccount();
   const { isAdmin } = useUserRole();
   const { usersMap } = useUsers();
   const isMobile = useIsBelowLg();
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
   const [iaStatus, setIaStatus] = useState<string | null>(null);
   const [loadingIA, setLoadingIA] = useState(false);
   const [showLeadPanel, setShowLeadPanel] = useState(false);
@@ -54,19 +56,32 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
   };
   const phoneKey = normalizePhoneBR(phone);
 
-  const prevPhoneRef = useRef<string | null>(null);
   const prevCountRef = useRef<number>(0);
+
+  const scrollMessagesToBottom = React.useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, []);
+
+  const handleMessagesScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
   useLayoutEffect(() => {
-    const phoneChanged = prevPhoneRef.current !== phone;
-    const countIncreased = messages.length > prevCountRef.current;
-    if (phoneChanged) {
-      bottomRef.current?.scrollIntoView({ behavior: "auto" });
-    } else if (countIncreased) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const previousCount = prevCountRef.current;
+    const openedConversation = previousCount === 0 && messages.length > 0;
+    const countIncreased = messages.length > previousCount;
+
+    if (openedConversation || (countIncreased && isAtBottomRef.current)) {
+      scrollMessagesToBottom();
+      requestAnimationFrame(scrollMessagesToBottom);
     }
-    prevPhoneRef.current = phone;
+
     prevCountRef.current = messages.length;
-  }, [messages, phone]);
+  }, [messages.length, scrollMessagesToBottom]);
 
   // Busca status da IA
   useEffect(() => {
@@ -180,12 +195,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
         )}
 
         {/* Mensagens */}
-        <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1 bg-muted/10">
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-            </div>
-          ) : messages.length === 0 ? (
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleMessagesScroll}
+          className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1 bg-muted/10"
+        >
+          {!loading && messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-2">
               <MessageCircle className="h-8 w-8 opacity-30" />
               <p className="text-sm">Nenhuma mensagem ainda</p>
@@ -235,7 +250,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
 
             })()
           )}
-          <div ref={bottomRef} />
         </div>
 
         {/* Input */}
@@ -244,6 +258,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ phone, name, assessorName, onBa
             contactPhone={phone}
             contactName={name}
             metaAccount={account}
+            initialWindowOpen={initialWindowOpen}
             onMessageSent={refetch}
             addOptimistic={addOptimistic}
             updateOptimistic={updateOptimistic}
