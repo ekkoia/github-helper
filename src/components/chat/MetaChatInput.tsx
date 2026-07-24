@@ -662,13 +662,6 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
 
 
-  if (loading) {
-    return (
-      <div className="border-t border-border pt-3 mt-3 flex items-center justify-center py-3">
-        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="border-t border-border pt-3 space-y-2">
