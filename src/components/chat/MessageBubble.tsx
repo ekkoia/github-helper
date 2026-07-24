@@ -54,13 +54,79 @@ const MediaContent: React.FC<{ message: ChatMessage; isSent: boolean }> = ({ mes
 const getInitials = (name: string) =>
   name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
 
-const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; message: ChatMessage; senderName?: string | null }> = ({
-  text, isSent, time, message, senderName,
+const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; message: ChatMessage; senderName?: string | null; hasLaterInbound?: boolean }> = ({
+  text, isSent, time, message, senderName, hasLaterInbound,
 }) => {
   const detectedKind = detectMediaKind(text, message.media_type);
   const isPlaceholderText = !!(text && detectMediaKind(text));
   const displayText = text && !isPlaceholderText ? text : null;
   const status = message.status;
+
+  const renderStatus = () => {
+    const dstatus = message.delivery_status;
+    const isFailed = status === "failed" || dstatus === "failed";
+    if (isFailed) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => message.__retry?.()}
+              className="flex items-center gap-0.5 text-red-300 hover:text-red-100"
+            >
+              <AlertCircle className="h-3 w-3" />
+              <RotateCw className="h-3 w-3" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-[260px] text-xs">
+            {message.failure_reason ? `Falha: ${message.failure_reason}` : "Falha ao enviar — clique para reenviar."}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+    if (status === "pending" && !dstatus) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild><span><Clock className="h-3 w-3" /></span></TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">Enviando…</TooltipContent>
+        </Tooltip>
+      );
+    }
+    if (dstatus === "read") {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild><span><CheckCheck className="h-3.5 w-3.5 text-sky-300" /></span></TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">Lida pelo destinatário.</TooltipContent>
+        </Tooltip>
+      );
+    }
+    if (dstatus === "delivered") {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span><CheckCheck className={`h-3.5 w-3.5 ${hasLaterInbound ? "opacity-90" : ""}`} /></span>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-[280px] text-xs leading-snug">
+            Entregue no WhatsApp. O check azul (lida) só aparece se o destinatário tiver
+            {" "}"Confirmações de leitura" ativadas nas configurações de privacidade do WhatsApp dele.
+            {hasLaterInbound && (
+              <div className="mt-1 text-emerald-300">
+                O lead respondeu depois desta mensagem — então foi lida.
+              </div>
+            )}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild><span><Check className="h-3 w-3" /></span></TooltipTrigger>
+        <TooltipContent side="left" className="max-w-[260px] text-xs">
+          Enviada ao WhatsApp, aguardando confirmação de entrega.
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
 
   return (
     <div className={`flex ${isSent ? "justify-end" : "justify-start"} mb-1 items-end gap-1.5`}>
@@ -77,34 +143,7 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
         )}
         <div className={`flex justify-end items-center gap-1 mt-0.5 ${isSent ? "text-white/70" : "text-muted-foreground"}`}>
           <span className="text-[10px]">{time}</span>
-          {isSent && (() => {
-            const dstatus = message.delivery_status;
-            const isFailed = status === "failed" || dstatus === "failed";
-            if (isFailed) {
-              return (
-                <button
-                  type="button"
-                  onClick={() => message.__retry?.()}
-                  className="flex items-center gap-0.5 text-red-300 hover:text-red-100"
-                  title={message.failure_reason ? `Falha: ${message.failure_reason}` : "Falha ao enviar — clique para reenviar"}
-                >
-                  <AlertCircle className="h-3 w-3" />
-                  <RotateCw className="h-3 w-3" />
-                </button>
-              );
-            }
-            if (status === "pending" && !dstatus) {
-              return <span title="Enviando..."><Clock className="h-3 w-3" /></span>;
-            }
-            if (dstatus === "read") {
-              return <CheckCheck className="h-3.5 w-3.5 text-sky-300" aria-label="Lida" />;
-            }
-            if (dstatus === "delivered") {
-              return <CheckCheck className="h-3.5 w-3.5" aria-label="Entregue" />;
-            }
-            // "sent" ou fallback quando otimista virou enviada sem status ainda
-            return <Check className="h-3 w-3" aria-label="Enviada" />;
-          })()}
+          {isSent && <TooltipProvider delayDuration={150}>{renderStatus()}</TooltipProvider>}
         </div>
       </div>
       {/* Avatar do assessor — só para mensagens enviadas pelo CRM (meta_account_id preenchido) */}
@@ -119,6 +158,7 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
     </div>
   );
 };
+
 
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message, usersMap = {}, isAdmin = false }) => {
