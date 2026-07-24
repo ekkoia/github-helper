@@ -46,20 +46,45 @@ const ConversationList: React.FC<ConversationListProps> = ({
   conversations, loading, selectedPhone, onSelect,
 }) => {
   const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { isAdmin } = useUserRole();
   const { map: tagAssignmentsMap } = useAllLeadTagAssignments();
   const { tags: tagCatalog } = useLeadTagsCatalog();
+  const { users } = useUsers();
+  const { filters, setFilters, clear, activeCount } = useConversationFilters();
   const tagById = React.useMemo(() => {
     const m = new Map<string, LeadTag>();
     tagCatalog.forEach((t) => m.set(t.id, t));
     return m;
   }, [tagCatalog]);
+  const userNameById = React.useMemo(() => {
+    const m = new Map<string, string>();
+    users.forEach((u) => m.set(u.user_id, u.nome_completo || u.email || ""));
+    return m;
+  }, [users]);
 
 
-  const filtered = conversations.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.phone.includes(search)
-  );
+  const filtered = conversations.filter((c) => {
+    // Busca
+    if (search) {
+      const q = search.toLowerCase();
+      if (!c.name.toLowerCase().includes(q) && !c.phone.includes(search)) return false;
+    }
+    // Tags
+    if (filters.tagIds.length > 0) {
+      const leadTags = c.leadId ? tagAssignmentsMap[c.leadId] || [] : [];
+      if (!filters.tagIds.some((id) => leadTags.includes(id))) return false;
+    }
+    // Assessores
+    if (filters.assessorIds.length > 0) {
+      if (!c.assessorId || !filters.assessorIds.includes(c.assessorId)) return false;
+    }
+    // Não iniciadas pelo assessor
+    if (filters.onlyNotStartedByAssessor) {
+      if (!c.assessorId || c.hasAssessorMessage) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="flex flex-col h-full border-r border-border">
@@ -69,16 +94,89 @@ const ConversationList: React.FC<ConversationListProps> = ({
           <MessageCircle className="h-4 w-4 text-green-500" />
           Conversas WhatsApp
         </h2>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar conversa..."
-            className="pl-8 h-8 text-sm"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar conversa..."
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-2 relative shrink-0"
+            onClick={() => setFiltersOpen(true)}
+            title="Filtros"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            {activeCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
+                {activeCount}
+              </span>
+            )}
+          </Button>
         </div>
+
+        {/* Chips de filtros ativos */}
+        {activeCount > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {filters.tagIds.map((id) => {
+              const t = tagById.get(id);
+              if (!t) return null;
+              return (
+                <button
+                  key={`ft-${id}`}
+                  onClick={() =>
+                    setFilters({ ...filters, tagIds: filters.tagIds.filter((x) => x !== id) })
+                  }
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium"
+                  style={{ backgroundColor: t.cor, color: "#fff" }}
+                >
+                  {t.emoji}{t.nome} <X className="h-2.5 w-2.5" />
+                </button>
+              );
+            })}
+            {filters.assessorIds.map((id) => (
+              <button
+                key={`fa-${id}`}
+                onClick={() =>
+                  setFilters({
+                    ...filters,
+                    assessorIds: filters.assessorIds.filter((x) => x !== id),
+                  })
+                }
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-foreground"
+              >
+                {userNameById.get(id) || "Assessor"} <X className="h-2.5 w-2.5" />
+              </button>
+            ))}
+            {filters.onlyNotStartedByAssessor && (
+              <button
+                onClick={() => setFilters({ ...filters, onlyNotStartedByAssessor: false })}
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-foreground"
+              >
+                Não iniciadas <X className="h-2.5 w-2.5" />
+              </button>
+            )}
+            <button
+              onClick={clear}
+              className="text-[10px] px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground"
+            >
+              Limpar tudo
+            </button>
+          </div>
+        )}
       </div>
+
+      <ConversationFiltersDialog
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        value={filters}
+        onApply={setFilters}
+      />
 
       {/* Lista */}
       <div className="flex-1 overflow-y-auto">
