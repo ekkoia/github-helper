@@ -94,8 +94,11 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 </div>
                 <div className="text-xs text-muted-foreground truncate mt-0.5">
                   {(() => {
-                    const kind = detectMediaKind(conv.lastMessage);
-                    return kind ? <MediaPreviewInline kind={kind} /> : (conv.lastMessage || "Mídia");
+                    const kind = detectMediaKind(conv.lastMessage, conv.lastMediaType);
+                    if (kind) {
+                      return <MediaPreviewInline kind={kind} filename={conv.lastMediaFilename} />;
+                    }
+                    return conv.lastMessage || "Mídia";
                   })()}
                 </div>
               </div>
