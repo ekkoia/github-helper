@@ -1,49 +1,31 @@
-# Emoji + Visual estilo WhatsApp na barra de mensagem
+## Objetivo
 
-Escopo restrito ao componente `src/components/chat/MetaChatInput.tsx`. Nenhuma lógica de envio, template, áudio, upload, janela 24h ou otimista será alterada — apenas o wrapper visual e um novo botão de emoji.
+Exibir, na lista de conversas (`/chat` — coluna esquerda), o preview de mensagens de documento no mesmo estilo do WhatsApp: ícone de documento seguido do nome do arquivo (ex.: `📄 2025_STREET.1_Campo Largo_Femi...`), em vez do genérico "Documento" atual.
 
-## O que muda
+## Escopo
 
-**1. Emoji picker**
-- Adicionar dependência `emoji-picker-react` (leve, sem backend, funciona offline).
-- Novo botão smile ao lado do botão de anexo (`Paperclip`), abrindo um `Popover` (shadcn) com o picker.
-- Ao selecionar, o emoji é inserido na posição atual do cursor do `Textarea` (usando `selectionStart/End`), mantendo o resto do texto intacto. Foco volta ao textarea.
-- Picker respeita tema claro/escuro via prop `theme` lida do `ThemeContext`.
+Alteração apenas de apresentação. Não mexer em envio, upload, janela de 24h, realtime, dedup, nem em qualquer outra lógica.
 
-**2. Visual estilo WhatsApp (apenas CSS/estrutura JSX)**
-- Barra inferior vira uma "pill" arredondada: fundo `bg-muted` (cinza claro / cinza escuro no dark), `rounded-full`, com padding interno. Botão de enviar fica separado, circular, verde (`bg-primary`) à direita — como no WhatsApp.
-- Ordem dos controles dentro da pill: `[😊 emoji] [📎 anexo] [textarea sem borda, transparente] [🎤 mic]`. Botão enviar (círculo verde) fora da pill, à direita, aparece quando há texto/anexo/áudio; caso contrário mostra o mic (já existe hoje, só ajustar posição).
-- Textarea: remover borda/background próprios (`border-0 bg-transparent focus-visible:ring-0`), placeholder "Digite uma mensagem".
-- Botões viram `variant="ghost"` circulares, cor `text-muted-foreground`, hover suave.
-- Selector de template e banners (fora janela 24h, aviso de bloqueio, preview de anexo, gravação de áudio) permanecem exatamente como estão — apenas a linha final de composição ganha o novo visual.
+## Mudanças
 
-## Onde não vou mexer
+### 1. `src/hooks/useConversations.ts`
+- Incluir `media_type` e `media_filename` no `select` de `chat_messages`.
+- Estender a interface `Conversation` com dois campos opcionais:
+  - `lastMediaType: string | null`
+  - `lastMediaFilename: string | null`
+- Ao montar cada conversa (última mensagem por telefone), preencher esses campos a partir da mensagem mais recente.
 
-- Nenhuma lógica de `handleSend`, `handleSendTemplate`, upload, `MediaRecorder`, verificação de janela 24h, otimismo, retry, permissões.
-- Layout das mensagens no `ChatWindow`, `MessageBubble`, `ConversationList`.
-- Tokens de cor globais em `index.css` (uso apenas classes semânticas existentes).
+### 2. `src/components/chat/mediaPreview.tsx`
+- Exportar uma variante do preview que aceita `filename` opcional. Quando `kind === "document"` e há `filename`, renderizar `ícone + nome do arquivo truncado` no lugar do rótulo genérico "Documento". Demais tipos permanecem como hoje.
 
-## Detalhes técnicos
+### 3. `src/components/chat/ConversationList.tsx`
+- Passar `conv.lastMediaType` e `conv.lastMediaFilename` para o preview.
+- Prioridade de renderização do subtítulo (mantendo o comportamento atual para os outros casos):
+  1. Se última mensagem é documento → ícone + nome do arquivo (fallback "Documento" se sem nome).
+  2. Se é outro tipo de mídia (áudio/imagem/vídeo/sticker) → comportamento atual.
+  3. Caso contrário → texto da última mensagem.
 
-- `bun add emoji-picker-react` (~1 dep, tree-shakeable).
-- Import lazy opcional se peso incomodar; inicialmente import direto.
-- Inserção do emoji:
-  ```ts
-  const insertEmoji = (emoji: string) => {
-    const ta = textareaRef.current;
-    if (!ta) { setMessage(m => m + emoji); return; }
-    const start = ta.selectionStart, end = ta.selectionEnd;
-    setMessage(m => m.slice(0, start) + emoji + m.slice(end));
-    requestAnimationFrame(() => {
-      ta.focus();
-      ta.setSelectionRange(start + emoji.length, start + emoji.length);
-    });
-  };
-  ```
-- Se `textareaRef` ainda não existir no componente, adiciono um `useRef<HTMLTextAreaElement>` e ligo no `<Textarea>`.
+## Fora do escopo
 
-## Verificação
-
-- Build passa.
-- Enviar texto simples, texto com emoji, template, anexo e áudio continuam funcionando (fluxos não tocados).
-- Visual conferido no desktop e no mobile (o layout responsivo do /chat já existente é preservado).
+- Balão de mensagem no chat (`MessageBubble`) já mostra o nome do documento; não será alterado.
+- Nada em backend, banco, edge functions ou realtime.

@@ -8,6 +8,8 @@ export interface Conversation {
   name: string;
   lastMessage: string;
   lastTime: string;
+  lastMediaType: string | null;
+  lastMediaFilename: string | null;
   windowOpen: boolean;
   userId: string;
   assessorName: string | null;
@@ -82,7 +84,7 @@ export const useConversations = () => {
     const [{ data, error }, { data: windows }, { data: profiles }] = await Promise.all([
       (supabase as any)
         .from("chat_messages")
-        .select("phone, nomewpp, user_message, bot_message, created_at, user_id")
+        .select("phone, nomewpp, user_message, bot_message, media_type, media_filename, created_at, user_id")
         .eq("whatsapp_instance_name", "meta_official")
         .order("created_at", { ascending: false }),
       (supabase as any)
@@ -146,6 +148,8 @@ export const useConversations = () => {
           name: msg.nomewpp || normalizedPhone,
           lastMessage,
           lastTime: msg.created_at,
+          lastMediaType: msg.media_type ?? null,
+          lastMediaFilename: msg.media_filename ?? null,
           windowOpen: expMs != null && expMs > nowMs,
           userId: msg.user_id,
           assessorName: responsavelId ? profileMap.get(responsavelId) || null : null,
