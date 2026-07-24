@@ -173,8 +173,16 @@ export const useConversations = () => {
           windowOpen: expMs != null && expMs > nowMs,
           userId: msg.user_id,
           assessorName: responsavelId ? profileMap.get(responsavelId) || null : null,
+          assessorId: responsavelId || null,
           leadId: matchKey ? leadIdByKey.get(matchKey) || null : null,
+          hasAssessorMessage: false,
         });
+      }
+
+      // Marca se algum message deste phone foi enviado pelo assessor responsável
+      const conv = map.get(displayPhone);
+      if (conv && conv.assessorId && msg.user_id === conv.assessorId && msg.bot_message) {
+        conv.hasAssessorMessage = true;
       }
     }
 
