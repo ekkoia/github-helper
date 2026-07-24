@@ -161,7 +161,7 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
 
 
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, usersMap = {}, isAdmin = false }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, usersMap = {}, isAdmin = false, hasLaterInbound = false }) => {
   const time = TIME(message.created_at);
 
   // Nome do remetente (só para mensagens via CRM por assessor real)
@@ -174,14 +174,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, usersMap = {}, i
     return (
       <>
         <Bubble text={message.user_message} isSent={false} time={time} message={message} />
-        <Bubble text={message.bot_message} isSent={true} time={time} message={message} senderName={senderName} />
+        <Bubble text={message.bot_message} isSent={true} time={time} message={message} senderName={senderName} hasLaterInbound={hasLaterInbound} />
       </>
     );
   }
 
   // Só bot_message → outbound
   if (message.bot_message && !message.user_message) {
-    return <Bubble text={message.bot_message} isSent={true} time={time} message={message} senderName={senderName} />;
+    return <Bubble text={message.bot_message} isSent={true} time={time} message={message} senderName={senderName} hasLaterInbound={hasLaterInbound} />;
   }
 
   // Só user_message → inbound
@@ -193,10 +193,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, usersMap = {}, i
   if (message.message_direction) {
     const isSent = message.message_direction.trim() === "outbound";
     const text = isSent ? message.bot_message : message.user_message;
-    return <Bubble text={text} isSent={isSent} time={time} message={message} senderName={isSent ? senderName : undefined} />;
+    return <Bubble text={text} isSent={isSent} time={time} message={message} senderName={isSent ? senderName : undefined} hasLaterInbound={isSent ? hasLaterInbound : undefined} />;
   }
 
   return <Bubble text={null} isSent={false} time={time} message={message} />;
 };
+
 
 export default MessageBubble;
