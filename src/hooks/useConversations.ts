@@ -84,7 +84,7 @@ export const useConversations = () => {
     const [{ data, error }, { data: windows }, { data: profiles }] = await Promise.all([
       (supabase as any)
         .from("chat_messages")
-        .select("phone, nomewpp, user_message, bot_message, created_at, user_id")
+        .select("phone, nomewpp, user_message, bot_message, media_type, media_filename, created_at, user_id")
         .eq("whatsapp_instance_name", "meta_official")
         .order("created_at", { ascending: false }),
       (supabase as any)
