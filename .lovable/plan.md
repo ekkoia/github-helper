@@ -1,23 +1,36 @@
+## Problema
+
+Em `/chat`, o badge "Janela 24h aberta" e a liberação do input de texto livre em `MetaChatInput.tsx` só são calculados dentro do `useEffect` de inicialização (linhas ~166-192), que roda apenas quando `contactPhone` / `metaAccount.id` mudam. Quando o lead responde e a linha em `whatsapp_conversation_windows` é atualizada pelo webhook, o componente não escuta essa mudança — o assessor precisa trocar de conversa ou recarregar a página para ver a janela abrir.
+
 ## Objetivo
-Exibir os chips de tags de cada lead na lista lateral de conversas em `/chat`, logo abaixo da última mensagem, conforme o print.
+
+Assim que o webhook da Meta gravar a nova `expires_at` para o telefone da conversa aberta, o `MetaChatInput` (e o status derivado) deve recalcular sozinho, sem sair da conversa nem atualizar a página.
 
 ## Mudanças
 
-**1. `src/hooks/useConversations.ts`**
-- Incluir `lead_id` em cada objeto `Conversation` (já buscamos os leads pelo telefone; basta propagar o `id`).
+Arquivo único: `src/components/chat/MetaChatInput.tsx`.
 
-**2. `src/hooks/useLeadTags.ts`**
-- Reaproveitar `useAllLeadTagAssignments` (já existe) e `useLeadTagsCatalog` (já existe) — sem alteração.
+1. Extrair a lógica de "buscar janela" (linhas 170-192) do `init()` para uma função memoizada `refreshWindow()` que:
+   - Reconstrói o set de `candidates` (mesmo número com/sem 9º dígito).
+   - Consulta `whatsapp_conversation_windows` e atualiza `isWithin24h` / `windowExpiresAt`.
+2. Chamar `refreshWindow()` dentro do `init()` (mantendo o comportamento atual no primeiro load).
+3. Adicionar um `useEffect` de assinatura Realtime dedicado que:
+   - Usa o helper existente `useRealtimeTable` (`src/hooks/useRealtimeTable.ts`) OU um `supabase.channel` com nome único (padrão `rt-window-<phone>-<random>`) na tabela `whatsapp_conversation_windows`, evento `*`.
+   - No callback (debounced), chama `refreshWindow()`.
+   - Faz cleanup com `removeChannel` no unmount / troca de telefone.
+4. Como fallback (caso o webhook grave a mensagem inbound antes/sem tocar em `whatsapp_conversation_windows` naquele instante), adicionar também assinatura de `INSERT` em `chat_messages` filtrado pelo telefone da conversa e disparar `refreshWindow()` quando chegar uma mensagem inbound. Isso garante que o badge abra mesmo que exista latência entre gravação da mensagem e do registro da janela.
 
-**3. `src/components/chat/ConversationList.tsx`**
-- Importar `useAllLeadTagAssignments` e `useLeadTagsCatalog`.
-- Após a linha da última mensagem, renderizar uma linha com os chips das tags do lead (buscando via `assignmentsMap[conv.leadId]` e o catálogo).
-- Estilo: chips pequenos (text-[10px], px-1.5 py-0.5, rounded), com cor de fundo da tag e texto com contraste automático (reaproveitar util já usada em `LeadTagsSection`, ou inline simples). Máximo ~3 chips visíveis, com `+N` se sobrar.
-- Wrap em `flex flex-wrap gap-1 mt-1`.
-
-## Fora de escopo
-- Não altero lógica de janela 24h, realtime, ou filtros.
-- Não adiciono edição de tags na lista (edição continua no painel lateral direito).
+Nada em outros arquivos precisa mudar: `ChatWindow.tsx` já mostra a mensagem em tempo real via `useChatMessages`; `ConversationList` (bolinha verde na sidebar) já é atualizado via `useConversations` que reage à tabela `whatsapp_conversation_windows`. O gap é apenas no header/input da conversa aberta.
 
 ## Detalhes técnicos
-Contraste: converter hex para luminância e escolher `#fff` ou `#000` (mesma função já usada em `TagChip`).
+
+- Manter os canais Realtime com nome único (sufixo `Date.now()+random`) para evitar o erro conhecido "cannot add postgres_changes after subscribe".
+- Não alterar regras de negócio (permissões, formatos de telefone, envio de template): apenas refetch reativo do estado da janela.
+- Nenhuma mudança em migrations, RLS ou Edge Functions.
+
+## Verificação
+
+Depois de aplicar: abrir uma conversa fora da janela, simular resposta do lead (webhook) e confirmar que:
+- O badge muda para "Janela 24h aberta" sem refresh.
+- O input de texto livre fica habilitado automaticamente.
+- Ao expirar naturalmente (via nova gravação com expires_at no passado), o estado volta a "fora da janela".

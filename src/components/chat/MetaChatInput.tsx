@@ -133,6 +133,44 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     return () => { if (recordedUrl) URL.revokeObjectURL(recordedUrl); };
   }, [recordedUrl]);
 
+  // Candidatos de telefone (com/sem 9º dígito) para consultar a janela na Meta
+  const windowCandidates = React.useMemo(() => {
+    const rawDigits = contactPhone.replace(/\D/g, "");
+    const withDDI = rawDigits.startsWith("55") ? rawDigits : `55${rawDigits}`;
+    const set = new Set<string>([fallbackPhone, withDDI]);
+    if (withDDI.length === 13 && withDDI[4] === "9") {
+      set.add(withDDI.slice(0, 4) + withDDI.slice(5));
+    }
+    if (withDDI.length === 12) {
+      set.add(withDDI.slice(0, 4) + "9" + withDDI.slice(4));
+    }
+    return Array.from(set).filter(Boolean);
+  }, [contactPhone, fallbackPhone]);
+
+  const refreshWindow = React.useCallback(async (extra?: string[]) => {
+    try {
+      const list = Array.from(new Set([...windowCandidates, ...(extra || [])])).filter(Boolean);
+      if (list.length === 0) return;
+      const { data: wins } = await (supabase as any)
+        .from("whatsapp_conversation_windows")
+        .select("phone_e164, expires_at")
+        .in("phone_e164", list);
+      const win = (wins || [])
+        .filter((w: any) => w.expires_at)
+        .sort((a: any, b: any) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime())[0];
+      if (win?.expires_at) {
+        const exp = new Date(win.expires_at);
+        setWindowExpiresAt(exp);
+        setIsWithin24h(exp.getTime() > Date.now());
+      } else {
+        setWindowExpiresAt(null);
+        setIsWithin24h(false);
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar janela 24h:", err);
+    }
+  }, [windowCandidates]);
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -165,31 +203,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
         // Fonte da verdade: tabela whatsapp_conversation_windows alimentada
         // pelo webhook (status oficial da Meta) e por triggers de inbound.
-        // A Meta pode registrar o wa_id com ou sem o 9 do celular (ex: 552498240251
-        // vs 5524998240251). Consultamos os dois formatos e usamos o que existir.
-        const candidates = new Set<string>([metaRecipient, withDDI]);
-        if (withDDI.length === 13 && withDDI[4] === "9") {
-          candidates.add(withDDI.slice(0, 4) + withDDI.slice(5));
-        }
-        if (withDDI.length === 12) {
-          candidates.add(withDDI.slice(0, 4) + "9" + withDDI.slice(4));
-        }
-        const { data: wins } = await (supabase as any)
-          .from("whatsapp_conversation_windows")
-          .select("phone_e164, expires_at")
-          .in("phone_e164", Array.from(candidates));
-        const win = (wins || [])
-          .filter((w: any) => w.expires_at)
-          .sort((a: any, b: any) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime())[0];
-
-        if (win?.expires_at) {
-          const exp = new Date(win.expires_at);
-          setWindowExpiresAt(exp);
-          setIsWithin24h(exp.getTime() > Date.now());
-        } else {
-          setWindowExpiresAt(null);
-          setIsWithin24h(false);
-        }
+        await refreshWindow([metaRecipient]);
 
         // Detecta bloqueios da Meta ("ecosystem engagement") nos últimos 30 dias
         const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
@@ -209,7 +223,51 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
       }
     };
     init();
-  }, [contactPhone, fallbackPhone, metaAccount.id]);
+  }, [contactPhone, fallbackPhone, metaAccount.id, refreshWindow]);
+
+  // Realtime: reabre/atualiza a janela de 24h assim que o webhook grava
+  // uma mudança em whatsapp_conversation_windows ou chega um inbound.
+  useEffect(() => {
+    if (windowCandidates.length === 0) return;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const trigger = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => refreshWindow(), 250);
+    };
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const chWin = supabase
+      .channel(`rt-window-${suffix}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "whatsapp_conversation_windows" },
+        (payload: any) => {
+          const p = (payload?.new?.phone_e164 || payload?.old?.phone_e164 || "") as string;
+          if (!p || windowCandidates.includes(p)) trigger();
+        }
+      )
+      .subscribe();
+    const chMsg = supabase
+      .channel(`rt-inbound-${suffix}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages" },
+        (payload: any) => {
+          const row = payload?.new || {};
+          if (row.message_direction !== "inbound") return;
+          const digits = String(row.phone || "").replace(/\D/g, "");
+          if (!digits) return;
+          const last8 = digits.slice(-8);
+          if (windowCandidates.some((c) => c.endsWith(last8))) trigger();
+        }
+      )
+      .subscribe();
+    return () => {
+      if (t) clearTimeout(t);
+      supabase.removeChannel(chWin);
+      supabase.removeChannel(chMsg);
+    };
+  }, [windowCandidates, refreshWindow]);
+
 
   const makeTimestamp = () => {
     const now = new Date();
