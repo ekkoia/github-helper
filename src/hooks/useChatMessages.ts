@@ -18,6 +18,7 @@ export interface ChatMessage {
   meta_account_id: string | null;
   user_id: string | null;
   created_at: string;
+  whatsapp_instance_name?: string | null;
   meta_message_id?: string | null;
   delivery_status?: string | null;
   failure_reason?: string | null;
