@@ -4,13 +4,16 @@ import { FileText, Download, Clock, AlertCircle, Check, CheckCheck, RotateCw } f
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { ChatMessage } from "@/hooks/useChatMessages";
 import { detectMediaKind, MediaPreviewInline } from "./mediaPreview";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 
 
 interface MessageBubbleProps {
   message: ChatMessage;
   usersMap?: Record<string, any>;
   isAdmin?: boolean;
+  hasLaterInbound?: boolean;
 }
+
 
 const TIME = (dateStr: string) =>
   new Date(dateStr).toLocaleTimeString("pt-BR", {
