@@ -35,12 +35,17 @@ import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUsers } from "@/hooks/useUsers";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
+import { useAllLeadTagAssignments, useLeadTagsCatalog } from "@/hooks/useLeadTags";
+import { TagChip } from "@/components/leads/LeadTagsSection";
 
 const Kanban = () => {
   const { logActivity } = useActivityLog();
   const { etapasNomes, coresMap, isLoading: isLoadingEtapas } = useFunilEtapas();
   const { isAdmin } = useUserRole();
   const { usersMap } = useUsers();
+  const { map: tagAssignmentsMap } = useAllLeadTagAssignments();
+  const { tags: tagCatalog } = useLeadTagsCatalog();
+  const tagById = useMemo(() => Object.fromEntries(tagCatalog.map((t) => [t.id, t])), [tagCatalog]);
   const navigate = useNavigate();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
