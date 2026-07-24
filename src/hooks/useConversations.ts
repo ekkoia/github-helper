@@ -123,12 +123,16 @@ export const useConversations = () => {
 
 
     const leadByKey = new Map<string, string>();
+    const leadIdByKey = new Map<string, string>();
     const leadPhoneByKey = new Map<string, string>();
     for (const lead of leadsData || []) {
       const key = normalizeForMatch(lead.telefone);
       const canonicalPhone = (lead.telefone || "").replace(/\D/g, "");
       if (key && canonicalPhone && !leadPhoneByKey.has(key)) {
         leadPhoneByKey.set(key, canonicalPhone);
+      }
+      if (key && lead.id && !leadIdByKey.has(key)) {
+        leadIdByKey.set(key, lead.id);
       }
       if (!lead.responsavel_id) continue;
       if (key && !leadByKey.has(key)) {
@@ -167,6 +171,7 @@ export const useConversations = () => {
           windowOpen: expMs != null && expMs > nowMs,
           userId: msg.user_id,
           assessorName: responsavelId ? profileMap.get(responsavelId) || null : null,
+          leadId: matchKey ? leadIdByKey.get(matchKey) || null : null,
         });
       }
     }
