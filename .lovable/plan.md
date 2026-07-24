@@ -1,23 +1,52 @@
-Plano para corrigir sem mexer no que já funciona:
+# Detecção de versão antiga + reload automático
 
-1. Corrigir a causa real no `/chat`
-   - O erro vem do `useChatMessages.ts`: o código trata `chat_messages.id` como texto, mas no banco esse campo está vindo como número (`bigint`).
-   - Quando uma mensagem otimista é reconciliada com uma mensagem real do banco, o `id` numérico entra no estado com `status: "sent"`.
-   - Na próxima atualização em tempo real, o sistema tenta executar `.startsWith()` nesse `id` numérico e a tela quebra.
+## Objetivo
+Quando um novo build for publicado, abas antigas devem detectar e recarregar automaticamente — sem depender do usuário dar F5. Isso elimina de vez a classe de erros do tipo "aba com código antigo + dado novo do banco" (como o `startsWith is not a function` recorrente).
 
-2. Ajuste seguro no frontend
-   - Normalizar todo `id` de mensagem recebido do Supabase para `string` dentro do hook do chat.
-   - Aplicar isso tanto no carregamento inicial das mensagens quanto nos eventos Realtime de `INSERT` e `UPDATE`.
-   - Trocar comparações diretas de `id` por comparações usando `String(id)`, para não quebrar caso algum payload venha numérico.
-   - Proteger o ponto do `.startsWith()` com conversão segura, sem alterar a lógica de envio, recebimento, status, checkmarks ou mensagens otimistas.
+## Estratégia
+Usar um arquivo de versão gerado no build (`/version.json`) que a aba consulta periodicamente. Se a versão mudar em relação à que ela carregou, ela recarrega.
 
-3. Escopo controlado
-   - Não alterar banco de dados.
-   - Não alterar envio de mensagem, templates, janela de 24h, pausa de IA, atribuição de lead ou regras de permissão.
-   - Mexer somente no tratamento de IDs dentro do hook de mensagens do chat.
+Escolho `version.json` em vez do hash do `index.html` porque:
+- É explícito e depurável (dá pra abrir no navegador e ver a versão atual).
+- Não sofre problemas de cache do HTML.
+- Fácil de forçar `Cache-Control: no-store`.
 
-4. Validação depois da implementação
-   - Abrir `/chat?phone=552164316933&name=Diogo%20Pereira%20Bernardes`.
-   - Confirmar que a conversa carrega sem cair no ErrorBoundary.
-   - Confirmar que novas atualizações/mensagens não quebram a tela.
-   - Confirmar que mensagens com falha continuam aparecendo normalmente com o status de falha.
+## Passos
+
+**1. Gerar `public/version.json` em cada build**
+- Adicionar um plugin Vite simples (em `vite.config.ts`) que, no hook `buildStart` / `closeBundle`, escreve `dist/version.json` com `{ "version": "<timestamp>", "commit": "<git-sha-curto-ou-timestamp>" }`.
+- Em dev, servir uma versão fixa (ex.: `"dev"`) via `configureServer` para não ficar recarregando.
+
+**2. Hook `useVersionCheck`**
+- Novo arquivo `src/hooks/useVersionCheck.ts`.
+- No mount, faz `fetch('/version.json', { cache: 'no-store' })` e guarda a versão como "versão da aba".
+- Poll a cada 60s + também dispara a checagem quando `document.visibilitychange` volta para `visible` (aba estava em background).
+- Se a versão do servidor for diferente da versão da aba: mostra um toast discreto ("Nova versão disponível, atualizando…") e chama `window.location.reload()` após ~2s. Também aceita `?force=1` para reload imediato.
+- Ignora falhas de rede (offline não deve causar reload).
+
+**3. Plugar o hook no app**
+- Chamar `useVersionCheck()` uma única vez em `src/App.tsx` (dentro do provider raiz, junto do `Toaster`), para valer em todas as rotas.
+
+**4. Cabeçalhos de cache**
+- Garantir que `version.json` nunca seja cacheado: setar `Cache-Control: no-store` via `<meta>` no arquivo não resolve; então o plugin do passo 1 também injeta um header em dev, e em produção o próprio `fetch` já usa `cache: 'no-store'` — suficiente para o caso do Lovable hosting.
+
+**5. Não interromper trabalho em andamento (proteção leve)**
+- Antes de recarregar, verificar se há um input de mensagem com texto não enviado (`textarea` em `/chat` com valor). Se sim, adiar o reload por até 5 minutos e mostrar um botão "Atualizar agora" no toast. Isso evita perder mensagem sendo digitada.
+
+## Detalhes técnicos
+
+- `version.json` fica em `public/version.json` no dev (valor `"dev"` fixo) e é sobrescrito pelo plugin Vite no build de produção com `Date.now()`.
+- O hook mantém a versão em `useRef` (não `useState`) para não re-renderizar o app inteiro a cada poll.
+- Intervalo: 60s. Backoff: se 3 falhas seguidas de fetch, pausa por 5 min.
+- Reload: `window.location.reload()` (sem argumento — browsers modernos já revalidam).
+
+## Arquivos afetados
+- `vite.config.ts` — adicionar plugin gerador de `version.json`.
+- `public/version.json` — arquivo inicial com `{"version":"dev"}`.
+- `src/hooks/useVersionCheck.ts` — novo hook.
+- `src/App.tsx` — chamar o hook uma vez.
+
+## Fora de escopo
+- Service Worker / PWA update flow (mais complexo, não necessário aqui).
+- Notificação intrusiva pedindo confirmação — o reload é automático, com apenas um toast informativo.
+- Alterações em qualquer lógica de negócio, chat, leads, ou banco.
