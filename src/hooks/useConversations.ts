@@ -8,6 +8,8 @@ export interface Conversation {
   name: string;
   lastMessage: string;
   lastTime: string;
+  lastMediaType: string | null;
+  lastMediaFilename: string | null;
   windowOpen: boolean;
   userId: string;
   assessorName: string | null;
