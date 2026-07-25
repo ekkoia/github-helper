@@ -470,10 +470,8 @@ const LeadsTable = () => {
     ).length;
 
     const valorTotal = leads.reduce((acc, lead) => {
-      if (!lead.valor_produto) return acc; // ignora leads sem valor_produto preenchido
-      const valor = parseFloat(lead.valor_produto);
-      if (isNaN(valor)) return acc;
-      return acc + getTopoDaFaixa(valor);
+      const piso = getPisoDaFaixa(lead);
+      return acc + (piso > 0 ? piso : 0);
     }, 0);
 
     const taxaConversao =
