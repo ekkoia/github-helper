@@ -96,6 +96,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<MetaTemplate[]>([]);
+  const [confirmTemplateOpen, setConfirmTemplateOpen] = useState(false);
   const [isWithin24h, setIsWithin24h] = useState(initialWindowOpen);
   const [windowExpiresAt, setWindowExpiresAt] = useState<Date | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
