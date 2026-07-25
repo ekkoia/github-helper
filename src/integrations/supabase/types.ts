@@ -888,6 +888,39 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       rodizio_config: {
         Row: {
           ativo: boolean
@@ -1033,6 +1066,8 @@ export type Database = {
           email_notifications: boolean | null
           id: string
           inactive_lead_alerts: boolean | null
+          push_new_lead: boolean
+          push_new_message: boolean
           theme: string | null
           updated_at: string
           user_id: string
@@ -1046,6 +1081,8 @@ export type Database = {
           email_notifications?: boolean | null
           id?: string
           inactive_lead_alerts?: boolean | null
+          push_new_lead?: boolean
+          push_new_message?: boolean
           theme?: string | null
           updated_at?: string
           user_id: string
@@ -1059,6 +1096,8 @@ export type Database = {
           email_notifications?: boolean | null
           id?: string
           inactive_lead_alerts?: boolean | null
+          push_new_lead?: boolean
+          push_new_message?: boolean
           theme?: string | null
           updated_at?: string
           user_id?: string
@@ -1292,6 +1331,17 @@ export type Database = {
       normalize_telefone_br: { Args: { _phone: string }; Returns: string }
       phone_key: { Args: { _phone: string }; Returns: string }
       reprocess_webhook_events: { Args: { _since?: string }; Returns: Json }
+      send_push_notification: {
+        Args: {
+          _body: string
+          _kind: string
+          _tag: string
+          _title: string
+          _url: string
+          _user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "user" | "admin" | "global"
