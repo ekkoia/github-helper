@@ -41,12 +41,51 @@ export const usePushNotifications = () => {
   const { user } = useAuth();
   const [status, setStatus] = useState<PushStatus>('default');
   const [loading, setLoading] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const supported =
     typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
     'PushManager' in window &&
     'Notification' in window;
+
+  const saveSubscription = useCallback(
+    async (sub: PushSubscription) => {
+      if (!user) return false;
+
+      const json = sub.toJSON();
+      const endpoint = sub.endpoint;
+      const p256dh = json.keys?.p256dh ?? '';
+      const auth = json.keys?.auth ?? '';
+
+      if (!endpoint || !p256dh || !auth) {
+        setLastError('Inscrição push incompleta. Desative e ative novamente.');
+        return false;
+      }
+
+      const { error } = await supabase.from('push_subscriptions').upsert(
+        {
+          user_id: user.id,
+          endpoint,
+          p256dh,
+          auth,
+          user_agent: navigator.userAgent,
+          last_used_at: new Date().toISOString(),
+        },
+        { onConflict: 'endpoint' },
+      );
+
+      if (error) {
+        console.error('save sub err', error);
+        setLastError(error.message);
+        return false;
+      }
+
+      setLastError(null);
+      return true;
+    },
+    [user],
+  );
 
   const refresh = useCallback(async () => {
     if (!supported) return setStatus('unsupported');
@@ -56,14 +95,20 @@ export const usePushNotifications = () => {
     try {
       const reg = await navigator.serviceWorker.getRegistration('/sw.js');
       const sub = await reg?.pushManager.getSubscription();
-      if (sub) return setStatus('subscribed');
+      if (sub) {
+        if (!user) return setStatus('granted');
+
+        const saved = await saveSubscription(sub);
+        return setStatus(saved ? 'subscribed' : 'granted');
+      }
       if (Notification.permission === 'denied') return setStatus('denied');
       if (Notification.permission === 'granted') return setStatus('granted');
       setStatus('default');
     } catch (e) {
       console.error('push refresh err', e);
+      setLastError(e instanceof Error ? e.message : 'Erro ao verificar notificações');
     }
-  }, [supported]);
+  }, [supported, user, saveSubscription]);
 
   useEffect(() => {
     refresh();
@@ -93,35 +138,22 @@ export const usePushNotifications = () => {
         });
       }
 
-      const json = sub.toJSON();
-      const endpoint = sub.endpoint;
-      const p256dh = json.keys?.p256dh ?? '';
-      const auth = json.keys?.auth ?? '';
-
-      const { error } = await supabase.from('push_subscriptions').upsert(
-        {
-          user_id: user.id,
-          endpoint,
-          p256dh,
-          auth,
-          user_agent: navigator.userAgent,
-          last_used_at: new Date().toISOString(),
-        },
-        { onConflict: 'endpoint' },
-      );
-      if (error) {
-        console.error('save sub err', error);
+      const saved = await saveSubscription(sub);
+      if (!saved) {
+        setStatus('granted');
         return false;
       }
+
       setStatus('subscribed');
       return true;
     } catch (e) {
       console.error('subscribe err', e);
+      setLastError(e instanceof Error ? e.message : 'Erro ao ativar notificações');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [user, supported]);
+  }, [user, supported, saveSubscription]);
 
   const unsubscribe = useCallback(async () => {
     if (!user || !supported) return false;
@@ -143,5 +175,5 @@ export const usePushNotifications = () => {
     }
   }, [user, supported, refresh]);
 
-  return { status, loading, supported, subscribe, unsubscribe, refresh };
+  return { status, loading, supported, subscribe, unsubscribe, refresh, lastError };
 };

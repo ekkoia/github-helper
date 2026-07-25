@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 export const PushNotificationSettings = () => {
   const { user } = useAuth();
-  const { status, loading, subscribe, unsubscribe } = usePushNotifications();
+  const { status, loading, subscribe, unsubscribe, lastError } = usePushNotifications();
   const [prefs, setPrefs] = useState({ push_new_lead: true, push_new_message: true });
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
@@ -56,6 +56,7 @@ export const PushNotificationSettings = () => {
       if (ok) toast.success('Notificações ativadas neste dispositivo');
       else if (status === 'denied')
         toast.error('Permissão bloqueada — libere nas configurações do navegador');
+      else toast.error('Não foi possível salvar a inscrição deste dispositivo');
     }
   };
 
@@ -100,6 +101,11 @@ export const PushNotificationSettings = () => {
           <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
             Permissão de notificações bloqueada. Libere nas configurações do navegador para este
             site e recarregue.
+          </div>
+        )}
+        {lastError && status !== 'subscribed' && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            Erro ao ativar neste dispositivo: {lastError}
           </div>
         )}
 
