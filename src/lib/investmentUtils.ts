@@ -46,12 +46,14 @@ const parsePretensaoFromObservacoes = (obs: string | null | undefined): number |
 
 const pisoFromValorProduto = (valor: number | null | undefined): number => {
   if (!valor || valor <= 0) return 0;
-  if (valor <= 1000)   return 1000;   // Arvora "até R$1 mil" → teto
-  if (valor <= 5000)   return 1000;   // Arvora "R$1-5 mil" → piso
-  if (valor <= 10000)  return 10000;  // assume Meta "até R$10 mil" → teto
-  if (valor <= 50000)  return 10000;  // R$10-50 mil → piso
-  if (valor <= 100000) return 50000;  // R$50-100 mil → piso
-  return 100000;                      // acima R$100 mil → piso
+  // O webhook do Form Arvora salva o TOPO da faixa em valor_produto.
+  // Mapeamos de volta para o PISO da faixa declarada pelo lead.
+  if (valor <= 1000)   return 1000;    // "até R$ 1 mil" → 1.000
+  if (valor <= 5000)   return 1000;    // "R$ 1-5 mil" → piso 1.000
+  if (valor <= 10000)  return 10000;   // "até R$ 10 mil" (Meta) → 10.000
+  if (valor <= 50000)  return 10000;   // "R$ 10-50 mil" → piso 10.000
+  if (valor <= 100000) return 50000;   // "R$ 50-100 mil" → piso 50.000
+  return 100000;                        // "acima de R$ 100 mil" → piso 100.000
 };
 
 export const getPisoDaFaixa = (leadOrValor: any): number => {
