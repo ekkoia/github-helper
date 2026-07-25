@@ -821,7 +821,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={sendTemplateMessage}
+                  onClick={() => setConfirmTemplateOpen(true)}
                   disabled={sending || !selectedTemplate}
                   className="h-8 text-xs shrink-0"
                   aria-label="Enviar template"
