@@ -801,11 +801,11 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           )}
 
           {!isRecording && !recordedBlob && templates.length > 0 && (
-            <div className="flex flex-col gap-1.5 pt-1">
-              <div className="flex gap-2">
+            <div className="flex flex-col gap-1.5 pt-1 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                  <SelectTrigger className="flex-1 h-8 text-xs">
-                    <SelectValue placeholder="Enviar template rápido..." />
+                  <SelectTrigger className="flex-1 h-8 text-xs min-w-0 [&>span]:truncate">
+                    <SelectValue className="truncate" placeholder="Enviar template rápido..." />
                   </SelectTrigger>
                   <SelectContent>
                     {templates.map((t) => (
@@ -818,9 +818,11 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
                   variant="outline"
                   onClick={sendTemplateMessage}
                   disabled={sending || !selectedTemplate}
-                  className="h-8 text-xs"
+                  className="h-8 text-xs shrink-0"
+                  aria-label="Enviar template"
                 >
-                  <Send className="h-3.5 w-3.5 mr-1" /> Template
+                  <Send className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Template</span>
                 </Button>
               </div>
               {selectedTemplate && templates.find((t) => t.id === selectedTemplate)?.body && (
@@ -838,10 +840,10 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
             <Clock className="h-3 w-3" />
             <span>Fora da janela de 24h — apenas templates aprovados</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Selecione um template" />
+              <SelectTrigger className="flex-1 h-9 text-xs min-w-0 [&>span]:truncate">
+                <SelectValue className="truncate" placeholder="Selecione um template" />
               </SelectTrigger>
               <SelectContent>
                 {templates.length === 0 ? (
@@ -851,8 +853,9 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
                 )}
               </SelectContent>
             </Select>
-            <Button onClick={sendTemplateMessage} disabled={sending || !selectedTemplate}>
-              <Send className="h-4 w-4 mr-1" /> Enviar
+            <Button onClick={sendTemplateMessage} disabled={sending || !selectedTemplate} className="h-9 text-xs shrink-0" aria-label="Enviar template">
+              <Send className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Enviar</span>
             </Button>
           </div>
           {selectedTemplate && templates.find((t) => t.id === selectedTemplate)?.body && (
