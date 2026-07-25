@@ -400,6 +400,8 @@ const Perfil = () => {
               </div>
             </CardContent>
           </Card>
+
+          <PushNotificationSettings />
         </div>
 
         {/* Dialog de Alteração de Senha */}
