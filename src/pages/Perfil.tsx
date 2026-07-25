@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { z } from "zod";
+import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 
 const profileSchema = z.object({
   nome_completo: z.string()
@@ -399,6 +400,8 @@ const Perfil = () => {
               </div>
             </CardContent>
           </Card>
+
+          <PushNotificationSettings />
         </div>
 
         {/* Dialog de Alteração de Senha */}
