@@ -29,7 +29,12 @@ const parsePretensaoFromObservacoes = (obs: string | null | undefined): number |
   const match = obs.match(/Valor pretendido:\s*([^\n\r]+)/i);
   if (!match) return null;
   const raw = match[1].toLowerCase().replace(/\s+/g, ' ').trim();
-  if (raw.includes('até r$ 1 mil') || raw.includes('ate r$ 1 mil')) return 1000;
+  if (
+    raw.includes('até r$ 1 mil') || raw.includes('ate r$ 1 mil') ||
+    raw.includes('até r$1 mil')  || raw.includes('ate r$1 mil')  ||
+    raw.includes('menos de r$ 1 mil') || raw.includes('menos de r$1 mil') ||
+    raw.includes('abaixo de r$ 1 mil') || raw.includes('abaixo de r$1 mil')
+  ) return 1000;
   if (raw.includes('r$1 mil a r$5 mil') || raw.includes('r$ 1 mil a r$ 5 mil')) return 1000;
   if (raw.includes('r$5 mil a r$10 mil') || raw.includes('r$ 5 mil a r$ 10 mil')) return 5000;
   if (raw.includes('até r$10 mil') || raw.includes('ate r$10 mil') || raw.includes('até r$ 10 mil') || raw.includes('ate r$ 10 mil')) return 10000;
