@@ -44,7 +44,7 @@ export const EquipeTable = ({ leads, usersMap }: EquipeTableProps) => {
         userLeads.forEach(l => {
           const e = l.etapa_funil || "Sem etapa";
           if (stageCounts[e] !== undefined) stageCounts[e]++;
-          valorTotal += parseFloat(l.valor_produto) || 0;
+          valorTotal += getPisoDaFaixa(l);
         });
 
         return {
