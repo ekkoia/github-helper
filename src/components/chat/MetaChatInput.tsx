@@ -6,6 +6,10 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Send, Clock, AlertCircle, Paperclip, X, FileText,
   Image, Video, Music, Mic, Square, Trash2, Check, Smile,
 } from "lucide-react";
@@ -92,6 +96,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<MetaTemplate[]>([]);
+  const [confirmTemplateOpen, setConfirmTemplateOpen] = useState(false);
   const [isWithin24h, setIsWithin24h] = useState(initialWindowOpen);
   const [windowExpiresAt, setWindowExpiresAt] = useState<Date | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -816,7 +821,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={sendTemplateMessage}
+                  onClick={() => setConfirmTemplateOpen(true)}
                   disabled={sending || !selectedTemplate}
                   className="h-8 text-xs shrink-0"
                   aria-label="Enviar template"
@@ -853,7 +858,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
                 )}
               </SelectContent>
             </Select>
-            <Button onClick={sendTemplateMessage} disabled={sending || !selectedTemplate} className="h-9 text-xs shrink-0" aria-label="Enviar template">
+            <Button onClick={() => setConfirmTemplateOpen(true)} disabled={sending || !selectedTemplate} className="h-9 text-xs shrink-0" aria-label="Enviar template">
               <Send className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Enviar</span>
             </Button>
@@ -866,6 +871,53 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           )}
         </>
       )}
+
+      <AlertDialog open={confirmTemplateOpen} onOpenChange={(o) => { if (!sending) setConfirmTemplateOpen(o); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enviar template?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {selectedTemplate && (
+                  <>
+                    <div className="text-sm">
+                      <span className="font-medium text-foreground">Template: </span>
+                      {templates.find((t) => t.id === selectedTemplate)?.name}
+                    </div>
+                    {templates.find((t) => t.id === selectedTemplate)?.body && (
+                      <div className="text-xs bg-muted/40 rounded-md p-2 border border-border whitespace-pre-wrap">
+                        {templates.find((t) => t.id === selectedTemplate)?.body}
+                      </div>
+                    )}
+                  </>
+                )}
+                {isWithin24h && (
+                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-md p-2">
+                    A janela de 24h está ativa — você pode enviar mensagem livre em vez de template.
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground">
+                  Confirme para enviar este template ao contato.
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={sending}
+              onClick={async (e) => {
+                e.preventDefault();
+                await sendTemplateMessage();
+                setConfirmTemplateOpen(false);
+              }}
+              className="bg-[#254239] hover:bg-[#5bcc00] text-white"
+            >
+              {sending ? "Enviando..." : "Enviar template"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

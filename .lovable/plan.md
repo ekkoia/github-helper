@@ -1,37 +1,34 @@
-## Plano corrigido para `/chat`
+## Confirmação antes de enviar template
 
-O ajuste anterior não resolveu porque ainda existe rolagem suave no `ChatWindow.tsx` quando a quantidade de mensagens aumenta, e a conversa troca de telefone mantendo o mesmo componente/hook montado. Isso permite renderizar estado antigo ou iniciar no topo antes de reposicionar no fim.
+Hoje, ao selecionar um template no `MetaChatInput` e apertar o botão de enviar, ele dispara direto. No mobile isso é arriscado: o dedo pode tocar por engano no botão de envio enquanto a janela de 24h está aberta, mandando um template errado no meio da conversa.
 
-### O que vou alterar
+### Solução
 
-1. **Eliminar a rolagem animada na abertura da conversa**
-   - Remover o `scrollIntoView({ behavior: "smooth" })` do chat.
-   - Usar o próprio container de mensagens com `scrollTop = scrollHeight`, sempre de forma instantânea.
-   - Na troca de conversa, posicionar no fim antes do usuário ver a lista, evitando o efeito de “esteira”.
+Adicionar um **dialog de confirmação** que abre antes do disparo do template, com preview do conteúdo e botões claros de "Cancelar" e "Enviar template".
 
-2. **Impedir reaproveitamento visual da conversa anterior**
-   - Fazer o `ChatWindow` remontar ao trocar de telefone usando `key={selectedPhone}`.
-   - Isso evita que mensagens da conversa anterior apareçam brevemente enquanto a nova conversa carrega.
+### Comportamento
 
-3. **Remover spinner/estado de carregamento dentro da área de mensagens**
-   - Não mostrar spinner no meio da conversa ao abrir um lead.
-   - Enquanto busca as mensagens, a área fica estável; quando os dados chegam, já entram posicionados no final.
+1. Ao clicar no botão de enviar template (ícone de avião no seletor de template), **não envia direto**.
+2. Abre um `AlertDialog` (shadcn) com:
+   - Título: "Enviar template?"
+   - Nome do template selecionado
+   - Preview do texto final (o mesmo preview que já é exibido abaixo do seletor hoje)
+   - Aviso curto quando a janela de 24h está aberta: "A janela está ativa — você pode enviar mensagem livre em vez de template."
+   - Botões: **Cancelar** (padrão, foco inicial) e **Enviar template** (destaque verde da marca).
+3. Só ao confirmar é que a função atual de envio de template roda.
+4. Cancelar apenas fecha o dialog, mantendo template selecionado e preview visíveis.
+5. Enquanto o envio está em andamento, o botão de confirmar mostra estado de loading e fica desabilitado (evita duplo toque).
 
-4. **Deixar a barra de envio estável imediatamente**
-   - Passar para o `MetaChatInput` o estado inicial da janela de 24h vindo da conversa selecionada quando disponível.
-   - Assim, se a lista já sabe que a janela está aberta, o campo de digitação aparece direto, sem piscar como “fora da janela” antes da consulta terminar.
+### Detalhes técnicos
 
-5. **Preservar o comportamento esperado para novas mensagens**
-   - Quando uma nova mensagem chegar e o usuário estiver no fim da conversa, o chat continua acompanhando o final.
-   - Sem animação longa e sem rolar por todo o histórico.
+- Arquivo único: `src/components/chat/MetaChatInput.tsx`.
+- Adicionar um estado `confirmTemplateOpen` e mover a chamada atual de envio (`handleSendTemplate`) para dentro do `onConfirm` do dialog. O clique no botão de avião passa a só abrir o dialog.
+- Usar `AlertDialog` de `@/components/ui/alert-dialog` (já presente no projeto shadcn) para bloquear interação de fundo — importante no mobile.
+- Manter o comportamento de mensagem livre (texto normal) exatamente como está: sem confirmação, envio direto ao apertar o avião do input de texto.
+- Nenhuma mudança de backend, edge function, banco ou lógica de janela de 24h.
 
-### Arquivos envolvidos
+### Fora do escopo
 
-- `src/components/chat/ChatPage.tsx`
-- `src/components/chat/ChatWindow.tsx`
-- `src/components/chat/MetaChatInput.tsx`
-- Possivelmente `src/hooks/useChatMessages.ts`, apenas se for necessário limpar estado por telefone além do `key`.
-
-### Resultado esperado
-
-Ao clicar em uma conversa no `/chat`, a tela abre já no final da conversa, sem mostrar a rolagem passando por todas as mensagens e sem spinner na área de digitação.
+- Não mexer no fluxo de envio de mensagem livre.
+- Não mexer em `send-whatsapp-message`, templates no banco, nem em preview de mídia.
+- Não alterar o layout do input em si além de adicionar o dialog.
