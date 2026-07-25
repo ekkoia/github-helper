@@ -6,6 +6,10 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Send, Clock, AlertCircle, Paperclip, X, FileText,
   Image, Video, Music, Mic, Square, Trash2, Check, Smile,
 } from "lucide-react";
