@@ -21,12 +21,9 @@ interface MessageBubbleProps {
 const formatDateTime = (dateStr: string) => {
   const tz = "America/Sao_Paulo";
   const date = new Date(dateStr);
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
-  const msgDate = date.toLocaleDateString("en-CA", { timeZone: tz });
   const time = date.toLocaleTimeString("pt-BR", {
     hour: "2-digit", minute: "2-digit", timeZone: tz,
   });
-  if (msgDate === today) return time;
   const datePart = date
     .toLocaleDateString("pt-BR", { day: "2-digit", month: "short", timeZone: tz })
     .replace(/\s*de\s*/gi, " ")
