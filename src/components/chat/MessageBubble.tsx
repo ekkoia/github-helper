@@ -18,10 +18,22 @@ interface MessageBubbleProps {
 }
 
 
-const TIME = (dateStr: string) =>
-  new Date(dateStr).toLocaleTimeString("pt-BR", {
-    hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo",
+const formatDateTime = (dateStr: string) => {
+  const tz = "America/Sao_Paulo";
+  const date = new Date(dateStr);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+  const msgDate = date.toLocaleDateString("en-CA", { timeZone: tz });
+  const time = date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit", minute: "2-digit", timeZone: tz,
   });
+  if (msgDate === today) return time;
+  const datePart = date
+    .toLocaleDateString("pt-BR", { day: "2-digit", month: "short", timeZone: tz })
+    .replace(/\s*de\s*/gi, " ")
+    .replace(/\./g, "")
+    .toLowerCase();
+  return `${datePart}, ${time}`;
+};
 
 const MediaContent: React.FC<{ message: ChatMessage; isSent: boolean }> = ({ message, isSent }) => {
   if (!message.media_type || !message.media_url) return null;
@@ -262,7 +274,7 @@ const Bubble: React.FC<{ text: string | null; isSent: boolean; time: string; mes
 
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message, usersMap = {}, isAdmin = false, hasLaterInbound = false }) => {
-  const time = TIME(message.created_at);
+  const time = formatDateTime(message.created_at);
 
   // Nome do remetente (só para mensagens via CRM por assessor real)
   const senderName = message.meta_account_id && message.user_id
