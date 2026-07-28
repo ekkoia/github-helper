@@ -718,6 +718,13 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           </span>
         </div>
       )}
+      {assignmentBlocked && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/40 text-xs text-red-700 dark:text-red-300">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <span>Este lead não está atribuído a você — envio bloqueado.</span>
+        </div>
+      )}
+      <fieldset disabled={assignmentBlocked} className={assignmentBlocked ? "opacity-60 pointer-events-none space-y-2" : "space-y-2 contents"}>
       {isWithin24h ? (
         <>
           <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
