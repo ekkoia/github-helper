@@ -150,11 +150,13 @@ export const useConversations = () => {
 
       const matchKey = normalizeForMatch(msg.phone);
 
-      // Visibilidade para não-admin: própria OU lead atribuído a ele
+      // Visibilidade para não-admin: apenas conversas de leads atribuídos a ele.
+      // (Não usar msg.user_id === user.id como fallback, pois disparos em massa
+      // gravam user_id do remetente e fariam conversas de outros assessores
+      // aparecerem indevidamente.)
       if (!isAdmin) {
-        const isMine = msg.user_id === user.id;
         const isAssigned = matchKey && assignedPhones.has(matchKey);
-        if (!isMine && !isAssigned) continue;
+        if (!isAssigned) continue;
       }
 
       const displayPhone = (matchKey ? leadPhoneByKey.get(matchKey) : undefined) || normalizedPhone;
