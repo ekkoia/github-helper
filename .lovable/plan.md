@@ -1,57 +1,45 @@
+## Objetivo
 
-## Situação verificada no banco
+Dos ~110 contatos "não encontrados" da lista anterior, importar apenas os que possuem telefone, marcá-los com a nova tag **Kyc-Pend** e colocá-los na nova etapa **Onboarding**, distribuindo entre os assessores ativos via rodízio automático (round-robin por faixa).
 
-Consultei o banco antes de propor qualquer correção:
+## Passos
 
-- **Davi Lopes (lead pessoal)**: `id=d0e1e6b5…`, `telefone=5511951509764`, `telefone_key=1151509764`, `responsavel_id = Davi Lopes` (si mesmo). Tem **37 mensagens** em `chat_messages` (com 4 variações de formato de telefone: `+5511951509764`, `551151509764`, `5511951509764`, `5511951509764@s.whatsapp.net`).
-- **Davis Areda**: `id=3f7caf55…`, `telefone=5521969005862`, `telefone_key=2169005862`, `responsavel_id = Giovanna Fernandes` (**correto no banco**). Histórico de atividades: foi para Gustavo em bulk_assign, depois atribuído para Giovanna em 28/07 17:04. **Nunca esteve com Davi Lopes.**
-- Não existe nenhum outro lead cujo `telefone_key` colida com `2169005862` ou `1151509764`.
+### 1. Migração (schema + seed de configuração)
+- Criar etapa no funil:
+  - `INSERT INTO funil_etapas (nome, cor, ordem, ativo) VALUES ('Onboarding', '#06b6d4', 18, true)` — cor ciano, ainda não usada em nenhuma etapa.
+- Criar tag:
+  - `INSERT INTO lead_tags (nome, cor, emoji, categoria, ordem, ativo) VALUES ('Kyc-Pend', '#f59e0b', '📋', 'Onboarding', 100, true)`.
 
-Ou seja: o banco está correto. Os dois problemas são **na lógica do cliente** em `src/hooks/useConversations.ts`.
+### 2. Preparação da lista (build mode)
+- Reprocessar a lista original de 124 contatos.
+- Manter só os que aparecem como **não encontrados** e possuem telefone preenchido (aplica `normalize_telefone_br`).
+- Reverificar contra `leads.telefone_key` para descartar quaisquer que já foram criados após a última checagem.
 
-## Diagnóstico dos bugs (não confirmado 100% — validar após investigar)
+### 3. Inserção dos leads
+Para cada contato restante, usar `supabase--insert` com um `INSERT ... SELECT` que:
+- Preenche `nome_completo`, `email` (lowercased), `telefone` (via `normalize_telefone_br`).
+- Define `etapa_funil = 'Onboarding'`, `origem = 'importados'`, `origens = '["importados"]'::jsonb`.
+- Define `responsavel_id` chamando o rodízio: reutilizamos a lógica existente `get_proximo_assessor` / `auto_assign_lead` (o trigger `auto_assign_lead` já roda em BEFORE INSERT e atribui pela faixa `sem_valor` quando `valor_produto` é nulo — isso cobre o round-robin sem precisar de código novo).
+- O trigger `trg_dedupe_lead_by_phone` continua ativo como salvaguarda contra duplicatas por telefone.
 
-### Bug 1 — Davi Lopes não aparece na busca com filtro "Davi Lopes"
+### 4. Associar a tag Kyc-Pend
+Após o insert, executar um `INSERT INTO lead_tag_assignments (lead_id, tag_id) SELECT id, '<tag_id>' FROM leads WHERE origem = 'importados' AND data_criacao >= '<timestamp do import>'`.
 
-Hipótese principal: no `useConversations`, o `displayPhone` usado como chave do `map` é `leadPhoneByKey.get(matchKey) || normalizedPhone`. Para as mensagens antigas do Davi (`551151509764` sem o 9), `normalizedPhone = 551151509764`, mas o `leadPhoneByKey.get('1151509764') = 5511951509764` (canonical do lead). Isso deveria unificar.
-
-Porém, as mensagens são iteradas em ordem `created_at DESC` — a **primeira mensagem** define a entrada no `map`. Se essa primeira mensagem for iterada **antes** do `leadPhoneByKey` estar populado (não é o caso — o mapa é populado antes do loop), tudo bem. Mas há outro ponto: o `assessorId` é definido apenas na criação da entrada; se o `matchKey` da primeira mensagem retornar `undefined` no `leadByKey` (por qualquer motivo — paginação de 2531 leads em 3 páginas com `.order data_criacao` + `.range`), a conversa fica com `assessorId=null` e é filtrada fora quando o usuário aplica filtro por assessor.
-
-Precisa validar: acionar o `useConversations` no navegador da usuária e inspecionar o objeto `Conversation` do phone `5511951509764` — verificar se `assessorId` está setado corretamente.
-
-### Bug 2 — Davis Areda aparecendo como atribuído a Davi Lopes
-
-Como o banco confirma que **nunca** foi do Davi, o problema é de UI. Hipóteses a investigar:
-
-1. **Cache do `ConversationList`** — o parâmetro `assessorName` passado em `onSelect(conv.phone, conv.name, conv.assessorName, conv.windowOpen)` pode ficar preso no state do `ChatPage` se a conversa foi selecionada num momento em que a leitura de `leads` ainda não tinha chegado, e o realtime não re-dispara `onSelect`.
-2. **Paginação de `leads`** — `fetchLeadsForMatch` usa `.order("data_criacao", { ascending: false }).range()`. Com 2531 registros, se houver reordenação entre páginas (inserts concorrentes), um lead pode ser pulado, e `leadByKey.get('2169005862')` ficar `undefined`, caindo em `assessorName=null` — o que não bate com o report. Improvável.
-3. **Estado remoto entre `ChatWindow` e `LeadInfoPanel`** — o painel direito busca o lead direto por telefone via `useLeadByPhone` (correto), mas o cabeçalho / sidebar usa o snapshot do `useConversations` da última recarga. Se a reatribuição para Giovanna (17:04) aconteceu depois do último fetch em um cliente aberto, o `assessorName` no sidebar ficaria com o valor antigo até a próxima subscrição realtime disparar. Mas o log mostra que **nunca foi do Davi** — então a UI só pode estar mostrando errado por bug de merge de estado. Precisa reproduzir.
-
-## Ações — investigação primeiro
-
-1. Adicionar log temporário em `useConversations.ts` (ou reproduzir com Playwright logado como admin) para capturar:
-   - Quantos leads o `fetchLeadsForMatch` retornou (esperado: 2531).
-   - Se `leadByKey.get('2169005862')` retorna Giovanna e `leadByKey.get('1151509764')` retorna Davi.
-   - O `assessorId`/`assessorName` final das entradas dos dois phones.
-2. Se `leadByKey` estiver correto e o UI ainda mostrar errado, o bug está no `ChatPage`/`ConversationList` (estado stale do `assessorName` passado para o header). Se estiver errado, é bug de paginação/normalização.
-
-## Correções propostas (a aplicar após confirmar cada hipótese)
-
-- **Se leadByKey estiver correto**: forçar o `ChatPage` a re-derivar `assessorName` sempre do objeto `Conversation` atual do array (via `conversations.find(c => c.phone === selectedPhone)`), em vez de manter um `useState<assessorName>` alimentado só no `onSelect`. Isso faz o header/sidebar refletir automaticamente qualquer mudança pelo realtime.
-- **Se `assessorId` do lead do Davi vier `undefined`**: robustecer `useConversations` para:
-  - Buscar leads em `.range()` **sem** `order` que possa mudar (usar `order("id")` estável), ou
-  - Fazer uma segunda passada: para cada `matchKey` de conversa sem `assessorId`, buscar diretamente com `.eq("telefone_key", matchKey).maybeSingle()`.
-- **Reforço em `ConversationList`**: no filtro por `assessorIds`, também aceitar match por `phone→lead responsavel_id` refetchado on-demand (fallback), para não perder conversas cujo `assessorId` ficou `null` por qualquer motivo.
-
-## Escopo
-
-- Somente `src/hooks/useConversations.ts`, `src/components/chat/ConversationList.tsx` e possivelmente `src/components/chat/ChatPage.tsx`.
-- Sem alterações no banco. Sem mexer em outras funcionalidades (rodízio, disparo em massa, bloqueio de envio, dedup, etc.).
+### 5. Verificação final
+- Contar quantos leads foram criados, quantos foram deduplicados (merged) e a distribuição por responsável.
+- Retornar um resumo com totais + amostra de 5 leads criados.
 
 ## Detalhes técnicos
 
-- `normalizePhoneForMatch` está correto para os dois números (`5521969005862 → 2169005862`, `5511951509764 → 1151509764`).
-- `leadByKey` é populado com `if (!leadByKey.has(key))` — não há colisão real no banco, então esse guarda não é a causa.
-- O uso de `.order("data_criacao", { ascending: false }).range()` em `fetchLeadsForMatch` é o ponto mais frágil da paginação; trocar para `.order("id")` elimina risco de skip por reordenação.
+- Todos os inserts respeitam RLS (executados via ferramenta `supabase--insert` como service role).
+- A etapa "Onboarding" fica com `ordem=18` no final da lista. Se preferir outra posição, ajuste antes de aprovar.
+- Cor da etapa: `#06b6d4` (ciano). Nenhuma etapa atual usa essa cor.
+- Cor da tag: `#f59e0b` (âmbar) para destacar pendência de KYC. Ajustável.
+- Telefones inválidos (fixos, muito curtos) serão descartados antes do insert e listados no resumo.
+- Não haverá disparo de mensagem automática — apenas cadastro + atribuição + tag.
 
-Confirma que posso partir para a investigação (com logs/Playwright) e aplicar as correções na sequência acima?
+## Riscos / o que não muda
+
+- Não altero `auto_assign_config` nem o estado do rodízio manualmente; a distribuição segue exatamente a ordem atual do round-robin.
+- Não mexo em nenhum outro trigger, função ou tela.
+- Se algum contato "não encontrado" já tiver sido criado nesse meio-tempo, o trigger de dedupe evita duplicata.
