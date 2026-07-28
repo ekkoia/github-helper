@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { normalizePhoneForMatch } from "@/lib/phoneMatch";
 
 export interface ChatMessage {
   id: string;
@@ -33,6 +34,27 @@ const normalizeChatMessage = (message: any): ChatMessage => ({
   id: String(message?.id ?? ""),
 });
 
+const fetchAssignedLeadPhones = async (userId: string): Promise<string[]> => {
+  const pageSize = 1000;
+  const phones: string[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await (supabase as any)
+      .from("leads")
+      .select("telefone")
+      .eq("responsavel_id", userId)
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    phones.push(...(data || []).map((lead: any) => lead.telefone).filter(Boolean));
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return phones;
+};
+
 export const useChatMessages = (phone: string | null) => {
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
@@ -54,6 +76,7 @@ export const useChatMessages = (phone: string | null) => {
 
     setLoading(true);
     const cleanPhone = phone.replace(/\D/g, "");
+    const matchKey = normalizePhoneForMatch(phone);
 
     let query = (supabase as any)
       .from("chat_messages")
@@ -63,22 +86,29 @@ export const useChatMessages = (phone: string | null) => {
       .order("created_at", { ascending: true });
 
     if (!isAdmin) {
-      const cleanPhoneForLead = phone.replace(/\D/g, "");
-      const { data: assignedLead } = await (supabase as any)
-        .from("leads")
-        .select("id")
-        .eq("responsavel_id", user.id)
-        .like("telefone", `%${cleanPhoneForLead.slice(-8)}`)
-        .limit(1)
-        .maybeSingle();
+      let assignedPhones: string[] = [];
+
+      try {
+        assignedPhones = await fetchAssignedLeadPhones(user.id);
+      } catch (error) {
+        console.error("Erro ao validar responsável da conversa:", error);
+        setMessages([]);
+        setLoading(false);
+        return;
+      }
+
+      const assignedLead = assignedPhones.some((assignedPhone) => normalizePhoneForMatch(assignedPhone) === matchKey);
 
       if (!assignedLead) {
-        query = query.eq("user_id", user.id);
+        setMessages([]);
+        setLoading(false);
+        return;
       }
     }
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar mensagens:", error); }
     const serverMsgs = (data || [])
+      .filter((m: any) => normalizePhoneForMatch(m.phone) === matchKey)
       .filter((m: any) => m.user_message || m.bot_message || m.media_url)
       .map(normalizeChatMessage);
     // Preserva otimistas ainda pendentes (não reconciliadas)
@@ -153,10 +183,8 @@ export const useChatMessages = (phone: string | null) => {
           { event: "INSERT", schema: "public", table: "chat_messages" },
           (payload: any) => {
             const msg = normalizeChatMessage(payload.new);
-            const cleanPhone = phone.replace(/\D/g, "");
-            const msgPhone = (msg.phone || "").replace(/\D/g, "");
             if (msg.whatsapp_instance_name !== "meta_official") return;
-            if (!msgPhone.includes(cleanPhone.slice(-8)) && !cleanPhone.includes(msgPhone.slice(-8))) return;
+            if (normalizePhoneForMatch(msg.phone) !== normalizePhoneForMatch(phone)) return;
             reconcile(msg);
           }
         )
