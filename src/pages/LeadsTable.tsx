@@ -41,8 +41,12 @@ import {
   ArrowRightLeft,
   MessageCircle,
   Send,
+  StickyNote,
+  Tag as TagIcon,
 } from "lucide-react";
 import { BulkTemplateDialog } from "@/components/leads/BulkTemplateDialog";
+import { BulkAddNoteDialog } from "@/components/leads/BulkAddNoteDialog";
+import { BulkAddTagDialog } from "@/components/leads/BulkAddTagDialog";
 import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -80,7 +84,7 @@ const ORIGEM_LABELS: Record<string, string> = {
 const LeadsTable = () => {
   const { logActivity } = useActivityLog();
   const { etapasNomes, coresMap } = useFunilEtapas();
-  const { isAdmin, canAssignLeads, canUseInactivityFilter } = useUserRole();
+  const { isAdmin, isSDR, canAssignLeads, canUseInactivityFilter } = useUserRole();
   const { usersMap, users } = useUsers();
   const { map: tagAssignmentsMap } = useAllLeadTagAssignments();
   const { tags: tagCatalog } = useLeadTagsCatalog();
@@ -112,6 +116,8 @@ const LeadsTable = () => {
   const [isBulkStageOpen, setIsBulkStageOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const [isBulkTemplateOpen, setIsBulkTemplateOpen] = useState(false);
+  const [isBulkNoteOpen, setIsBulkNoteOpen] = useState(false);
+  const [isBulkTagOpen, setIsBulkTagOpen] = useState(false);
 
   const [filters, setFilters] = useState<{
     etapa: string;
@@ -240,7 +246,7 @@ const LeadsTable = () => {
       );
     }
     // Filtro por responsável (apenas para admins)
-    if (isAdmin && filters.responsavel !== "all") {
+    if ((isAdmin || isSDR) && filters.responsavel !== "all") {
       if (filters.responsavel === "unassigned") {
         filtered = filtered.filter((lead) => !lead.responsavel_id);
       } else {
@@ -876,6 +882,32 @@ const LeadsTable = () => {
                 </Button>
               )}
 
+              {canAssignLeads && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setIsBulkNoteOpen(true)}
+                >
+                  <StickyNote className="h-3.5 w-3.5" />
+                  Adicionar Nota
+                </Button>
+              )}
+
+              {canAssignLeads && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setIsBulkTagOpen(true)}
+                >
+                  <TagIcon className="h-3.5 w-3.5" />
+                  Adicionar Tag
+                </Button>
+              )}
+
+
+
 
 
               {isAdmin && (
@@ -925,7 +957,7 @@ const LeadsTable = () => {
                       </div>
                     </TableHead>
                     <TableHead>Origem</TableHead>
-                    {isAdmin && <TableHead>Responsável</TableHead>}
+                    {(isAdmin || isSDR) && <TableHead>Responsável</TableHead>}
                     <TableHead>Nota</TableHead>
                     <TableHead>Etapa</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -934,7 +966,7 @@ const LeadsTable = () => {
                 <TableBody>
                   {paginatedLeads.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 10 : 9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={isAdmin || isSDR ? 10 : 9} className="text-center py-8 text-muted-foreground">
                         Nenhum lead encontrado
                       </TableCell>
                     </TableRow>
@@ -1025,7 +1057,7 @@ const LeadsTable = () => {
                             );
                           })()}
                         </TableCell>
-                        {isAdmin && (
+                        {(isAdmin || isSDR) && (
                           <TableCell>
                             {lead.responsavel_id ? (
                               <div className="flex items-center gap-1.5 text-sm">
@@ -1248,6 +1280,26 @@ const LeadsTable = () => {
             telefone: l.telefone ?? null,
             responsavel_id: l.responsavel_id ?? null,
           }))}
+        onDone={() => {
+          clearSelection();
+          fetchLeads();
+        }}
+      />
+
+      <BulkAddNoteDialog
+        open={isBulkNoteOpen}
+        onOpenChange={setIsBulkNoteOpen}
+        leadIds={Array.from(selectedLeadIds)}
+        onDone={() => {
+          clearSelection();
+          fetchLeads();
+        }}
+      />
+
+      <BulkAddTagDialog
+        open={isBulkTagOpen}
+        onOpenChange={setIsBulkTagOpen}
+        leadIds={Array.from(selectedLeadIds)}
         onDone={() => {
           clearSelection();
           fetchLeads();

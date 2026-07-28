@@ -1,30 +1,44 @@
-## Plano para resolver o SDR vendo chats de outros assessores
+## Objetivo
 
-### Diagnóstico confirmado
-- O Gustavo está com os papéis `user` e `sdr`.
-- Hoje o banco permite que SDR visualize todos os leads em `leads`, por causa da liberação feita para o filtro de inatividade em `/leads`.
-- O `/chat` usa essa mesma tabela `leads` para montar a lista de conversas. Como SDR agora enxerga todos os leads no banco, a lógica do chat acaba tratando conversas de outros assessores como elegíveis.
-- Além disso, a busca do lead por telefone em alguns pontos usa apenas os últimos 8 dígitos, o que pode associar conversa ao lead errado ou deixar a identificação confusa.
+Em `/leads`, dar ao SDR (e manter para admin) três recursos que hoje só existem para admin:
 
-### Correção proposta
-1. **Separar a regra do chat da regra de leads**
-   - Em `/chat`, para usuário não-admin, mostrar somente conversas cujo lead esteja atribuído ao próprio usuário.
-   - SDR continua podendo ver todos os leads em `/leads` para filtro/atribuição, mas isso não deve liberar a visualização de chats de terceiros.
+1. Coluna **Responsável** visível na tabela.
+2. Filtro **Responsável** na barra lateral de filtros.
+3. Ações em massa **Adicionar Nota** e **Adicionar Tag** ao lado dos botões existentes (Mover, Atribuir, Disparo em massa, Excluir) quando há leads selecionados.
 
-2. **Corrigir o matching por telefone no chat**
-   - Usar a mesma normalização segura de telefone já usada no projeto para comparar conversas e leads.
-   - Evitar depender só de `slice(-8)`, reduzindo risco de associar uma conversa ao lead errado.
+## Escopo e visibilidade
 
-3. **Ajustar os pontos afetados**
-   - `useConversations.ts`: montar a lista de conversas usando todos os leads para identificação, mas aplicar a visibilidade final por `responsavel_id === usuário atual` para não-admin/SDR.
-   - `useChatMessages.ts`: remover fallback que permite carregar mensagens apenas porque `chat_messages.user_id` é do SDR; para não-admin, só carregar se o lead for realmente dele.
-   - `useLeadByPhone.ts`: buscar o lead do painel lateral com matching consistente, evitando mostrar dados de outro lead por coincidência de telefone.
+- Coluna e filtro Responsável: liberar para `isAdmin || isSDR`. Usuário comum continua sem ver (ele só tem os próprios leads).
+- Ações em massa Nota/Tag: liberar para `isAdmin || isSDR`. O SDR só consegue disparar em leads que ele já enxerga (RLS garante isso; sem mudanças no banco).
+- Nenhum comportamento existente é alterado para admin/user comum.
 
-4. **Manter o comportamento dos admins**
-   - Admin/global continuam vendo todos os chats e o nome do assessor acima do lead.
-   - SDR/usuário comum não veem nome de assessor porque só devem ver conversas próprias.
+## Mudanças por arquivo
 
-5. **Validação**
-   - Conferir no banco com o usuário Gustavo que conversas como Jorge/Fabio/Rogerio só aparecem se o lead estiver atribuído a ele.
-   - Conferir que uma conversa atribuída a Davi/Giovanna não entra na lista do Gustavo.
-   - Conferir que leads atribuídos ao Gustavo continuam aparecendo no `/chat` normalmente.
+### `src/pages/LeadsTable.tsx`
+- Trocar `{isAdmin && <TableHead>Responsável</TableHead>}` e o `<TableCell>` correspondente por `{(isAdmin || isSDR) && ...}`. Ajustar o `colSpan` do estado vazio.
+- Expor `isSDR` do `useUserRole()` (já existe no hook).
+- Adicionar dois botões novos dentro da barra de ações em massa (bloco atual das linhas ~810-897), visíveis quando `canAssignLeads` (admin+SDR) e `selectedLeadIds.size > 0`:
+  - **Adicionar Nota**: abre um `Dialog` com `<Textarea>` + opção "Substituir nota existente" (padrão: anexar com quebra de linha ao `nota_assessor` atual). Confirma → `update` em batch nos IDs selecionados.
+  - **Adicionar Tag**: abre um `Popover`/`Dialog` listando tags do catálogo (`useLeadTagsCatalog`) com checkboxes; ao confirmar, insere linhas em `lead_tag_assignments` para cada combinação `(lead_id, tag_id)` selecionada, ignorando duplicatas (`onConflict: 'lead_id,tag_id', ignoreDuplicates: true`).
+- Após sucesso: toast, `refetch` dos leads e limpar seleção.
+
+### `src/components/FiltersSidebar.tsx`
+- Trocar a condição `{isAdmin && ...}` do bloco de filtro Responsável por `{(isAdmin || isSDR) && ...}` e expor `isSDR` do hook.
+
+### Novos componentes (pequenos, focados)
+- `src/components/leads/BulkAddNoteDialog.tsx` — dialog controlado com props `open`, `onOpenChange`, `leadIds`, `onDone`.
+- `src/components/leads/BulkAddTagDialog.tsx` — idem, usando `useLeadTagsCatalog`.
+
+Ambos usam o `supabase` client já importado; sem edge functions novas.
+
+## Detalhes técnicos
+
+- **Nota em massa**: `leads.nota_assessor` é `text` único por lead. Modo padrão = anexar (`nota atual + "\n" + nova`), com opção de sobrescrever. Para anexar precisamos ler as notas atuais dos IDs selecionados (`select id, nota_assessor`) e fazer `upsert`/`update` por lead — feito em `Promise.all` com chunks de 50.
+- **Tag em massa**: montar array `[{ lead_id, tag_id, atribuido_por: user.id }]` e um único `insert` com `{ onConflict: 'lead_id,tag_id', ignoreDuplicates: true }`.
+- Sem migração: RLS de `leads` e `lead_tag_assignments` já cobre SDR (política atual permite gerenciar leads visíveis).
+- Sem mudanças em `/chat`, hooks de conversas, webhooks ou outras páginas.
+
+## Fora do escopo
+
+- Não altero regras de atribuição, deduplicação, disparo em massa existente, RLS ou permissões de outros papéis.
+- Não mexo em usuário comum: ele continua sem coluna/filtro Responsável.
