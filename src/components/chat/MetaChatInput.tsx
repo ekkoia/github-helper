@@ -542,6 +542,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   const sendRecordedAudio = async () => {
     if (!recordedBlob || !user?.id) return;
+    if (assignmentBlocked) { toast.error("Este lead não está atribuído a você."); return; }
     const blobSnapshot = recordedBlob;
     const urlSnapshot = recordedUrl;
     const filename = `audio_${Date.now()}.ogg`;
