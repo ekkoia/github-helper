@@ -123,6 +123,8 @@ export const EditUserDialog = ({
         return "Global Admin";
       case "admin":
         return "Administrador";
+      case "sdr":
+        return "SDR";
       default:
         return "Usuário";
     }
