@@ -48,7 +48,7 @@ export const EditUserDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     nome_completo: "",
-    role: "user" as "user" | "admin" | "global",
+    role: "user" as "user" | "sdr" | "admin" | "global",
   });
 
   const { logActivity } = useActivityLog();
