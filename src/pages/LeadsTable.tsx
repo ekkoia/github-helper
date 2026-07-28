@@ -301,6 +301,24 @@ const LeadsTable = () => {
         }
       }
     }
+
+    // Filtro por inatividade (apenas admins)
+    if (isAdmin && filters.inatividade && filters.inatividade !== "all") {
+      let days = 0;
+      if (filters.inatividade === "custom") {
+        days = parseInt(filters.inatividadeCustom || "", 10);
+      } else {
+        days = parseInt(filters.inatividade, 10);
+      }
+      if (!isNaN(days) && days > 0) {
+        const cutoff = subDays(new Date(), days).getTime();
+        filtered = filtered.filter((lead) => {
+          const iso = lastInteractionMap[lead.id] || lead.data_criacao;
+          if (!iso) return false;
+          return new Date(iso).getTime() <= cutoff;
+        });
+      }
+    }
     filtered.sort((a, b) => {
       let aVal = a[sortBy];
       let bVal = b[sortBy];
