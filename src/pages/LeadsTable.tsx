@@ -1031,7 +1031,7 @@ const LeadsTable = () => {
                             );
                           })()}
                         </TableCell>
-                        {isAdmin && (
+                        {(isAdmin || isSDR) && (
                           <TableCell>
                             {lead.responsavel_id ? (
                               <div className="flex items-center gap-1.5 text-sm">
