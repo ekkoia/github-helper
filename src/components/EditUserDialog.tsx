@@ -26,7 +26,7 @@ interface UserData {
   id: string;
   email: string;
   nome_completo: string;
-  role: "user" | "admin" | "global";
+  role: "user" | "sdr" | "admin" | "global";
   role_id: string;
 }
 
@@ -48,7 +48,7 @@ export const EditUserDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     nome_completo: "",
-    role: "user" as "user" | "admin" | "global",
+    role: "user" as "user" | "sdr" | "admin" | "global",
   });
 
   const { logActivity } = useActivityLog();
@@ -123,6 +123,8 @@ export const EditUserDialog = ({
         return "Global Admin";
       case "admin":
         return "Administrador";
+      case "sdr":
+        return "SDR";
       default:
         return "Usuário";
     }
@@ -177,6 +179,7 @@ export const EditUserDialog = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">Usuário</SelectItem>
+                  <SelectItem value="sdr">SDR</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
                   <SelectItem value="global">Global Admin</SelectItem>
                 </SelectContent>

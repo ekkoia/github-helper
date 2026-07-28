@@ -78,7 +78,7 @@ const ORIGEM_LABELS: Record<string, string> = {
 const LeadsTable = () => {
   const { logActivity } = useActivityLog();
   const { etapasNomes, coresMap } = useFunilEtapas();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, canAssignLeads, canUseInactivityFilter } = useUserRole();
   const { usersMap, users } = useUsers();
   const { map: tagAssignmentsMap } = useAllLeadTagAssignments();
   const { tags: tagCatalog } = useLeadTagsCatalog();
@@ -303,7 +303,7 @@ const LeadsTable = () => {
     }
 
     // Filtro por inatividade (apenas admins)
-    if (isAdmin && filters.inatividade && filters.inatividade !== "all") {
+    if (canUseInactivityFilter && filters.inatividade && filters.inatividade !== "all") {
       let days = 0;
       if (filters.inatividade === "custom") {
         days = parseInt(filters.inatividadeCustom || "", 10);
@@ -343,7 +343,7 @@ const LeadsTable = () => {
     });
 
     return filtered;
-  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin, campaignMap, getLeadDate, tagAssignmentsMap, lastInteractionMap]);
+  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin, canUseInactivityFilter, campaignMap, getLeadDate, tagAssignmentsMap, lastInteractionMap]);
 
   // Paginação
   const totalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
@@ -834,7 +834,7 @@ const LeadsTable = () => {
                 </PopoverContent>
               </Popover>
 
-              {isAdmin && (
+              {canAssignLeads && (
                 <Popover open={isBulkAssignOpen} onOpenChange={setIsBulkAssignOpen}>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline" className="gap-1.5">

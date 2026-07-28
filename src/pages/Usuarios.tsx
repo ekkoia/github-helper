@@ -36,7 +36,7 @@ interface UserWithRole {
   nome_completo: string;
   telefone: string | null;
   created_at: string;
-  role: 'user' | 'admin' | 'global';
+  role: 'user' | 'sdr' | 'admin' | 'global';
   role_id: string;
   status: 'active' | 'pending';
 }
@@ -241,6 +241,8 @@ const Usuarios = () => {
         return 'Global Admin';
       case 'admin':
         return 'Administrador';
+      case 'sdr':
+        return 'SDR';
       default:
         return 'Usuário';
     }
@@ -341,6 +343,7 @@ const Usuarios = () => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="user">Usuário</SelectItem>
+                            <SelectItem value="sdr">SDR</SelectItem>
                             <SelectItem value="admin">Administrador</SelectItem>
                             <SelectItem value="global">Global Admin</SelectItem>
                           </SelectContent>
