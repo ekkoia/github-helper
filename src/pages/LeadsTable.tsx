@@ -343,7 +343,7 @@ const LeadsTable = () => {
     });
 
     return filtered;
-  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin, campaignMap, getLeadDate, tagAssignmentsMap, lastInteractionMap]);
+  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin, canUseInactivityFilter, campaignMap, getLeadDate, tagAssignmentsMap, lastInteractionMap]);
 
   // Paginação
   const totalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
