@@ -40,7 +40,9 @@ import {
   UserPlus,
   ArrowRightLeft,
   MessageCircle,
+  Send,
 } from "lucide-react";
+import { BulkTemplateDialog } from "@/components/leads/BulkTemplateDialog";
 import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
