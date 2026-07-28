@@ -882,6 +882,32 @@ const LeadsTable = () => {
                 </Button>
               )}
 
+              {canAssignLeads && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setIsBulkNoteOpen(true)}
+                >
+                  <StickyNote className="h-3.5 w-3.5" />
+                  Adicionar Nota
+                </Button>
+              )}
+
+              {canAssignLeads && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setIsBulkTagOpen(true)}
+                >
+                  <TagIcon className="h-3.5 w-3.5" />
+                  Adicionar Tag
+                </Button>
+              )}
+
+
+
 
 
               {isAdmin && (
