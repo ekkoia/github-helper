@@ -109,6 +109,7 @@ const LeadsTable = () => {
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkStageOpen, setIsBulkStageOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
+  const [isBulkTemplateOpen, setIsBulkTemplateOpen] = useState(false);
 
   const [filters, setFilters] = useState<{
     etapa: string;
