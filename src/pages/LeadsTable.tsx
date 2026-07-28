@@ -931,7 +931,7 @@ const LeadsTable = () => {
                       </div>
                     </TableHead>
                     <TableHead>Origem</TableHead>
-                    {isAdmin && <TableHead>Responsável</TableHead>}
+                    {(isAdmin || isSDR) && <TableHead>Responsável</TableHead>}
                     <TableHead>Nota</TableHead>
                     <TableHead>Etapa</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
