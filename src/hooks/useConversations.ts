@@ -30,7 +30,7 @@ const fetchLeadsForMatch = async (responsavelId?: string): Promise<LeadForMatch[
     let query = (supabase as any)
       .from("leads")
       .select("id, telefone, responsavel_id")
-      .order("data_criacao", { ascending: false })
+      .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
 
     if (responsavelId) {
@@ -175,7 +175,49 @@ export const useConversations = () => {
       }
     }
 
-    setConversations(Array.from(map.values()));
+    const list = Array.from(map.values());
+
+    // Fallback: se alguma conversa ficou sem assessorId, tenta resolver
+    // diretamente em `leads` por telefone_key. Cobre casos raros em que a
+    // paginação/normalização não achou o lead na primeira passada.
+    const unresolved = list.filter((c) => !c.assessorId);
+    if (unresolved.length > 0) {
+      const keys = Array.from(
+        new Set(unresolved.map((c) => normalizePhoneForMatch(c.phone)).filter(Boolean))
+      );
+      if (keys.length > 0) {
+        const { data: extraLeads } = await (supabase as any)
+          .from("leads")
+          .select("id, telefone, telefone_key, responsavel_id")
+          .in("telefone_key", keys);
+        if (extraLeads && extraLeads.length > 0) {
+          const byKey = new Map<string, { id: string; responsavel_id: string | null }>();
+          for (const l of extraLeads as Array<{ id: string; telefone_key: string | null; responsavel_id: string | null }>) {
+            if (l.telefone_key && !byKey.has(l.telefone_key)) {
+              byKey.set(l.telefone_key, { id: l.id, responsavel_id: l.responsavel_id });
+            }
+          }
+          for (const conv of list) {
+            if (conv.assessorId) continue;
+            const key = normalizePhoneForMatch(conv.phone);
+            const hit = key ? byKey.get(key) : undefined;
+            if (!hit) continue;
+            if (!conv.leadId) conv.leadId = hit.id;
+            if (hit.responsavel_id) {
+              conv.assessorId = hit.responsavel_id;
+              conv.assessorName = profileMap.get(hit.responsavel_id) || null;
+            }
+          }
+        }
+      }
+    }
+
+    // Re-aplica a visibilidade para não-admin depois do fallback.
+    const finalList = isAdmin
+      ? list
+      : list.filter((c) => c.assessorId === user.id);
+
+    setConversations(finalList);
     setLoading(false);
   }, [user?.id, isAdmin]);
 
