@@ -26,31 +26,8 @@ export interface FunilEtapa {
   ativo: boolean;
 }
 
-const fetchLeadsForPanel = async (userId: string, isAdmin: boolean): Promise<Lead[]> => {
-  const pageSize = 1000;
-  const leads: Lead[] = [];
-  let from = 0;
-
-  while (true) {
-    let query = (supabase as any)
-      .from("leads")
-      .select("*")
-      .order("data_criacao", { ascending: false })
-      .range(from, from + pageSize - 1);
-
-    if (!isAdmin) {
-      query = query.eq("responsavel_id", userId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    leads.push(...((data || []) as Lead[]));
-    if (!data || data.length < pageSize) break;
-    from += pageSize;
-  }
-
-  return leads;
-};
+const LEAD_COLUMNS =
+  "id,nome_completo,telefone,email,etapa_funil,responsavel_id,nota_assessor,origem,data_criacao,faixa_investimento,investimento_real";
 
 export const useLeadByPhone = (phone: string | null) => {
   const { user } = useAuth();
@@ -66,11 +43,34 @@ export const useLeadByPhone = (phone: string | null) => {
     const matchKey = normalizePhoneForMatch(phone);
 
     try {
-      const data = await fetchLeadsForPanel(user.id, isAdmin);
-      const matchedLead = data.find(
-        (item: Lead) => normalizePhoneForMatch(item.telefone) === matchKey
-      );
-      setLead(matchedLead || null);
+      // 1) Consulta direta por telefone_key (indexado e batido pelo trigger de normalização)
+      let q = (supabase as any)
+        .from("leads")
+        .select(LEAD_COLUMNS)
+        .eq("telefone_key", matchKey)
+        .order("data_criacao", { ascending: false })
+        .limit(1);
+
+      if (!isAdmin) q = q.eq("responsavel_id", user.id);
+
+      const { data, error } = await q.maybeSingle();
+      if (error) throw error;
+
+      if (data) {
+        setLead(data as Lead);
+      } else {
+        // 2) Fallback para leads antigos sem telefone_key: casa pelos últimos 8 dígitos
+        const suffix = matchKey.slice(-8);
+        let q2 = (supabase as any)
+          .from("leads")
+          .select(LEAD_COLUMNS)
+          .ilike("telefone", `%${suffix}`)
+          .order("data_criacao", { ascending: false })
+          .limit(1);
+        if (!isAdmin) q2 = q2.eq("responsavel_id", user.id);
+        const { data: fallback } = await q2.maybeSingle();
+        setLead((fallback as Lead) || null);
+      }
     } catch (error) {
       console.error("Erro ao buscar lead:", error);
       setLead(null);
@@ -102,7 +102,6 @@ export const useLeadByPhone = (phone: string | null) => {
     return true;
   };
 
-  // etapa_funil em `leads` é o NOME da etapa (texto), não o id de funil_etapas
   const updateEtapa = async (etapaNome: string) => updateLead({ etapa_funil: etapaNome });
 
   return { lead, etapas, loading, refetch: fetchLead, updateLead, updateEtapa };
