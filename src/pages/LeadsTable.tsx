@@ -1236,7 +1236,25 @@ const LeadsTable = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BulkTemplateDialog
+        open={isBulkTemplateOpen}
+        onOpenChange={setIsBulkTemplateOpen}
+        leads={leads
+          .filter((l) => selectedLeadIds.has(l.id))
+          .map((l) => ({
+            id: l.id,
+            nome_completo: l.nome_completo ?? null,
+            telefone: l.telefone ?? null,
+            responsavel_id: l.responsavel_id ?? null,
+          }))}
+        onDone={() => {
+          clearSelection();
+          fetchLeads();
+        }}
+      />
     </div>
+
   );
 };
 
