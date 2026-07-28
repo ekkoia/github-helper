@@ -36,7 +36,7 @@ interface UserWithRole {
   nome_completo: string;
   telefone: string | null;
   created_at: string;
-  role: 'user' | 'admin' | 'global';
+  role: 'user' | 'sdr' | 'admin' | 'global';
   role_id: string;
   status: 'active' | 'pending';
 }
