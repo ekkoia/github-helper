@@ -30,7 +30,7 @@ const fetchLeadsForMatch = async (responsavelId?: string): Promise<LeadForMatch[
     let query = (supabase as any)
       .from("leads")
       .select("id, telefone, responsavel_id")
-      .order("data_criacao", { ascending: false })
+      .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
 
     if (responsavelId) {
