@@ -246,7 +246,7 @@ const LeadsTable = () => {
       );
     }
     // Filtro por responsável (apenas para admins)
-    if (isAdmin && filters.responsavel !== "all") {
+    if ((isAdmin || isSDR) && filters.responsavel !== "all") {
       if (filters.responsavel === "unassigned") {
         filtered = filtered.filter((lead) => !lead.responsavel_id);
       } else {
