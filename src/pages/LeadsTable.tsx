@@ -40,7 +40,9 @@ import {
   UserPlus,
   ArrowRightLeft,
   MessageCircle,
+  Send,
 } from "lucide-react";
+import { BulkTemplateDialog } from "@/components/leads/BulkTemplateDialog";
 import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -109,6 +111,7 @@ const LeadsTable = () => {
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkStageOpen, setIsBulkStageOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
+  const [isBulkTemplateOpen, setIsBulkTemplateOpen] = useState(false);
 
   const [filters, setFilters] = useState<{
     etapa: string;
@@ -861,6 +864,20 @@ const LeadsTable = () => {
                 </Popover>
               )}
 
+              {canAssignLeads && filters.inatividade && filters.inatividade !== "all" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setIsBulkTemplateOpen(true)}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Disparo em massa
+                </Button>
+              )}
+
+
+
               {isAdmin && (
                 <Button
                   size="sm"
@@ -1219,7 +1236,25 @@ const LeadsTable = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BulkTemplateDialog
+        open={isBulkTemplateOpen}
+        onOpenChange={setIsBulkTemplateOpen}
+        leads={leads
+          .filter((l) => selectedLeadIds.has(l.id))
+          .map((l) => ({
+            id: l.id,
+            nome_completo: l.nome_completo ?? null,
+            telefone: l.telefone ?? null,
+            responsavel_id: l.responsavel_id ?? null,
+          }))}
+        onDone={() => {
+          clearSelection();
+          fetchLeads();
+        }}
+      />
     </div>
+
   );
 };
 

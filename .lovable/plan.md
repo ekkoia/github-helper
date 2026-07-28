@@ -1,40 +1,42 @@
 ## Objetivo
-Criar um papel **SDR** que permite atribuição em massa de leads (e uso do filtro de inatividade) sem dar poderes completos de admin. Aplicar ao Gustavo agora, mas deixar escalável para outros SDRs futuros.
 
-## Escopo confirmado
-- SDR **pode**: atribuir em massa para qualquer assessor, usar o filtro "Sem interação há X dias".
-- SDR **não pode**: excluir em massa, ver todos os leads de outros (mantém RLS atual de usuário comum vendo apenas os próprios).
-- Observação: como o SDR só vê os leads dele, a atribuição em massa vale para reatribuir leads que estão com ele para outro assessor. Se depois quiser que o SDR veja todos os leads, é uma expansão separada.
+Adicionar em `/leads` a opção de **Disparo em massa** de templates WhatsApp para leads selecionados, disponível para **admin/global** e **SDR**, aparecendo junto aos botões de ação em massa existentes quando o filtro "Sem interação há" estiver ativo.
 
-## Mudanças no banco
-1. Adicionar valor `sdr` ao enum `app_role`.
-2. Atualizar a função `has_role` continua funcionando automaticamente (já é genérica).
-3. Ajustar `useUserRole.ts` order — hoje faz `order('role', ascending)` e pega 1 papel. Vou trocar por: buscar todos os papéis do usuário e escolher o de maior privilégio (`global > admin > sdr > user`), para o caso do Gustavo ter dois papéis futuramente.
-4. Inserir o papel `sdr` para o `user_id` do Gustavo (via insert tool após a migração ser aprovada).
+## Regras
 
-## Mudanças no frontend
-Arquivo central: novo hook/derivação em `useUserRole.ts`:
-- Expor `isSDR` e um capability derivada `canAssignLeads = isAdmin || isSDR`.
-- Expor `canUseInactivityFilter = isAdmin || isSDR`.
-- `isAdmin` continua significando admin/global (não muda). Isso preserva todo o resto do sistema (colunas, exclusão em massa, filtros exclusivos etc.).
+- Botão só aparece quando:
+  - Usuário é admin, global ou SDR (`canAssignLeads`), **e**
+  - Filtro `inatividade` está ativo (`!= "all"`), **e**
+  - Há leads selecionados.
+- Ao clicar, abre um modal com o seletor de template (mesma UX de `/chat`).
+- Regra de segurança para **SDR**: o disparo só é permitido se **todos** os leads selecionados estiverem atribuídos a ele (`responsavel_id === user.id`). Se algum não estiver, o modal exibe aviso e bloqueia o envio, listando quantos leads estão fora da regra. Admin/global não têm essa restrição.
+- Leads sem `telefone` são ignorados no envio (contabilizados como "pulados").
+- Antes de disparar, mostra `AlertDialog` de confirmação com contagem e nome do template (mesma lógica de proteção usada no `/chat`).
 
-Ajustes pontuais em `src/pages/LeadsTable.tsx`:
-- Botão/menu de "Atribuir Responsável" em massa: trocar guard de `isAdmin` para `canAssignLeads`.
-- Ação de bulk assign (chamada de update em `responsavel_id`): mesmo guard.
-- Filtro de inatividade (barra lateral + coluna "Última interação"): trocar guard de `isAdmin` para `canUseInactivityFilter`.
-- **Não mexer** nos guards de: exclusão em massa, coluna "Responsável", contagem "no total", filtro por responsável, "unassigned" etc. — continuam só admin.
+## Fluxo do disparo
 
-Ajustes em `src/components/leads/FiltersSidebar.tsx`:
-- Filtro "Sem interação há" passa a receber `canUseInactivityFilter` (via prop já existente ou nova) em vez de `isAdmin`.
+1. Usuário aplica filtro "Sem interação há X dias"
+2. Seleciona leads na tabela
+3. Clica em "Disparo em massa" → abre `BulkTemplateDialog`
+4. Escolhe template → preview + variáveis (reaproveitar a lógica de preview do `MetaChatInput`)
+5. Confirma → para cada lead, chama a edge function `send-whatsapp-message` com `type: "template"` e o telefone do lead
+6. Exibe progresso e resumo final (enviados / falhas / pulados)
 
-## Detalhes técnicos
-- Migração 1 (schema): `ALTER TYPE public.app_role ADD VALUE 'sdr';`
-- Migração 2 (dados, via insert tool depois): `INSERT INTO public.user_roles (user_id, role) VALUES ('<user_id_do_gustavo>', 'sdr');` — vou pedir/confirmar o user_id antes de rodar.
-- RLS existentes que usam `has_role(auth.uid(), 'admin')` continuam negando ao SDR, o que é intencional. O bulk assign do SDR funciona porque a policy de UPDATE em `leads` permite ao responsável atual atualizar seus próprios leads (é o caso do Gustavo hoje).
-- `useUserRole.ts`: substituir `.limit(1).maybeSingle()` por `.select('role')` sem limit e reduzir para o papel de maior privilégio.
+## Alterações técnicas
 
-## Verificação
-1. Logar como Gustavo: botão "Atribuir Responsável" em massa aparece; filtro "Sem interação há" aparece; botão de excluir em massa **não** aparece; coluna "Responsável" **não** aparece.
-2. Logar como usuário comum: nada muda.
-3. Logar como admin: nada muda.
-4. Gustavo consegue reatribuir seus próprios leads para outro assessor via seleção em massa.
+- `src/pages/LeadsTable.tsx`
+  - Novo estado `isBulkTemplateOpen`
+  - Novo botão "Disparo em massa" (ícone `Send`) na barra de ações, condicionado a `canAssignLeads && filters.inatividade !== "all"`
+  - Renderiza `<BulkTemplateDialog>` passando os leads selecionados
+- `src/components/leads/BulkTemplateDialog.tsx` (novo)
+  - Reaproveita `useMetaAccount` + query em `whatsapp_meta_templates` (já usada em `MetaChatInput`)
+  - Seletor de template, preview e (quando aplicável) inputs para variáveis
+  - Para SDR: valida `responsavel_id === user.id` de cada lead; bloqueia envio caso falhe
+  - Loop de envio com `Promise.allSettled` chamando `supabase.functions.invoke("send-whatsapp-message", ...)`
+  - Toast de resumo ao final
+
+## Fora de escopo
+
+- Não altera a edge function `send-whatsapp-message` (usa o endpoint atual).
+- Não altera a lógica de janela de 24h (template funciona fora dela por design da Meta).
+- Não persiste histórico próprio de campanhas — cada envio já grava em `chat_messages` via o fluxo existente.
