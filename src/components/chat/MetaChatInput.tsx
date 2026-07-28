@@ -449,6 +449,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   const sendTextMessage = async () => {
     if (!user?.id) return;
+    if (assignmentBlocked) { toast.error("Este lead não está atribuído a você."); return; }
     const hasText = message.trim().length > 0;
     const hasFile = !!attachedFile;
     if (!hasText && !hasFile) return;
