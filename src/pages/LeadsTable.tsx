@@ -1285,6 +1285,26 @@ const LeadsTable = () => {
           fetchLeads();
         }}
       />
+
+      <BulkAddNoteDialog
+        open={isBulkNoteOpen}
+        onOpenChange={setIsBulkNoteOpen}
+        leadIds={Array.from(selectedLeadIds)}
+        onDone={() => {
+          clearSelection();
+          fetchLeads();
+        }}
+      />
+
+      <BulkAddTagDialog
+        open={isBulkTagOpen}
+        onOpenChange={setIsBulkTagOpen}
+        leadIds={Array.from(selectedLeadIds)}
+        onDone={() => {
+          clearSelection();
+          fetchLeads();
+        }}
+      />
     </div>
 
   );
