@@ -120,6 +120,8 @@ const LeadsTable = () => {
     dataInicio?: Date;
     dataFim?: Date;
     tag: string;
+    inatividade: string;
+    inatividadeCustom: string;
   }>({
     etapa: "all",
     protocolo: "",
@@ -130,7 +132,12 @@ const LeadsTable = () => {
     dataInicio: undefined,
     dataFim: undefined,
     tag: "all",
+    inatividade: "all",
+    inatividadeCustom: "",
   });
+
+  // Mapa lead_id -> última interação (ISO timestamp)
+  const [lastInteractionMap, setLastInteractionMap] = useState<Record<string, string>>({});
 
   // Mapa de meta_lead_id -> adset_name para filtro por campanha
   const [campaignMap, setCampaignMap] = useState<Record<number, string>>({});
