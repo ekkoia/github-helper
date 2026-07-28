@@ -145,7 +145,30 @@ const LeadsTable = () => {
   useEffect(() => {
     fetchLeads();
     fetchCampaignMap();
+    fetchLastInteractions();
   }, []);
+
+  const fetchLastInteractions = async () => {
+    // Paginate through the view to bypass 1000-row limit
+    const pageSize = 1000;
+    let from = 0;
+    const map: Record<string, string> = {};
+    // Loop until fewer than pageSize rows come back
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await (supabase as any)
+        .from("lead_last_interaction")
+        .select("lead_id, last_interaction_at")
+        .range(from, from + pageSize - 1);
+      if (error || !data) break;
+      for (const row of data as Array<{ lead_id: string; last_interaction_at: string }>) {
+        if (row.lead_id && row.last_interaction_at) map[row.lead_id] = row.last_interaction_at;
+      }
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    setLastInteractionMap(map);
+  };
 
   // Realtime: atualiza a tabela quando qualquer lead mudar no banco
   useRealtimeTable(() => fetchLeads(), { table: "leads", channelKey: "leads-table" });
