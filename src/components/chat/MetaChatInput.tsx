@@ -104,6 +104,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   const [windowExpiresAt, setWindowExpiresAt] = useState<Date | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [ecosystemBlocks, setEcosystemBlocks] = useState(0);
+  const [assignmentBlocked, setAssignmentBlocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -238,6 +239,33 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     };
     init();
   }, [contactPhone, fallbackPhone, initialWindowOpen, isAdmin, metaAccount.id, refreshWindow, roleLoading, user?.id]);
+
+  // Bloqueio de envio: usuários não-admin só podem enviar para leads atribuídos a eles
+  useEffect(() => {
+    if (roleLoading) return;
+    if (!user?.id) { setAssignmentBlocked(true); return; }
+    if (isAdmin) { setAssignmentBlocked(false); return; }
+    const matchKey = normalizePhoneForMatch(contactPhone);
+    if (!matchKey) { setAssignmentBlocked(true); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("leads")
+          .select("responsavel_id")
+          .eq("telefone_key", matchKey)
+          .order("data_criacao", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (cancelled) return;
+        const owned = !!data && data.responsavel_id === user.id;
+        setAssignmentBlocked(!owned);
+      } catch {
+        if (!cancelled) setAssignmentBlocked(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [contactPhone, isAdmin, roleLoading, user?.id]);
 
   // Realtime: reabre/atualiza a janela de 24h assim que o webhook grava
   // uma mudança em whatsapp_conversation_windows ou chega um inbound.
@@ -421,6 +449,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   const sendTextMessage = async () => {
     if (!user?.id) return;
+    if (assignmentBlocked) { toast.error("Este lead não está atribuído a você."); return; }
     const hasText = message.trim().length > 0;
     const hasFile = !!attachedFile;
     if (!hasText && !hasFile) return;
@@ -513,6 +542,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   const sendRecordedAudio = async () => {
     if (!recordedBlob || !user?.id) return;
+    if (assignmentBlocked) { toast.error("Este lead não está atribuído a você."); return; }
     const blobSnapshot = recordedBlob;
     const urlSnapshot = recordedUrl;
     const filename = `audio_${Date.now()}.ogg`;
@@ -624,6 +654,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   const sendTemplateMessage = async () => {
     if (!user?.id || !selectedTemplate) return;
+    if (assignmentBlocked) { toast.error("Este lead não está atribuído a você."); return; }
     const template = templates.find((t) => t.id === selectedTemplate);
     if (!template) return;
 
@@ -687,6 +718,13 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           </span>
         </div>
       )}
+      {assignmentBlocked && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/40 text-xs text-red-700 dark:text-red-300">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <span>Este lead não está atribuído a você — envio bloqueado.</span>
+        </div>
+      )}
+      <fieldset disabled={assignmentBlocked} className={assignmentBlocked ? "opacity-60 pointer-events-none space-y-2" : "space-y-2 contents"}>
       {isWithin24h ? (
         <>
           <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
@@ -881,6 +919,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           )}
         </>
       )}
+      </fieldset>
 
       <AlertDialog open={confirmTemplateOpen} onOpenChange={(o) => { if (!sending) setConfirmTemplateOpen(o); }}>
         <AlertDialogContent>
