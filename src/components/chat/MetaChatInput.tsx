@@ -919,6 +919,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
           )}
         </>
       )}
+      </fieldset>
 
       <AlertDialog open={confirmTemplateOpen} onOpenChange={(o) => { if (!sending) setConfirmTemplateOpen(o); }}>
         <AlertDialogContent>
