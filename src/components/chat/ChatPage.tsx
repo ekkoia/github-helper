@@ -10,7 +10,6 @@ export const ChatPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [selectedName, setSelectedName] = useState<string>("");
-  const [selectedAssessor, setSelectedAssessor] = useState<string | null>(null);
   const [selectedWindowOpen, setSelectedWindowOpen] = useState<boolean>(false);
   const { conversations, loading } = useConversations();
   useMetaAccount();
@@ -21,19 +20,24 @@ export const ChatPage: React.FC = () => {
     if (phone) {
       setSelectedPhone(phone);
       setSelectedName(name || phone);
-      setSelectedAssessor(null);
       setSelectedWindowOpen(false);
     }
   }, [searchParams]);
 
-  const handleSelect = (phone: string, name: string, assessorName?: string | null, windowOpen?: boolean) => {
+  const handleSelect = (phone: string, name: string, _assessorName?: string | null, windowOpen?: boolean) => {
     setSelectedPhone(phone);
     setSelectedName(name);
-    setSelectedAssessor(assessorName || null);
     setSelectedWindowOpen(Boolean(windowOpen));
   };
 
   const handleBack = () => setSelectedPhone(null);
+
+  // Sempre derivar o assessor do snapshot vivo — evita mostrar um nome
+  // desatualizado que ficou preso no state ao clicar na conversa.
+  const currentConversation = selectedPhone
+    ? conversations.find((c) => c.phone === selectedPhone)
+    : null;
+  const currentAssessorName = currentConversation?.assessorName ?? null;
 
   return (
     <div className="flex h-[calc(100vh-4rem)] rounded-lg border border-border overflow-hidden bg-background">
@@ -61,7 +65,7 @@ export const ChatPage: React.FC = () => {
             key={selectedPhone}
             phone={selectedPhone}
             name={selectedName}
-            assessorName={selectedAssessor}
+            assessorName={currentAssessorName}
             initialWindowOpen={selectedWindowOpen}
             onBack={handleBack}
           />
