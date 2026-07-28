@@ -61,7 +61,7 @@ export const FiltersSidebar = ({
 }: FiltersSidebarProps) => {
   const { etapasNomes, isLoading: isLoadingEtapas } = useFunilEtapas();
   const { users, loading: isLoadingUsers } = useUsers();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, canUseInactivityFilter } = useUserRole();
   const { tags: tagCatalog } = useLeadTagsCatalog();
   const [campanhas, setCampanhas] = useState<string[]>([]);
   
