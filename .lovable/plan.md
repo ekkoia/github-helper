@@ -1,66 +1,40 @@
-
-# Filtro de leads inativos + atribuição em massa
-
 ## Objetivo
-Permitir que admin/global identifiquem leads que pararam de interagir (sem mensagens há X dias) e atribuam esses leads em massa a um assessor.
+Criar um papel **SDR** que permite atribuição em massa de leads (e uso do filtro de inatividade) sem dar poderes completos de admin. Aplicar ao Gustavo agora, mas deixar escalável para outros SDRs futuros.
 
-## Definições
-- **Inatividade** = tempo desde a última mensagem em `chat_messages` (inbound OU outbound), matched por `phone` normalizado com `leads.telefone_key`. Se o lead nunca teve mensagem, usa `data_criacao` como fallback.
-- **Visibilidade**: apenas admin e global (via `useUserRole`).
+## Escopo confirmado
+- SDR **pode**: atribuir em massa para qualquer assessor, usar o filtro "Sem interação há X dias".
+- SDR **não pode**: excluir em massa, ver todos os leads de outros (mantém RLS atual de usuário comum vendo apenas os próprios).
+- Observação: como o SDR só vê os leads dele, a atribuição em massa vale para reatribuir leads que estão com ele para outro assessor. Se depois quiser que o SDR veja todos os leads, é uma expansão separada.
 
-## Mudanças
+## Mudanças no banco
+1. Adicionar valor `sdr` ao enum `app_role`.
+2. Atualizar a função `has_role` continua funcionando automaticamente (já é genérica).
+3. Ajustar `useUserRole.ts` order — hoje faz `order('role', ascending)` e pega 1 papel. Vou trocar por: buscar todos os papéis do usuário e escolher o de maior privilégio (`global > admin > sdr > user`), para o caso do Gustavo ter dois papéis futuramente.
+4. Inserir o papel `sdr` para o `user_id` do Gustavo (via insert tool após a migração ser aprovada).
 
-### 1. Backend (view de última interação)
-Criar uma **view** `public.lead_last_interaction` que retorna `lead_id` + `last_interaction_at` (MAX entre última mensagem do telefone e `data_criacao`). Isso evita cálculo pesado no cliente e permite paginação/ordenação futura.
+## Mudanças no frontend
+Arquivo central: novo hook/derivação em `useUserRole.ts`:
+- Expor `isSDR` e um capability derivada `canAssignLeads = isAdmin || isSDR`.
+- Expor `canUseInactivityFilter = isAdmin || isSDR`.
+- `isAdmin` continua significando admin/global (não muda). Isso preserva todo o resto do sistema (colunas, exclusão em massa, filtros exclusivos etc.).
 
-- GRANT SELECT para `authenticated`.
+Ajustes pontuais em `src/pages/LeadsTable.tsx`:
+- Botão/menu de "Atribuir Responsável" em massa: trocar guard de `isAdmin` para `canAssignLeads`.
+- Ação de bulk assign (chamada de update em `responsavel_id`): mesmo guard.
+- Filtro de inatividade (barra lateral + coluna "Última interação"): trocar guard de `isAdmin` para `canUseInactivityFilter`.
+- **Não mexer** nos guards de: exclusão em massa, coluna "Responsável", contagem "no total", filtro por responsável, "unassigned" etc. — continuam só admin.
 
-### 2. Filtro no `FiltersSidebar` (novo campo "Inatividade")
-Adicionar após o bloco de Período, visível apenas para admin/global:
+Ajustes em `src/components/leads/FiltersSidebar.tsx`:
+- Filtro "Sem interação há" passa a receber `canUseInactivityFilter` (via prop já existente ou nova) em vez de `isAdmin`.
 
-- Select "Sem interação há":
-  - Todos (default)
-  - 7+ dias
-  - 30+ dias
-  - 90+ dias
-  - 180+ dias
-  - Personalizado (input numérico de dias)
+## Detalhes técnicos
+- Migração 1 (schema): `ALTER TYPE public.app_role ADD VALUE 'sdr';`
+- Migração 2 (dados, via insert tool depois): `INSERT INTO public.user_roles (user_id, role) VALUES ('<user_id_do_gustavo>', 'sdr');` — vou pedir/confirmar o user_id antes de rodar.
+- RLS existentes que usam `has_role(auth.uid(), 'admin')` continuam negando ao SDR, o que é intencional. O bulk assign do SDR funciona porque a policy de UPDATE em `leads` permite ao responsável atual atualizar seus próprios leads (é o caso do Gustavo hoje).
+- `useUserRole.ts`: substituir `.limit(1).maybeSingle()` por `.select('role')` sem limit e reduzir para o papel de maior privilégio.
 
-Estado novo em `filters`: `inatividadeDias` (`"all" | "7" | "30" | "90" | "180" | "custom"`) e `inatividadeCustomDias` (number).
-
-### 3. Aplicação do filtro em `LeadsTable`
-- Ao carregar leads, fazer join/lookup com `lead_last_interaction` (batch por lead ids após fetch atual, para não quebrar a paginação em `.range()`).
-- Filtrar client-side: `last_interaction_at <= now - N dias`.
-- Nova coluna opcional (só quando o filtro está ativo): "Última interação" mostrando data relativa (ex: "há 42 dias").
-
-### 4. Seleção múltipla + atribuição em massa
-Na `LeadsTable` (apenas admin/global):
-
-- Checkbox na primeira coluna de cada linha + checkbox master no header (seleciona página atual).
-- Barra de ação fixa no topo da tabela quando `selectedIds.length > 0`:
-  - Texto: "N leads selecionados"
-  - Botão "Atribuir a…" → abre modal reutilizando `AssignLeadDialog` em modo bulk (novo prop `leadIds: string[]`).
-  - Botão "Limpar seleção".
-- Modal em modo bulk:
-  - Select de assessor (usa `useUsers`, apenas com role `user`/`admin`).
-  - Confirmação: "Atribuir N leads a {nome}?"
-  - UPDATE em lote via `supabase.from('leads').update({ responsavel_id }).in('id', ids)`.
-  - Toast de sucesso + refresh da lista + limpar seleção.
-  - Log em `user_activities` (type `bulk_assign`).
-
-### 5. Detalhes técnicos
-- Manter `getPisoDaFaixa` e demais regras existentes intocadas.
-- Realtime da tabela `leads` já existe → após bulk update os cards atualizam sozinhos.
-- Não mexer em Kanban nesta iteração (o filtro fica na aba Tabela onde a seleção múltipla faz mais sentido).
-
-## Fora de escopo
-- Notificar assessores de destino (pode ser feito depois via trigger existente `notify_lead_assigned`, que já dispara em UPDATE de `responsavel_id`).
-- Distribuição via rodízio em massa (usuário optou por 1 assessor por vez).
-- Filtro para não-admin.
-
-## Ordem de execução
-1. Migration: view `lead_last_interaction` + GRANT.
-2. Update `FiltersSidebar` (novo campo, tipos).
-3. Update `LeadsTable`: fetch da view, filtro por inatividade, coluna "Última interação", seleção múltipla, barra de ação.
-4. Update `AssignLeadDialog` para aceitar `leadIds: string[]` (modo bulk) mantendo o modo single atual.
-5. Registrar `user_activities` no bulk assign.
+## Verificação
+1. Logar como Gustavo: botão "Atribuir Responsável" em massa aparece; filtro "Sem interação há" aparece; botão de excluir em massa **não** aparece; coluna "Responsável" **não** aparece.
+2. Logar como usuário comum: nada muda.
+3. Logar como admin: nada muda.
+4. Gustavo consegue reatribuir seus próprios leads para outro assessor via seleção em massa.
