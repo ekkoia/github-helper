@@ -654,6 +654,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   const sendTemplateMessage = async () => {
     if (!user?.id || !selectedTemplate) return;
+    if (assignmentBlocked) { toast.error("Este lead não está atribuído a você."); return; }
     const template = templates.find((t) => t.id === selectedTemplate);
     if (!template) return;
 
