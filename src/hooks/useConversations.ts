@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { normalizePhoneForMatch } from "@/lib/phoneMatch";
 
 export interface Conversation {
   phone: string;
@@ -17,27 +18,6 @@ export interface Conversation {
   leadId: string | null;
   hasAssessorMessage: boolean;
 }
-
-/**
- * Normaliza telefone apenas para comparação (não altera dados no banco).
- * Remove tudo que não for dígito, ignora prefixo 55 quando há 12-13 dígitos,
- * e retorna os últimos 10 dígitos (DDD + número, sem o 9 opcional).
- */
-const normalizeForMatch = (raw: string | null | undefined): string => {
-  if (!raw) return "";
-  let digits = raw.replace(/\D/g, "");
-  // Remove DDI 55 (celular 13 dígitos ou fixo 12 dígitos)
-  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
-    digits = digits.slice(2);
-  }
-  // Se tem 11 dígitos (DDD + 9 + 8) e o 3º é 9, remove o 9 do celular
-  // para casar com números salvos sem o 9.
-  if (digits.length === 11 && digits[2] === "9") {
-    digits = digits.slice(0, 2) + digits.slice(3);
-  }
-  // Retorna os últimos 10 dígitos (DDD + 8 dígitos)
-  return digits.slice(-10);
-};
 
 // Busca todos os leads paginando (contorna limite de 1000 do PostgREST)
 const fetchAllLeadsForMatch = async (): Promise<Array<{ id: string; telefone: string | null; responsavel_id: string | null }>> => {
@@ -79,7 +59,7 @@ export const useConversations = () => {
         .select("telefone")
         .eq("responsavel_id", user.id);
       for (const l of myLeads || []) {
-        const n = normalizeForMatch(l.telefone);
+        const n = normalizePhoneForMatch(l.telefone);
         if (n) assignedPhones.add(n);
       }
     }
@@ -110,7 +90,7 @@ export const useConversations = () => {
       if (w.expires_at) {
         const exp = new Date(w.expires_at).getTime();
         windowByPhone.set(w.phone_e164, exp);
-        const key = normalizeForMatch(w.phone_e164);
+        const key = normalizePhoneForMatch(w.phone_e164);
         if (key) windowByMatch.set(key, Math.max(windowByMatch.get(key) || 0, exp));
       }
     }
@@ -128,8 +108,10 @@ export const useConversations = () => {
     const leadIdByKey = new Map<string, string>();
     const leadPhoneByKey = new Map<string, string>();
     for (const lead of leadsData || []) {
-      const key = normalizeForMatch(lead.telefone);
+      const key = normalizePhoneForMatch(lead.telefone);
       const canonicalPhone = (lead.telefone || "").replace(/\D/g, "");
+      if (!key) continue;
+      if (!isAdmin && lead.responsavel_id !== user.id) continue;
       if (key && canonicalPhone && !leadPhoneByKey.has(key)) {
         leadPhoneByKey.set(key, canonicalPhone);
       }
@@ -148,14 +130,14 @@ export const useConversations = () => {
       const normalizedPhone = (msg.phone || "").replace(/\D/g, "");
       if (!normalizedPhone) continue;
 
-      const matchKey = normalizeForMatch(msg.phone);
+      const matchKey = normalizePhoneForMatch(msg.phone);
 
       // Visibilidade para não-admin: apenas conversas de leads atribuídos a ele.
       // (Não usar msg.user_id === user.id como fallback, pois disparos em massa
       // gravam user_id do remetente e fariam conversas de outros assessores
       // aparecerem indevidamente.)
       if (!isAdmin) {
-        const isAssigned = matchKey && assignedPhones.has(matchKey);
+        const isAssigned = Boolean(matchKey && assignedPhones.has(matchKey));
         if (!isAssigned) continue;
       }
 
@@ -164,6 +146,7 @@ export const useConversations = () => {
       if (!map.has(displayPhone)) {
         const lastMessage = msg.user_message || msg.bot_message || "";
         const responsavelId = matchKey ? leadByKey.get(matchKey) : undefined;
+        if (!isAdmin && responsavelId !== user.id) continue;
         const expMs = windowByPhone.get(displayPhone) ?? windowByPhone.get(normalizedPhone) ?? (matchKey ? windowByMatch.get(matchKey) : undefined);
         map.set(displayPhone, {
           phone: displayPhone,

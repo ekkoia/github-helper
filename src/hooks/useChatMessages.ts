@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { normalizePhoneForMatch } from "@/lib/phoneMatch";
 
 export interface ChatMessage {
   id: string;
@@ -54,6 +55,7 @@ export const useChatMessages = (phone: string | null) => {
 
     setLoading(true);
     const cleanPhone = phone.replace(/\D/g, "");
+    const matchKey = normalizePhoneForMatch(phone);
 
     let query = (supabase as any)
       .from("chat_messages")
@@ -63,17 +65,26 @@ export const useChatMessages = (phone: string | null) => {
       .order("created_at", { ascending: true });
 
     if (!isAdmin) {
-      const cleanPhoneForLead = phone.replace(/\D/g, "");
-      const { data: assignedLead } = await (supabase as any)
+      const { data: myLeads, error: assignedLeadError } = await (supabase as any)
         .from("leads")
-        .select("id")
-        .eq("responsavel_id", user.id)
-        .like("telefone", `%${cleanPhoneForLead.slice(-8)}`)
-        .limit(1)
-        .maybeSingle();
+        .select("id, telefone")
+        .eq("responsavel_id", user.id);
+
+      if (assignedLeadError) {
+        console.error("Erro ao validar responsável da conversa:", assignedLeadError);
+        setMessages([]);
+        setLoading(false);
+        return;
+      }
+
+      const assignedLead = (myLeads || []).find(
+        (lead: any) => normalizePhoneForMatch(lead.telefone) === matchKey
+      );
 
       if (!assignedLead) {
-        query = query.eq("user_id", user.id);
+        setMessages([]);
+        setLoading(false);
+        return;
       }
     }
     const { data, error } = await query;

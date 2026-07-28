@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
+import { normalizePhoneForMatch } from "@/lib/phoneMatch";
 
 export interface Lead {
   id: string;
@@ -24,27 +27,36 @@ export interface FunilEtapa {
 }
 
 export const useLeadByPhone = (phone: string | null) => {
+  const { user } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [lead, setLead] = useState<Lead | null>(null);
   const [etapas, setEtapas] = useState<FunilEtapa[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchLead = useCallback(async () => {
     if (!phone) { setLead(null); setLoading(false); return; }
+    if (!user?.id || roleLoading) return;
     setLoading(true);
-    const cleanPhone = phone.replace(/\D/g, "");
+    const matchKey = normalizePhoneForMatch(phone);
 
-    const { data, error } = await (supabase as any)
+    let query = (supabase as any)
       .from("leads")
       .select("*")
-      .like("telefone", `%${cleanPhone.slice(-8)}`)
-      .order("data_criacao", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("data_criacao", { ascending: false });
+
+    if (!isAdmin) {
+      query = query.eq("responsavel_id", user.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) console.error("Erro ao buscar lead:", error);
-    setLead(data || null);
+    const matchedLead = (data || []).find(
+      (item: Lead) => normalizePhoneForMatch(item.telefone) === matchKey
+    );
+    setLead(matchedLead || null);
     setLoading(false);
-  }, [phone]);
+  }, [phone, user?.id, isAdmin, roleLoading]);
 
   const fetchEtapas = useCallback(async () => {
     const { data } = await (supabase as any)
