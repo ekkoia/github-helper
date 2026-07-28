@@ -303,7 +303,7 @@ export const FiltersSidebar = ({
         )}
 
         {/* Filtro por Responsável - apenas para admins */}
-        {isAdmin && (
+        {(isAdmin || isSDR) && (
           <>
             <Separator className="my-2" />
             <div>
