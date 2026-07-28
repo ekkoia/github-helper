@@ -17,9 +17,11 @@ import EmojiPicker, { EmojiStyle, Theme as EmojiTheme } from "emoji-picker-react
 import { supabase } from "@/integrations/supabase/client";
 import WhatsAppAudioPlayer from "./WhatsAppAudioPlayer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useTheme } from "@/contexts/ThemeContext";
 import { MetaAccount } from "@/hooks/useMetaAccount";
 import { ChatMessage } from "@/hooks/useChatMessages";
+import { normalizePhoneForMatch } from "@/lib/phoneMatch";
 import { toast } from "sonner";
 
 interface MetaChatInputProps {
@@ -92,6 +94,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   const [resolvedRecipient, setResolvedRecipient] = useState<{ contactPhone: string; phone: string } | null>(null);
   const cleanPhone = resolvedRecipient?.contactPhone === contactPhone ? resolvedRecipient.phone : fallbackPhone;
   const { user } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [message, setMessage] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [sending, setSending] = useState(false);
@@ -178,6 +181,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
 
   useEffect(() => {
     const init = async () => {
+      if (roleLoading) return;
       setIsWithin24h(initialWindowOpen);
       try {
         let metaRecipient = fallbackPhone;
@@ -186,13 +190,20 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         const last8 = withDDI.slice(-8);
 
         if (last8) {
-          const { data: linkedLead } = await (supabase as any)
+          let leadQuery = (supabase as any)
             .from("leads")
             .select("telefone")
             .like("telefone", `%${last8}`)
-            .order("data_atualizacao", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            .order("data_atualizacao", { ascending: false });
+
+          if (!isAdmin && user?.id) {
+            leadQuery = leadQuery.eq("responsavel_id", user.id);
+          }
+
+          const { data: linkedLeads } = await leadQuery;
+          const linkedLead = (linkedLeads || []).find(
+            (lead: any) => normalizePhoneForMatch(lead.telefone) === normalizePhoneForMatch(contactPhone)
+          );
           const leadPhone = formatPhoneForMeta(linkedLead?.telefone);
           if (leadPhone) metaRecipient = leadPhone;
         }
@@ -226,7 +237,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
       }
     };
     init();
-  }, [contactPhone, fallbackPhone, initialWindowOpen, metaAccount.id, refreshWindow]);
+  }, [contactPhone, fallbackPhone, initialWindowOpen, isAdmin, metaAccount.id, refreshWindow, roleLoading, user?.id]);
 
   // Realtime: reabre/atualiza a janela de 24h assim que o webhook grava
   // uma mudança em whatsapp_conversation_windows ou chega um inbound.
@@ -257,10 +268,9 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
         (payload: any) => {
           const row = payload?.new || {};
           if (row.message_direction !== "inbound") return;
-          const digits = String(row.phone || "").replace(/\D/g, "");
-          if (!digits) return;
-          const last8 = digits.slice(-8);
-          if (windowCandidates.some((c) => c.endsWith(last8))) trigger();
+          const rowKey = normalizePhoneForMatch(row.phone);
+          if (!rowKey) return;
+          if (windowCandidates.some((c) => normalizePhoneForMatch(c) === rowKey)) trigger();
         }
       )
       .subscribe();

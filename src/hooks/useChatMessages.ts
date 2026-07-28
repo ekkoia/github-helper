@@ -108,6 +108,7 @@ export const useChatMessages = (phone: string | null) => {
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar mensagens:", error); }
     const serverMsgs = (data || [])
+      .filter((m: any) => normalizePhoneForMatch(m.phone) === matchKey)
       .filter((m: any) => m.user_message || m.bot_message || m.media_url)
       .map(normalizeChatMessage);
     // Preserva otimistas ainda pendentes (não reconciliadas)
@@ -182,10 +183,8 @@ export const useChatMessages = (phone: string | null) => {
           { event: "INSERT", schema: "public", table: "chat_messages" },
           (payload: any) => {
             const msg = normalizeChatMessage(payload.new);
-            const cleanPhone = phone.replace(/\D/g, "");
-            const msgPhone = (msg.phone || "").replace(/\D/g, "");
             if (msg.whatsapp_instance_name !== "meta_official") return;
-            if (!msgPhone.includes(cleanPhone.slice(-8)) && !cleanPhone.includes(msgPhone.slice(-8))) return;
+            if (normalizePhoneForMatch(msg.phone) !== normalizePhoneForMatch(phone)) return;
             reconcile(msg);
           }
         )
