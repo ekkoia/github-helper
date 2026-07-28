@@ -1,23 +1,27 @@
+## Causa
+Na página `/leads`, a coluna "Responsável" e o filtro por responsável usam `usersMap` alimentado por `useUsers` (`select` em `public.profiles`). As policies atuais da tabela `profiles` só permitem SELECT para:
+- o próprio usuário (`auth.uid() = user_id`)
+- admins (`is_admin(auth.uid())`)
 
-## Problema
-No `/chat`, o painel lateral do lead (nome, tag, etapa, faixa, atribuído) demora a aparecer porque `useLeadByPhone` baixa **todos os leads** paginando de 1000 em 1000 e faz o match do telefone no navegador. Com o volume atual (vários milhares), o carregamento inicial fica em loading por segundos.
+O SDR (Gustavo) não é admin, então o RLS devolve só o próprio perfil dele. Por isso a coluna cai no fallback `"Usuário"` e o dropdown de filtro fica praticamente vazio — não é bug de UI, é falta de permissão de leitura no `profiles`.
 
 ## Correção
-Buscar o lead diretamente no banco usando a chave normalizada `telefone_key` (já indexável e usada em outros pontos), retornando 1 linha em vez de milhares.
+Adicionar uma policy de SELECT em `public.profiles` liberando leitura para SDR, no mesmo formato da policy de admin — sem tocar em INSERT/UPDATE nem em outras tabelas.
 
-### Mudança única
-`src/hooks/useLeadByPhone.ts`:
-- Remover `fetchLeadsForPanel` (loop de páginas).
-- Em `fetchLead`, normalizar o telefone com `normalizePhoneForMatch` e consultar:
-  ```
-  supabase.from("leads")
-    .select("id,nome_completo,telefone,email,etapa_funil,responsavel_id,nota_assessor,origem,data_criacao,faixa_investimento,investimento_real")
-    .eq("telefone_key", <chave>)
-    .maybeSingle()
-  ```
-- Para não-admin, adicionar `.eq("responsavel_id", user.id)` (RLS já filtra, mas mantém consistência).
-- Se `maybeSingle` não retornar, fazer fallback `ilike` no `telefone` com o sufixo (só como segurança para leads antigos sem `telefone_key`).
+```sql
+CREATE POLICY "SDRs can view all profiles"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (public.has_role(auth.uid(), 'sdr'));
+```
+
+Isso é suficiente porque:
+- `useUsers` só lê `user_id, nome_completo, email, avatar_url` — não expõe dado sensível novo além do que admin já vê.
+- SDR já precisa enxergar todos os assessores para atribuir leads, filtrar por responsável e adicionar nota/tag em massa (fluxo que você acabou de pedir).
+- Nenhuma mudança de frontend necessária; assim que a policy entra, o `usersMap` passa a resolver `responsavel_id → nome_completo` normalmente.
 
 ## Fora de escopo
-- Não mexer em `useConversations`, `useChatMessages`, filtros, tags nem RLS.
-- Nenhuma alteração de schema.
+- Não alterar policies de INSERT/UPDATE/DELETE de `profiles`.
+- Não mexer em `useUsers`, `LeadsTable.tsx`, `FiltersSidebar.tsx`, nem em roles/capacidades do SDR.
+- Não alterar visibilidade do chat (já foi tratada antes).
