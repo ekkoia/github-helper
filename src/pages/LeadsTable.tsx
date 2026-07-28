@@ -78,7 +78,7 @@ const ORIGEM_LABELS: Record<string, string> = {
 const LeadsTable = () => {
   const { logActivity } = useActivityLog();
   const { etapasNomes, coresMap } = useFunilEtapas();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, canAssignLeads, canUseInactivityFilter } = useUserRole();
   const { usersMap, users } = useUsers();
   const { map: tagAssignmentsMap } = useAllLeadTagAssignments();
   const { tags: tagCatalog } = useLeadTagsCatalog();
