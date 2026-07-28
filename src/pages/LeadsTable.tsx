@@ -834,7 +834,7 @@ const LeadsTable = () => {
                 </PopoverContent>
               </Popover>
 
-              {isAdmin && (
+              {canAssignLeads && (
                 <Popover open={isBulkAssignOpen} onOpenChange={setIsBulkAssignOpen}>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline" className="gap-1.5">
