@@ -88,17 +88,20 @@ Deno.serve(async (req) => {
       const base = digits.startsWith("55") ? digits.slice(2) : digits;
       if (base.length >= 10) {
         const ddd = parseInt(base.slice(0, 2), 10);
-        // assinante começa após o DDD; se tem 9 dígitos e começa com 9, é celular
         const local = base.slice(2);
-        const firstDigit = local.length === 9 && local[0] === "9" ? local[1] : local[0];
-        if (ddd >= 11 && ddd <= 28 && ["2", "3", "4", "5"].includes(firstDigit)) {
-          return new Response(
-            JSON.stringify({
-              error: "Número fixo — não recebe WhatsApp",
-              code: "phone_is_landline",
-            }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+        // Celular: 9 dígitos começando com 9 → nunca é fixo
+        const isMobile = local.length === 9 && local[0] === "9";
+        if (!isMobile) {
+          const firstDigit = local[0];
+          if (ddd >= 11 && ddd <= 28 && ["2", "3", "4", "5"].includes(firstDigit)) {
+            return new Response(
+              JSON.stringify({
+                error: "Número fixo — não recebe WhatsApp",
+                code: "phone_is_landline",
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
         }
       }
     }
