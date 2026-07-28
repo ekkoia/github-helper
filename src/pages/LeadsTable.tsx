@@ -303,7 +303,7 @@ const LeadsTable = () => {
     }
 
     // Filtro por inatividade (apenas admins)
-    if (isAdmin && filters.inatividade && filters.inatividade !== "all") {
+    if (canUseInactivityFilter && filters.inatividade && filters.inatividade !== "all") {
       let days = 0;
       if (filters.inatividade === "custom") {
         days = parseInt(filters.inatividadeCustom || "", 10);
