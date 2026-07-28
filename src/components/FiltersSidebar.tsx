@@ -267,7 +267,7 @@ export const FiltersSidebar = ({
         </div>
 
         {/* Filtro por Inatividade - apenas para admins */}
-        {isAdmin && (
+        {canUseInactivityFilter && (
           <>
             <Separator className="my-2" />
             <div>
