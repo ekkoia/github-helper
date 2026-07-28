@@ -104,6 +104,13 @@ export type Database = {
             foreignKeyName: "agenda_events_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "lead_last_interaction"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "agenda_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
@@ -479,6 +486,13 @@ export type Database = {
           tag_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_tag_assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_last_interaction"
+            referencedColumns: ["lead_id"]
+          },
           {
             foreignKeyName: "lead_tag_assignments_lead_id_fkey"
             columns: ["lead_id"]
@@ -1293,7 +1307,14 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      lead_last_interaction: {
+        Row: {
+          last_interaction_at: string | null
+          last_msg_at: string | null
+          lead_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_webhook_health: { Args: never; Returns: undefined }

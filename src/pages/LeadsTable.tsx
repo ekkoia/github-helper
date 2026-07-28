@@ -120,6 +120,8 @@ const LeadsTable = () => {
     dataInicio?: Date;
     dataFim?: Date;
     tag: string;
+    inatividade: string;
+    inatividadeCustom: string;
   }>({
     etapa: "all",
     protocolo: "",
@@ -130,7 +132,12 @@ const LeadsTable = () => {
     dataInicio: undefined,
     dataFim: undefined,
     tag: "all",
+    inatividade: "all",
+    inatividadeCustom: "",
   });
+
+  // Mapa lead_id -> última interação (ISO timestamp)
+  const [lastInteractionMap, setLastInteractionMap] = useState<Record<string, string>>({});
 
   // Mapa de meta_lead_id -> adset_name para filtro por campanha
   const [campaignMap, setCampaignMap] = useState<Record<number, string>>({});
@@ -138,7 +145,30 @@ const LeadsTable = () => {
   useEffect(() => {
     fetchLeads();
     fetchCampaignMap();
+    fetchLastInteractions();
   }, []);
+
+  const fetchLastInteractions = async () => {
+    // Paginate through the view to bypass 1000-row limit
+    const pageSize = 1000;
+    let from = 0;
+    const map: Record<string, string> = {};
+    // Loop until fewer than pageSize rows come back
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await (supabase as any)
+        .from("lead_last_interaction")
+        .select("lead_id, last_interaction_at")
+        .range(from, from + pageSize - 1);
+      if (error || !data) break;
+      for (const row of data as Array<{ lead_id: string; last_interaction_at: string }>) {
+        if (row.lead_id && row.last_interaction_at) map[row.lead_id] = row.last_interaction_at;
+      }
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    setLastInteractionMap(map);
+  };
 
   // Realtime: atualiza a tabela quando qualquer lead mudar no banco
   useRealtimeTable(() => fetchLeads(), { table: "leads", channelKey: "leads-table" });
@@ -271,6 +301,24 @@ const LeadsTable = () => {
         }
       }
     }
+
+    // Filtro por inatividade (apenas admins)
+    if (isAdmin && filters.inatividade && filters.inatividade !== "all") {
+      let days = 0;
+      if (filters.inatividade === "custom") {
+        days = parseInt(filters.inatividadeCustom || "", 10);
+      } else {
+        days = parseInt(filters.inatividade, 10);
+      }
+      if (!isNaN(days) && days > 0) {
+        const cutoff = subDays(new Date(), days).getTime();
+        filtered = filtered.filter((lead) => {
+          const iso = lastInteractionMap[lead.id] || lead.data_criacao;
+          if (!iso) return false;
+          return new Date(iso).getTime() <= cutoff;
+        });
+      }
+    }
     filtered.sort((a, b) => {
       let aVal = a[sortBy];
       let bVal = b[sortBy];
@@ -295,7 +343,7 @@ const LeadsTable = () => {
     });
 
     return filtered;
-  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin, campaignMap, getLeadDate, tagAssignmentsMap]);
+  }, [leads, searchTerm, filters, sortBy, sortOrder, isAdmin, campaignMap, getLeadDate, tagAssignmentsMap, lastInteractionMap]);
 
   // Paginação
   const totalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
@@ -373,6 +421,8 @@ const LeadsTable = () => {
       dataInicio: undefined,
       dataFim: undefined,
       tag: "all",
+      inatividade: "all",
+      inatividadeCustom: "",
     });
   };
 

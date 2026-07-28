@@ -41,6 +41,8 @@ interface FiltersSidebarProps {
     dataInicio?: Date;
     dataFim?: Date;
     tag?: string;
+    inatividade?: string;
+    inatividadeCustom?: string;
   };
   onFilterChange: (key: string, value: string) => void;
   onDateChange?: (key: string, value: Date | undefined) => void;
@@ -263,6 +265,42 @@ export const FiltersSidebar = ({
             </SelectContent>
           </Select>
         </div>
+
+        {/* Filtro por Inatividade - apenas para admins */}
+        {isAdmin && (
+          <>
+            <Separator className="my-2" />
+            <div>
+              <Label className="text-sm">Sem interação há</Label>
+              <Select
+                value={filters.inatividade || "all"}
+                onValueChange={(value) => onFilterChange("inatividade", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="7">7+ dias</SelectItem>
+                  <SelectItem value="30">30+ dias</SelectItem>
+                  <SelectItem value="90">90+ dias</SelectItem>
+                  <SelectItem value="180">180+ dias</SelectItem>
+                  <SelectItem value="custom">Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
+              {filters.inatividade === "custom" && (
+                <Input
+                  type="number"
+                  min={1}
+                  className="mt-2"
+                  placeholder="Nº de dias"
+                  value={filters.inatividadeCustom || ""}
+                  onChange={(e) => onFilterChange("inatividadeCustom", e.target.value)}
+                />
+              )}
+            </div>
+          </>
+        )}
 
         {/* Filtro por Responsável - apenas para admins */}
         {isAdmin && (
