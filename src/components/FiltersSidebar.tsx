@@ -41,6 +41,8 @@ interface FiltersSidebarProps {
     dataInicio?: Date;
     dataFim?: Date;
     tag?: string;
+    inatividade?: string;
+    inatividadeCustom?: string;
   };
   onFilterChange: (key: string, value: string) => void;
   onDateChange?: (key: string, value: Date | undefined) => void;
