@@ -104,6 +104,7 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
   const [windowExpiresAt, setWindowExpiresAt] = useState<Date | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [ecosystemBlocks, setEcosystemBlocks] = useState(0);
+  const [assignmentBlocked, setAssignmentBlocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
