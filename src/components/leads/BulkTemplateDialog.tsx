@@ -131,7 +131,7 @@ export const BulkTemplateDialog = ({
           "id, name, body, language, header_type, header_media_url, variables_example, status",
         )
         .eq("account_id", account.id)
-        .eq("status", "APPROVED")
+        .ilike("status", "approved")
         .order("name", { ascending: true });
       if (!cancelled) {
         setTemplates((data as MetaTemplate[]) || []);
