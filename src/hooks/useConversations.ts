@@ -19,23 +19,31 @@ export interface Conversation {
   hasAssessorMessage: boolean;
 }
 
-// Busca todos os leads paginando (contorna limite de 1000 do PostgREST)
-const fetchAllLeadsForMatch = async (): Promise<Array<{ id: string; telefone: string | null; responsavel_id: string | null }>> => {
+type LeadForMatch = { id: string; telefone: string | null; responsavel_id: string | null };
+
+// Busca leads paginando (contorna limite de 1000 do PostgREST)
+const fetchLeadsForMatch = async (responsavelId?: string): Promise<LeadForMatch[]> => {
   const pageSize = 1000;
-  let all: any[] = [];
+  let all: LeadForMatch[] = [];
   let from = 0;
   while (true) {
-    const { data, error } = await (supabase as any)
+    let query = (supabase as any)
       .from("leads")
       .select("id, telefone, responsavel_id")
       .order("data_criacao", { ascending: false })
       .range(from, from + pageSize - 1);
 
+    if (responsavelId) {
+      query = query.eq("responsavel_id", responsavelId);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
       console.error("Erro ao buscar leads para match:", error);
       break;
     }
-    all = all.concat(data || []);
+    all = all.concat((data || []) as LeadForMatch[]);
     if (!data || data.length < pageSize) break;
     from += pageSize;
   }
@@ -54,10 +62,7 @@ export const useConversations = () => {
     // Para não-admin: telefones dos leads atribuídos a ele (chaves normalizadas)
     const assignedPhones: Set<string> = new Set();
     if (!isAdmin) {
-      const { data: myLeads } = await (supabase as any)
-        .from("leads")
-        .select("telefone")
-        .eq("responsavel_id", user.id);
+      const myLeads = await fetchLeadsForMatch(user.id);
       for (const l of myLeads || []) {
         const n = normalizePhoneForMatch(l.telefone);
         if (n) assignedPhones.add(n);
@@ -101,7 +106,7 @@ export const useConversations = () => {
     }
 
     // Index leads por chave normalizada -> responsavel_id (paginado)
-    const leadsData = await fetchAllLeadsForMatch();
+    const leadsData = await fetchLeadsForMatch(isAdmin ? undefined : user.id);
 
 
     const leadByKey = new Map<string, string>();
@@ -111,7 +116,6 @@ export const useConversations = () => {
       const key = normalizePhoneForMatch(lead.telefone);
       const canonicalPhone = (lead.telefone || "").replace(/\D/g, "");
       if (!key) continue;
-      if (!isAdmin && lead.responsavel_id !== user.id) continue;
       if (key && canonicalPhone && !leadPhoneByKey.has(key)) {
         leadPhoneByKey.set(key, canonicalPhone);
       }

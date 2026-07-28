@@ -34,6 +34,27 @@ const normalizeChatMessage = (message: any): ChatMessage => ({
   id: String(message?.id ?? ""),
 });
 
+const fetchAssignedLeadPhones = async (userId: string): Promise<string[]> => {
+  const pageSize = 1000;
+  const phones: string[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await (supabase as any)
+      .from("leads")
+      .select("telefone")
+      .eq("responsavel_id", userId)
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    phones.push(...(data || []).map((lead: any) => lead.telefone).filter(Boolean));
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return phones;
+};
+
 export const useChatMessages = (phone: string | null) => {
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
@@ -65,21 +86,18 @@ export const useChatMessages = (phone: string | null) => {
       .order("created_at", { ascending: true });
 
     if (!isAdmin) {
-      const { data: myLeads, error: assignedLeadError } = await (supabase as any)
-        .from("leads")
-        .select("id, telefone")
-        .eq("responsavel_id", user.id);
+      let assignedPhones: string[] = [];
 
-      if (assignedLeadError) {
-        console.error("Erro ao validar responsável da conversa:", assignedLeadError);
+      try {
+        assignedPhones = await fetchAssignedLeadPhones(user.id);
+      } catch (error) {
+        console.error("Erro ao validar responsável da conversa:", error);
         setMessages([]);
         setLoading(false);
         return;
       }
 
-      const assignedLead = (myLeads || []).find(
-        (lead: any) => normalizePhoneForMatch(lead.telefone) === matchKey
-      );
+      const assignedLead = assignedPhones.some((assignedPhone) => normalizePhoneForMatch(assignedPhone) === matchKey);
 
       if (!assignedLead) {
         setMessages([]);

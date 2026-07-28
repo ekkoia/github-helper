@@ -26,6 +26,32 @@ export interface FunilEtapa {
   ativo: boolean;
 }
 
+const fetchLeadsForPanel = async (userId: string, isAdmin: boolean): Promise<Lead[]> => {
+  const pageSize = 1000;
+  const leads: Lead[] = [];
+  let from = 0;
+
+  while (true) {
+    let query = (supabase as any)
+      .from("leads")
+      .select("*")
+      .order("data_criacao", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (!isAdmin) {
+      query = query.eq("responsavel_id", userId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    leads.push(...((data || []) as Lead[]));
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return leads;
+};
+
 export const useLeadByPhone = (phone: string | null) => {
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
@@ -39,23 +65,18 @@ export const useLeadByPhone = (phone: string | null) => {
     setLoading(true);
     const matchKey = normalizePhoneForMatch(phone);
 
-    let query = (supabase as any)
-      .from("leads")
-      .select("*")
-      .order("data_criacao", { ascending: false });
-
-    if (!isAdmin) {
-      query = query.eq("responsavel_id", user.id);
+    try {
+      const data = await fetchLeadsForPanel(user.id, isAdmin);
+      const matchedLead = data.find(
+        (item: Lead) => normalizePhoneForMatch(item.telefone) === matchKey
+      );
+      setLead(matchedLead || null);
+    } catch (error) {
+      console.error("Erro ao buscar lead:", error);
+      setLead(null);
+    } finally {
+      setLoading(false);
     }
-
-    const { data, error } = await query;
-
-    if (error) console.error("Erro ao buscar lead:", error);
-    const matchedLead = (data || []).find(
-      (item: Lead) => normalizePhoneForMatch(item.telefone) === matchKey
-    );
-    setLead(matchedLead || null);
-    setLoading(false);
   }, [phone, user?.id, isAdmin, roleLoading]);
 
   const fetchEtapas = useCallback(async () => {
