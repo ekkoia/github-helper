@@ -864,6 +864,20 @@ const LeadsTable = () => {
                 </Popover>
               )}
 
+              {canAssignLeads && filters.inatividade && filters.inatividade !== "all" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setIsBulkTemplateOpen(true)}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Disparo em massa
+                </Button>
+              )}
+
+
+
               {isAdmin && (
                 <Button
                   size="sm"
