@@ -240,6 +240,33 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
     init();
   }, [contactPhone, fallbackPhone, initialWindowOpen, isAdmin, metaAccount.id, refreshWindow, roleLoading, user?.id]);
 
+  // Bloqueio de envio: usuários não-admin só podem enviar para leads atribuídos a eles
+  useEffect(() => {
+    if (roleLoading) return;
+    if (!user?.id) { setAssignmentBlocked(true); return; }
+    if (isAdmin) { setAssignmentBlocked(false); return; }
+    const matchKey = normalizePhoneForMatch(contactPhone);
+    if (!matchKey) { setAssignmentBlocked(true); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("leads")
+          .select("responsavel_id")
+          .eq("telefone_key", matchKey)
+          .order("data_criacao", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (cancelled) return;
+        const owned = !!data && data.responsavel_id === user.id;
+        setAssignmentBlocked(!owned);
+      } catch {
+        if (!cancelled) setAssignmentBlocked(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [contactPhone, isAdmin, roleLoading, user?.id]);
+
   // Realtime: reabre/atualiza a janela de 24h assim que o webhook grava
   // uma mudança em whatsapp_conversation_windows ou chega um inbound.
   useEffect(() => {
