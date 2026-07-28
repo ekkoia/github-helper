@@ -41,8 +41,12 @@ import {
   ArrowRightLeft,
   MessageCircle,
   Send,
+  StickyNote,
+  Tag as TagIcon,
 } from "lucide-react";
 import { BulkTemplateDialog } from "@/components/leads/BulkTemplateDialog";
+import { BulkAddNoteDialog } from "@/components/leads/BulkAddNoteDialog";
+import { BulkAddTagDialog } from "@/components/leads/BulkAddTagDialog";
 import { subDays, startOfDay, endOfDay, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
