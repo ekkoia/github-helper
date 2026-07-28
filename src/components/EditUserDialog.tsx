@@ -26,7 +26,7 @@ interface UserData {
   id: string;
   email: string;
   nome_completo: string;
-  role: "user" | "admin" | "global";
+  role: "user" | "sdr" | "admin" | "global";
   role_id: string;
 }
 
