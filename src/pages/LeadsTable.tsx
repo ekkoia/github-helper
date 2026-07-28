@@ -380,6 +380,8 @@ const LeadsTable = () => {
       dataInicio: undefined,
       dataFim: undefined,
       tag: "all",
+      inatividade: "all",
+      inatividadeCustom: "",
     });
   };
 
