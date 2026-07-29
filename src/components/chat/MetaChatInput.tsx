@@ -349,7 +349,18 @@ const MetaChatInput: React.FC<MetaChatInputProps> = ({
       setRecordingSeconds(0);
       timerRef.current = setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
     } catch (err: any) {
-      toast.error("Não foi possível iniciar gravação: " + (err.message || ""));
+      const isPermissionError =
+        err?.name === "NotAllowedError" ||
+        err?.name === "PermissionDismissedError" ||
+        /permission denied/i.test(err?.message || "");
+      if (isPermissionError) {
+        toast.error("Permissão de microfone negada", {
+          description:
+            "Libere o microfone nas permissões do navegador (ícone do cadeado ao lado da URL) e tente novamente.",
+        });
+      } else {
+        toast.error("Não foi possível iniciar gravação: " + (err.message || ""));
+      }
     }
   };
 
