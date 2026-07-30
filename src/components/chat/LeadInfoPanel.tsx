@@ -183,7 +183,18 @@ const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
           {(lead.nome_completo || phone).split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
         </div>
         <p className="font-medium text-sm text-foreground text-center">{lead.nome_completo || "Sem nome"}</p>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="w-full mt-1 gap-1.5 text-xs"
+          onClick={handleOpenDetails}
+          disabled={loadingFull}
+        >
+          {loadingFull ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+          Ver detalhes completos
+        </Button>
       </div>
+
 
       {/* Dados de contato */}
       <div className="p-4 border-b border-border space-y-2.5">
