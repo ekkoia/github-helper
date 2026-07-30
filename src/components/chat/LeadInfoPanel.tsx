@@ -3,22 +3,60 @@ import { useLeadByPhone } from "@/hooks/useLeadByPhone";
 import { useUsers } from "@/hooks/useUsers";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useNotifications } from "@/hooks/useNotifications";
-import { User, Mail, Phone, Tag, UserCheck, StickyNote, Loader2 } from "lucide-react";
+import { User, Mail, Phone, Tag, UserCheck, StickyNote, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { LeadTagsSection } from "@/components/leads/LeadTagsSection";
+import { supabase } from "@/integrations/supabase/client";
+import { LeadDetailsModal } from "@/components/LeadDetailsModal";
+import { LeadForm } from "@/components/LeadForm";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface LeadInfoPanelProps {
   phone: string;
 }
 
 const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
-  const { lead, etapas, loading, updateLead, updateEtapa } = useLeadByPhone(phone);
+  const { lead, etapas, loading, updateLead, updateEtapa, refetch } = useLeadByPhone(phone);
   const { users, usersMap } = useUsers();
   const { logActivity } = useActivityLog();
   const { createNotification } = useNotifications();
   const [noteValue, setNoteValue] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
+  const [fullLead, setFullLead] = useState<any>(null);
+  const [loadingFull, setLoadingFull] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const loadFullLead = async (leadId: string) => {
+    const { data, error } = await (supabase as any)
+      .from("leads")
+      .select("*")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (error) {
+      console.error("Erro ao carregar detalhes do lead:", error);
+      return null;
+    }
+    setFullLead(data);
+    return data;
+  };
+
+  const handleOpenDetails = async () => {
+    if (!lead?.id) return;
+    setLoadingFull(true);
+    const data = await loadFullLead(lead.id);
+    setLoadingFull(false);
+    if (!data) { toast.error("Erro ao carregar detalhes do lead"); return; }
+    setDetailsOpen(true);
+  };
+
+  const handleLeadUpdated = async () => {
+    if (lead?.id) await loadFullLead(lead.id);
+    refetch();
+  };
+
 
   React.useEffect(() => {
     setNoteValue(lead?.nota_assessor || "");
