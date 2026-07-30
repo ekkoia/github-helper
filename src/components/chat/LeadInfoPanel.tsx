@@ -325,8 +325,34 @@ const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
           </button>
         )}
       </div>
+
+      {fullLead && (
+        <LeadDetailsModal
+          lead={fullLead}
+          isOpen={detailsOpen}
+          onClose={() => setDetailsOpen(false)}
+          onEdit={() => { setDetailsOpen(false); setEditOpen(true); }}
+          onLeadUpdated={handleLeadUpdated}
+        />
+      )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Lead</DialogTitle>
+          </DialogHeader>
+          {fullLead && (
+            <LeadForm
+              initialData={fullLead}
+              onSuccess={() => { setEditOpen(false); handleLeadUpdated(); }}
+              onCancel={() => setEditOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
 };
 
 export default LeadInfoPanel;
