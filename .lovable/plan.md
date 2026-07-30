@@ -1,19 +1,29 @@
-### Melhorar mensagem de erro de permissão de microfone no `MetaChatInput`
-
 ## Objetivo
-Quando o usuário nega a permissão de microfone no navegador/PWA (erro `Permission denied` vindo de `navigator.mediaDevices.getUserMedia`), o componente `MetaChatInput` deve exibir uma mensagem clara orientando a liberação nas permissões do site, em vez do texto genérico atual.
 
-## Alteração proposta
-1. No arquivo `src/components/chat/MetaChatInput.tsx`, no catch de `startRecording` (linhas 351-353), detectar se o erro é de permissão (`err.name === "NotAllowedError"`, `"Permission denied"` ou `PermissionDismissedError`).
-2. Caso seja erro de permissão, exibir `toast.error` com instrução em português, por exemplo:
-   > "Permissão de microfone negada. Libere o microfone nas permissões do navegador (ícone do cadeado ao lado da URL) e tente novamente."
-3. Para outros erros, manter a mensagem atual genérica ou melhorar com contexto mínimo.
+No `/chat`, no painel lateral direito do lead, adicionar um botão **"Ver detalhes completos"** que abre o mesmo modal de detalhes usado na página `/leads`, sem sair do chat.
 
-## Escopo
-- Alteração apenas no frontend, no componente `MetaChatInput`.
-- Não altera lógica de envio, gravação ou permissões reais.
-- Mantém o restante do app inalterado.
+## O que será feito
+
+1. **`src/components/chat/LeadInfoPanel.tsx`**
+   - Adicionar um botão "Ver detalhes completos" logo abaixo do bloco de avatar/nome (ícone de olho, largura total, estilo secundário do design system).
+   - Ao clicar: buscar o registro completo do lead no banco (`select("*").eq("id", lead.id).maybeSingle()`), pois o hook `useLeadByPhone` só carrega um subconjunto de colunas e o modal precisa da linha inteira (observações, campos do formulário, origens, valores etc.).
+   - Enquanto carrega, mostrar spinner no botão.
+   - Renderizar `<LeadDetailsModal lead={fullLead} isOpen onClose ... />` dentro do painel.
+
+2. **Edição a partir do chat**
+   - O modal recebe `onEdit`; será ligado a um `Dialog` com o `LeadForm` (`initialData` = lead completo), igual ao fluxo de `/leads`.
+   - Após salvar (`onSuccess`) ou após qualquer atualização no modal (`onLeadUpdated`), chamar `refetch()` do `useLeadByPhone` e recarregar o lead completo, para o painel e o modal ficarem em sincronia.
+
+3. **Mobile**
+   - O modal já é responsivo (`Dialog` do shadcn), então funciona no overlay de lead info em telas pequenas sem ajustes extras.
+
+## Detalhes técnicos
+
+- Componentes reutilizados sem alteração: `LeadDetailsModal`, `LeadForm`, `AssignLeadDialog` (já embutido no modal).
+- Permissões: o modal já respeita `useUserRole` (atribuição só para admin), e a RLS continua limitando o que o assessor enxerga — nenhuma mudança de política é necessária.
+- Nenhuma alteração em hooks de chat, envio de mensagens ou lógica de negócio.
 
 ## Validação
-- Verificar se a mensagem aparece ao simular negação de permissão (localmente via dev tools ou em produção).
-- Confirmar que erros de outro tipo continuam a mostrar mensagem apropriada.
+
+- Abrir uma conversa em `/chat`, clicar no botão e conferir que o modal exibe as mesmas informações de `/leads`.
+- Editar um campo pelo modal e confirmar que o painel lateral atualiza sem recarregar a página.
