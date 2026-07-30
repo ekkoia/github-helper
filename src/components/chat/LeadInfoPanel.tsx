@@ -3,22 +3,60 @@ import { useLeadByPhone } from "@/hooks/useLeadByPhone";
 import { useUsers } from "@/hooks/useUsers";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { useNotifications } from "@/hooks/useNotifications";
-import { User, Mail, Phone, Tag, UserCheck, StickyNote, Loader2 } from "lucide-react";
+import { User, Mail, Phone, Tag, UserCheck, StickyNote, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { LeadTagsSection } from "@/components/leads/LeadTagsSection";
+import { supabase } from "@/integrations/supabase/client";
+import { LeadDetailsModal } from "@/components/LeadDetailsModal";
+import { LeadForm } from "@/components/LeadForm";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface LeadInfoPanelProps {
   phone: string;
 }
 
 const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
-  const { lead, etapas, loading, updateLead, updateEtapa } = useLeadByPhone(phone);
+  const { lead, etapas, loading, updateLead, updateEtapa, refetch } = useLeadByPhone(phone);
   const { users, usersMap } = useUsers();
   const { logActivity } = useActivityLog();
   const { createNotification } = useNotifications();
   const [noteValue, setNoteValue] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
+  const [fullLead, setFullLead] = useState<any>(null);
+  const [loadingFull, setLoadingFull] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const loadFullLead = async (leadId: string) => {
+    const { data, error } = await (supabase as any)
+      .from("leads")
+      .select("*")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (error) {
+      console.error("Erro ao carregar detalhes do lead:", error);
+      return null;
+    }
+    setFullLead(data);
+    return data;
+  };
+
+  const handleOpenDetails = async () => {
+    if (!lead?.id) return;
+    setLoadingFull(true);
+    const data = await loadFullLead(lead.id);
+    setLoadingFull(false);
+    if (!data) { toast.error("Erro ao carregar detalhes do lead"); return; }
+    setDetailsOpen(true);
+  };
+
+  const handleLeadUpdated = async () => {
+    if (lead?.id) await loadFullLead(lead.id);
+    refetch();
+  };
+
 
   React.useEffect(() => {
     setNoteValue(lead?.nota_assessor || "");
@@ -145,7 +183,18 @@ const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
           {(lead.nome_completo || phone).split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
         </div>
         <p className="font-medium text-sm text-foreground text-center">{lead.nome_completo || "Sem nome"}</p>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="w-full mt-1 gap-1.5 text-xs"
+          onClick={handleOpenDetails}
+          disabled={loadingFull}
+        >
+          {loadingFull ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+          Ver detalhes completos
+        </Button>
       </div>
+
 
       {/* Dados de contato */}
       <div className="p-4 border-b border-border space-y-2.5">
@@ -276,8 +325,34 @@ const LeadInfoPanel: React.FC<LeadInfoPanelProps> = ({ phone }) => {
           </button>
         )}
       </div>
+
+      {fullLead && (
+        <LeadDetailsModal
+          lead={fullLead}
+          isOpen={detailsOpen}
+          onClose={() => setDetailsOpen(false)}
+          onEdit={() => { setDetailsOpen(false); setEditOpen(true); }}
+          onLeadUpdated={handleLeadUpdated}
+        />
+      )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Lead</DialogTitle>
+          </DialogHeader>
+          {fullLead && (
+            <LeadForm
+              initialData={fullLead}
+              onSuccess={() => { setEditOpen(false); handleLeadUpdated(); }}
+              onCancel={() => setEditOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
 };
 
 export default LeadInfoPanel;
