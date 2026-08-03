@@ -62,6 +62,8 @@ const HEADER_ALIASES: Record<TargetField, string[]> = {
   origem: ["origem", "source", "fonte"],
   observacoes: ["observacoes", "observações", "obs", "notes", "notas"],
   nota_assessor: ["nota assessor", "nota do assessor", "assessor"],
+  tags: ["tags", "tag", "etiquetas", "etiqueta", "marcadores"],
+
 };
 
 export function autoMapColumns(headers: string[]): ColumnMapping {
