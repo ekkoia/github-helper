@@ -227,11 +227,15 @@ export function downloadTemplate() {
     "indicacao",
     "Cliente indicado por parceiro",
     "",
+    "Kyc-Pend, VIP",
   ];
   const instructions = [
     "Formatos esperados: Telefone com DDI+DDD (ex: 5511999999999) ou DDD+número (11999999999).",
     "Não use células do tipo Número para Telefone (formate como Texto para preservar zeros).",
+    "Tags: separe múltiplas tags por vírgula ou ponto e vírgula (ex: Kyc-Pend, VIP). Tags novas são criadas automaticamente.",
+    "Os leads importados são atribuídos automaticamente ao usuário que fez a importação.",
   ];
+
   const ws = XLSX.utils.aoa_to_sheet([headers, example]);
   ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length, 18) }));
 
