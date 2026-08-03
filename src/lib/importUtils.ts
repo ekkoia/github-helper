@@ -15,12 +15,14 @@ export const TARGET_FIELDS: ReadonlyArray<{ key: string; label: string; required
   { key: "origem", label: "Origem" },
   { key: "observacoes", label: "Observações" },
   { key: "nota_assessor", label: "Nota do Assessor" },
+  { key: "tags", label: "Tags" },
 ] as const;
 
 export type TargetField =
   | "nome_completo" | "telefone" | "email" | "perfil" | "intencao"
   | "tipo_grao" | "volume" | "valor_produto" | "cidade" | "uf"
-  | "etapa_funil" | "origem" | "observacoes" | "nota_assessor";
+  | "etapa_funil" | "origem" | "observacoes" | "nota_assessor" | "tags";
+
 
 export type ColumnMapping = Record<string, TargetField | "ignore">;
 
