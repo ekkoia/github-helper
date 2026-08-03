@@ -15,12 +15,14 @@ export const TARGET_FIELDS: ReadonlyArray<{ key: string; label: string; required
   { key: "origem", label: "Origem" },
   { key: "observacoes", label: "Observações" },
   { key: "nota_assessor", label: "Nota do Assessor" },
+  { key: "tags", label: "Tags" },
 ] as const;
 
 export type TargetField =
   | "nome_completo" | "telefone" | "email" | "perfil" | "intencao"
   | "tipo_grao" | "volume" | "valor_produto" | "cidade" | "uf"
-  | "etapa_funil" | "origem" | "observacoes" | "nota_assessor";
+  | "etapa_funil" | "origem" | "observacoes" | "nota_assessor" | "tags";
+
 
 export type ColumnMapping = Record<string, TargetField | "ignore">;
 
@@ -60,6 +62,8 @@ const HEADER_ALIASES: Record<TargetField, string[]> = {
   origem: ["origem", "source", "fonte"],
   observacoes: ["observacoes", "observações", "obs", "notes", "notas"],
   nota_assessor: ["nota assessor", "nota do assessor", "assessor"],
+  tags: ["tags", "tag", "etiquetas", "etiqueta", "marcadores"],
+
 };
 
 export function autoMapColumns(headers: string[]): ColumnMapping {
@@ -223,11 +227,15 @@ export function downloadTemplate() {
     "indicacao",
     "Cliente indicado por parceiro",
     "",
+    "Kyc-Pend, VIP",
   ];
   const instructions = [
     "Formatos esperados: Telefone com DDI+DDD (ex: 5511999999999) ou DDD+número (11999999999).",
     "Não use células do tipo Número para Telefone (formate como Texto para preservar zeros).",
+    "Tags: separe múltiplas tags por vírgula ou ponto e vírgula (ex: Kyc-Pend, VIP). Tags novas são criadas automaticamente.",
+    "Os leads importados são atribuídos automaticamente ao usuário que fez a importação.",
   ];
+
   const ws = XLSX.utils.aoa_to_sheet([headers, example]);
   ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length, 18) }));
 

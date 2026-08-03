@@ -22,7 +22,20 @@ interface IncomingLead {
   origem?: string;
   observacoes?: string;
   nota_assessor?: string;
+  tags?: string;
 }
+
+const normName = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+function parseTags(value: any): string[] {
+  if (value === null || value === undefined) return [];
+  return String(value)
+    .split(/[,;]/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+
 
 function normalizePhone(value: any): { e164: string; valid: boolean } {
   if (value === null || value === undefined) return { e164: "", valid: false };
@@ -67,19 +80,44 @@ serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
+    const importerId = userData.user.id;
 
-    const { data: roleData } = await admin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userData.user.id);
+    // Cache de tags: nome normalizado -> id
+    const tagCache = new Map<string, string>();
+    const { data: existingTags } = await admin.from("lead_tags").select("id, nome");
+    (existingTags || []).forEach((t: any) => tagCache.set(normName(t.nome), t.id));
 
-    const roles = (roleData || []).map((r: any) => r.role);
-    if (!roles.includes("admin") && !roles.includes("global")) {
-      return new Response(JSON.stringify({ error: "Forbidden — admin only" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    let tagsApplied = 0;
+
+    const resolveTagId = async (name: string): Promise<string | null> => {
+      const key = normName(name);
+      const cached = tagCache.get(key);
+      if (cached) return cached;
+      const { data: created, error: tagErr } = await admin
+        .from("lead_tags")
+        .insert({ nome: name, cor: "#64748b", ativo: true, criado_por: importerId })
+        .select("id")
+        .single();
+      if (tagErr || !created) {
+        console.error("Erro ao criar tag", name, tagErr);
+        return null;
+      }
+      tagCache.set(key, created.id);
+      return created.id;
+    };
+
+    const applyTags = async (leadId: string, raw: any) => {
+      const names = parseTags(raw);
+      for (const name of names) {
+        const tagId = await resolveTagId(name);
+        if (!tagId) continue;
+        const { error: assignErr } = await admin
+          .from("lead_tag_assignments")
+          .insert({ lead_id: leadId, tag_id: tagId, atribuido_por: importerId });
+        if (!assignErr) tagsApplied++;
+      }
+    };
+
 
     const body = await req.json();
     const leads: IncomingLead[] = body.leads || [];
@@ -151,6 +189,7 @@ serve(async (req) => {
 
           const { error: updErr } = await admin.from("leads").update(updateData).eq("id", existing.id);
           if (updErr) throw updErr;
+          await applyTags(existing.id, lead.tags);
           results.push({ index: lead.index, status: "merged", lead_id: existing.id });
           continue;
         }
@@ -174,15 +213,32 @@ serve(async (req) => {
           nota_assessor: lead.nota_assessor || null,
           protocolo_atendimento: protocolo,
           origens: [origem],
+          responsavel_id: importerId,
         };
 
         const { data: inserted, error: insErr } = await admin
           .from("leads")
           .insert(insertData)
           .select("id")
-          .single();
+          .maybeSingle();
 
         if (insErr) throw insErr;
+
+        if (!inserted) {
+          // Trigger de deduplicação mesclou a linha em um lead existente
+          const { data: dup } = await admin
+            .from("leads")
+            .select("id")
+            .or(`email.eq.${emailNorm},telefone.eq.${phoneNorm}`)
+            .order("data_criacao", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (dup) await applyTags(dup.id, lead.tags);
+          results.push({ index: lead.index, status: "merged", lead_id: dup?.id });
+          continue;
+        }
+
+        await applyTags(inserted.id, lead.tags);
         results.push({ index: lead.index, status: "created", lead_id: inserted.id });
       } catch (e: any) {
         results.push({
@@ -197,7 +253,9 @@ serve(async (req) => {
       created: results.filter((r) => r.status === "created").length,
       merged: results.filter((r) => r.status === "merged").length,
       errors: results.filter((r) => r.status === "error").length,
+      tags_applied: tagsApplied,
     };
+
 
     return new Response(JSON.stringify({ success: true, summary, results }), {
       status: 200,
