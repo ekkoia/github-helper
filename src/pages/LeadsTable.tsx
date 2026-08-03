@@ -869,7 +869,7 @@ const LeadsTable = () => {
                 </Popover>
               )}
 
-              {canAssignLeads && filters.inatividade && filters.inatividade !== "all" && (
+              {canAssignLeads && (
                 <Button
                   size="sm"
                   variant="outline"
