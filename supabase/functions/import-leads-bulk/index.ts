@@ -80,19 +80,44 @@ serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
+    const importerId = userData.user.id;
 
-    const { data: roleData } = await admin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userData.user.id);
+    // Cache de tags: nome normalizado -> id
+    const tagCache = new Map<string, string>();
+    const { data: existingTags } = await admin.from("lead_tags").select("id, nome");
+    (existingTags || []).forEach((t: any) => tagCache.set(normName(t.nome), t.id));
 
-    const roles = (roleData || []).map((r: any) => r.role);
-    if (!roles.includes("admin") && !roles.includes("global")) {
-      return new Response(JSON.stringify({ error: "Forbidden — admin only" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    let tagsApplied = 0;
+
+    const resolveTagId = async (name: string): Promise<string | null> => {
+      const key = normName(name);
+      const cached = tagCache.get(key);
+      if (cached) return cached;
+      const { data: created, error: tagErr } = await admin
+        .from("lead_tags")
+        .insert({ nome: name, cor: "#64748b", ativo: true, criado_por: importerId })
+        .select("id")
+        .single();
+      if (tagErr || !created) {
+        console.error("Erro ao criar tag", name, tagErr);
+        return null;
+      }
+      tagCache.set(key, created.id);
+      return created.id;
+    };
+
+    const applyTags = async (leadId: string, raw: any) => {
+      const names = parseTags(raw);
+      for (const name of names) {
+        const tagId = await resolveTagId(name);
+        if (!tagId) continue;
+        const { error: assignErr } = await admin
+          .from("lead_tag_assignments")
+          .insert({ lead_id: leadId, tag_id: tagId, atribuido_por: importerId });
+        if (!assignErr) tagsApplied++;
+      }
+    };
+
 
     const body = await req.json();
     const leads: IncomingLead[] = body.leads || [];
