@@ -22,7 +22,20 @@ interface IncomingLead {
   origem?: string;
   observacoes?: string;
   nota_assessor?: string;
+  tags?: string;
 }
+
+const normName = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+function parseTags(value: any): string[] {
+  if (value === null || value === undefined) return [];
+  return String(value)
+    .split(/[,;]/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+
 
 function normalizePhone(value: any): { e164: string; valid: boolean } {
   if (value === null || value === undefined) return { e164: "", valid: false };
