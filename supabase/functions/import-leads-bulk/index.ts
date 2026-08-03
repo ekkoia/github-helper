@@ -189,6 +189,7 @@ serve(async (req) => {
 
           const { error: updErr } = await admin.from("leads").update(updateData).eq("id", existing.id);
           if (updErr) throw updErr;
+          await applyTags(existing.id, lead.tags);
           results.push({ index: lead.index, status: "merged", lead_id: existing.id });
           continue;
         }
@@ -212,15 +213,32 @@ serve(async (req) => {
           nota_assessor: lead.nota_assessor || null,
           protocolo_atendimento: protocolo,
           origens: [origem],
+          responsavel_id: importerId,
         };
 
         const { data: inserted, error: insErr } = await admin
           .from("leads")
           .insert(insertData)
           .select("id")
-          .single();
+          .maybeSingle();
 
         if (insErr) throw insErr;
+
+        if (!inserted) {
+          // Trigger de deduplicação mesclou a linha em um lead existente
+          const { data: dup } = await admin
+            .from("leads")
+            .select("id")
+            .or(`email.eq.${emailNorm},telefone.eq.${phoneNorm}`)
+            .order("data_criacao", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (dup) await applyTags(dup.id, lead.tags);
+          results.push({ index: lead.index, status: "merged", lead_id: dup?.id });
+          continue;
+        }
+
+        await applyTags(inserted.id, lead.tags);
         results.push({ index: lead.index, status: "created", lead_id: inserted.id });
       } catch (e: any) {
         results.push({
@@ -235,7 +253,9 @@ serve(async (req) => {
       created: results.filter((r) => r.status === "created").length,
       merged: results.filter((r) => r.status === "merged").length,
       errors: results.filter((r) => r.status === "error").length,
+      tags_applied: tagsApplied,
     };
+
 
     return new Response(JSON.stringify({ success: true, summary, results }), {
       status: 200,
