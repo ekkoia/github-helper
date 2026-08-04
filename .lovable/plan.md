@@ -1,55 +1,33 @@
-# Plano de ajustes em /chat (abordagem minimalista)
+# Mensagens duplicadas da IA no chat (João Rodrigues / 553597306855)
 
-## Contexto
+## O que os dados mostram
 
-O relato do gestor comercial é: quando o assessor Davi Lopes foi atender um lead, a conversa da IA não apareceu. O medo é que ajustes recentes desconfigurem o que hoje funciona.
+Duas linhas foram gravadas na tabela de mensagens para o mesmo momento da conversa:
 
-## Problema real identificado
+| Linha | Hora (BR) | Texto do lead | Resposta da IA |
+|---|---|---|---|
+| 14144 | 15:34:45 | "Olá! Tenho interesse em investir com a Arvora." | "Oi, Boa tarde! Sou a Carol..." |
+| 14145 | 15:35:12 | "Olá! Tenho interesse em investir com a Arvora. Boa tarde" | texto **idêntico** (mesmo hash, 195 caracteres) |
 
-Para **não-admin**, o hook `useChatMessages` faz duas coisas antes de buscar mensagens:
+Ou seja: o lead mandou "Olá! Tenho interesse..." e, 27 segundos depois, "Boa tarde". O n8n usa acúmulo/buffer de mensagens e gravou **um novo registro com o texto acumulado**, repetindo a mesma resposta da IA no campo `bot_message`, em vez de atualizar o registro anterior.
 
-1. Carrega todos os telefones de leads cujo `responsavel_id` é o usuário logado.
-2. Se o telefone da conversa aberta **não estiver** naquela lista, ele **não consulta** o banco e retorna `messages = []` — a tela fica em branco.
+Não é bug do CRM: o chat apenas exibe o que foi inserido. As duas linhas não têm `meta_message_id` (vêm da IA), então nada disso afeta a janela de 24h.
 
-Isso acontece hoje em dois cenários:
+Isso não é isolado: nos últimos 14 dias existem **115 grupos de resposta da IA repetida** (239 linhas extras) em **90 telefones** — o mesmo padrão de buffer.
 
-- **Lead sem responsável definido** (responsavel_id nulo): nenhum assessor comum vê o histórico.
-- **Lead atribuído a outro assessor**: o assessor atual não vê o histórico (é o correto em termos de regra, mas a tela dá a impressão de bug por não explicar o que está acontecendo).
+## Correção de origem (fora do CRM)
 
-## O que NÃO será alterado
+O ajuste definitivo é no fluxo n8n: quando o buffer reprocessa a mensagem acumulada, ele deve **atualizar** a linha já criada (ou não gravar de novo) em vez de inserir uma nova linha com a mesma `bot_message`. Isso é uma alteração no n8n, não no código do app.
 
-- RLS, rodízio, disparo em massa e envio para a Meta.
-- Lógica de abertura da janela de 24h.
-- Triggers de banco existentes.
-- Deduplicação de leads/mensagens.
+## O que faço no CRM (proteção de exibição)
 
-## O que será alterado (mínimo possível)
+Escopo mínimo, sem tocar em janela de 24h, rodízio, RLS ou envio:
 
-### 1. Explicar na tela quando o chat está vazio por falta de permissão
+1. **Dedupe na exibição** (`src/hooks/useChatMessages.ts`): quando duas linhas consecutivas do mesmo telefone tiverem `bot_message` idêntica e diferença de tempo menor que ~2 minutos, mantenho apenas a mais recente (que traz o texto acumulado completo do lead). O assessor passa a ver "Olá! Tenho interesse em investir com a Arvora. Boa tarde" + uma única resposta da Carol.
+2. Nada é apagado no banco — o histórico bruto continua íntegro para auditoria.
 
-Em `src/components/chat/ChatWindow.tsx`, quando `messages.length === 0` e o usuário não tem acesso (não-admin e lead não atribuído a ele), mostrar um aviso amigável em vez de tela em branco.
+## Detalhes técnicos
 
-Texto sugerido:  
-"Este lead não está atribuído a você. Para visualizar o histórico, peça ao administrador para atribuir o lead."
-
-Isso remove a sensação de "bug" e confirma que a restrição é intencional.
-
-### 2. Melhorar a verificação de atribuição no hook `useChatMessages`
-
-Hoje a validação busca `telefone` exatamente da tabela `leads`. Vamos ajustar para usar `telefone_key` da mesma forma que o resto do sistema, evitando que pequenas diferenças de formatação (com/sem 9, com/sem 55) façam o chat ficar vazio para um lead que deveria estar atribuído.
-
-Não muda a regra: se não for admin e não for responsável, continua sem ver as mensagens — só fica mais preciso.
-
-### 3. Logs de diagnóstico no console (não visuais)
-
-Adicionar mensagens de log no `useChatMessages` quando a lista voltar vazia por segurança, para facilitar investigação futura sem alterar a experiência do usuário.
-
-## Resultado esperado
-
-- Davi e os demais assessores não vão mais ver uma tela branca sem explicação.
-- Se o chat estiver vazio, será óbvio se é por permissão ou por falta real de mensagens.
-- O resto do sistema permanece inalterado.
-
-## Nota técnica
-
-Não será feito nenhum `UPDATE` em massa, `CREATE TRIGGER` novo ou alteração de políticas de RLS. A mudança é 100% no front-end e no filtro de telefone do hook.
+- Filtro aplicado após ordenar por `created_at`/`id`, comparando hash simples (`bot_message` trimada) da linha anterior.
+- Só considera linhas sem `meta_message_id` (origem IA/n8n), para nunca esconder mensagem real da Meta.
+- Sem migração de banco, sem alteração em `MetaChatInput`, `upsert_window_from_inbound` ou triggers.
