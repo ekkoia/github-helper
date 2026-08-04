@@ -29,13 +29,13 @@ Consequências no front (classificação/exibição, não janela):
 
 ## Correções propostas
 
-1. **Normalizar direção na origem (banco):** trigger `BEFORE INSERT/UPDATE` em `chat_messages` aplicando `lower(trim(message_direction))`, mais um backfill das 3.383 linhas existentes. Resolve a causa raiz sem depender do n8n.
-2. **Abrir janela também para inbound sem `meta_message_id`:** ajustar `upsert_window_from_inbound` para exigir apenas direção inbound + `meta_official` + telefone (mantendo o `GREATEST` de expiração, sem encurtar janelas).
-3. **Front defensivo:** normalizar a comparação de direção (`(d ?? "").trim().toLowerCase()`) em `MetaChatInput.tsx`, `ChatWindow.tsx` e `ChatStatusSummary.tsx` — sem alterar layout nem funcionalidade.
-4. **Deduplicação de inbound:** índice único parcial por `meta_message_id` (já existe checagem) + guarda na trigger para ignorar inbound idêntico (mesmo `phone_key` + texto) dentro de ~60s.
-5. **Lead automático por `telefone_key`:** trocar a comparação crua por `phone_key`/`telefone_key` em `create_lead_from_chat_message`.
+1. **Normalizar direção na origem (banco):** trigger `BEFORE INSERT/UPDATE` em `chat_messages` aplicando `lower(trim(message_direction))`, mais backfill das 3.383 linhas existentes. Resolve a causa raiz sem depender do n8n. Não muda a regra da janela (que exige `meta_message_id`).
+2. **Front defensivo:** normalizar a comparação de direção (`(d ?? "").trim().toLowerCase()`) em `ChatWindow.tsx` e `ChatStatusSummary.tsx`, para a mensagem da IA aparecer no lado correto e o "último inbound" ficar certo. Sem alterar layout, envio ou desbloqueio de janela.
+3. **Deduplicação de inbound:** índice único parcial por `meta_message_id` + guarda na trigger para ignorar inbound idêntico (mesmo `phone_key` + texto) dentro de ~60s.
+4. **Lead automático por `telefone_key`:** trocar a comparação crua por `phone_key`/`telefone_key` em `create_lead_from_chat_message`.
 
 ## Notas técnicas
-- Itens 1, 2, 4 e 5 são migrações SQL (triggers/funções + backfill), sem mudança de schema de colunas.
-- Item 3 é apenas comparação de string no front; nada de UI ou regra de negócio muda.
+- Itens 1, 3 e 4 são migrações SQL (triggers/funções + backfill), sem mudança de colunas.
+- Item 2 é apenas comparação de string no front; nada de UI ou regra de negócio muda.
+- A lógica de janela de 24h (`upsert_window_from_inbound`) fica **intacta**: só abre com inbound real da Meta.
 - Nada aqui altera RLS, rodízio, disparo em massa ou envio para a Meta.
