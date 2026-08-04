@@ -1,36 +1,55 @@
-# Auditoria do chat — revisão com dados reais
+# Plano de ajustes em /chat (abordagem minimalista)
 
-Você está certo sobre o ` inbound`: a exibição já está corrigida. O `MessageBubble` renderiza **dois balões** quando a linha tem `user_message` e `bot_message` juntos (formato legado n8n/IA) — e **100% das 3.383 linhas com espaço** estão nesse formato. Ou seja, a conversa da IA aparece do lado certo. Não é a causa do relato do Davi.
+## Contexto
 
-## O que realmente está errado (verificado no banco)
+O relato do gestor comercial é: quando o assessor Davi Lopes foi atender um lead, a conversa da IA não apareceu. O medo é que ajustes recentes desconfigurem o que hoje funciona.
 
-### 1. Causa provável do relato do Davi: lead sem responsável = chat vazio
-- 1.943 leads estão com `responsavel_id` nulo, sendo **520** na etapa "Lead WhatsApp (não qualificado)" (criados automaticamente pela trigger a partir de mensagens).
-- Para não-admin, `useChatMessages` só retorna mensagens se o telefone estiver na lista de leads atribuídos a ele; caso contrário faz `setMessages([])` **sem nenhum aviso na tela**. A RLS de `chat_messages` aplica a mesma regra.
-- Resultado: se o assessor abre uma conversa cujo lead está sem responsável (ou é de outro assessor), ele vê o chat **em branco** — exatamente "a conversa da IA não apareceu". Ele não tem feedback nenhum explicando o motivo.
+## Problema real identificado
 
-### 2. `message_direction` com espaço continua sendo gravado (não foi corrigido na origem)
-- Não existe nenhuma trigger de normalização em `chat_messages`; a correção de 2 semanas atrás foi só no front (`MessageBubble` usa `.trim()`).
-- Ainda entrando hoje: 19 linhas em 04/08, 94 em 03/08, 185 em 02/08 — última às 16:32 de hoje.
-- Impacto residual (não é exibição): `ChatWindow` (cálculo do "último inbound", usado no ícone de mensagem não lida/visto) e `ChatStatusSummary` usam comparação estrita e a condição `user_message && !bot_message` — como essas linhas têm os dois campos, **elas são ignoradas na contagem de inbound**. O resumo pode dizer que o lead não respondeu quando respondeu via IA.
+Para **não-admin**, o hook `useChatMessages` faz duas coisas antes de buscar mensagens:
 
-### 3. Duplicação de mensagens inbound
-- 128 linhas duplicadas (mesmo telefone + mesmo texto no mesmo minuto) nos últimos 30 dias, por corrida entre webhook da Meta e inserção da IA. Não há índice único por `meta_message_id`.
+1. Carrega todos os telefones de leads cujo `responsavel_id` é o usuário logado.
+2. Se o telefone da conversa aberta **não estiver** naquela lista, ele **não consulta** o banco e retorna `messages = []` — a tela fica em branco.
 
-### 4. Trigger de criação de lead usa telefone cru
-- `create_lead_from_chat_message` compara `regexp_replace(telefone)` em vez de `telefone_key`. Hoje não há duplicidade em aberto (0 chaves duplicadas), porque a trigger de dedupe segura — mas a comparação errada pode criar lead novo sem responsável (alimentando o problema 1).
+Isso acontece hoje em dois cenários:
 
-## Correções propostas
+- **Lead sem responsável definido** (responsavel_id nulo): nenhum assessor comum vê o histórico.
+- **Lead atribuído a outro assessor**: o assessor atual não vê o histórico (é o correto em termos de regra, mas a tela dá a impressão de bug por não explicar o que está acontecendo).
 
-1. **Feedback quando o chat está bloqueado (front):** em vez de chat em branco, mostrar aviso claro — "Este lead não está atribuído a você / sem responsável — histórico não disponível" — com o nome do responsável quando houver. Sem afrouxar RLS nem permissões.
-2. **Rotina/visão de leads sem responsável:** sinalizar no painel do chat quando a conversa não tem lead com responsável, para o gestor atribuir (usa o fluxo de atribuição já existente).
-3. **Normalizar `message_direction` na origem:** trigger `BEFORE INSERT/UPDATE` em `chat_messages` com `lower(trim(...))` + backfill das linhas antigas.
-4. **Front defensivo nas contagens:** normalizar direção e considerar linhas legado (com os dois campos) como tendo inbound, em `ChatWindow.tsx` e `ChatStatusSummary.tsx`.
-5. **Deduplicação:** índice único parcial por `meta_message_id` (quando não nulo) + guarda na trigger para inbound idêntico dentro de ~60s.
-6. **`create_lead_from_chat_message` por `telefone_key`** em vez de telefone cru.
+## O que NÃO será alterado
 
-## Notas técnicas
-- Itens 3, 5 e 6 são migrações SQL (triggers/funções + backfill), sem alterar colunas.
-- Itens 1, 2 e 4 são front (mensagem de estado e comparação de string) — sem mudar layout de envio.
-- A janela de 24h (`upsert_window_from_inbound`) fica **intacta**: só abre com inbound real da Meta (`meta_message_id` + `meta_official`). Mensagens da IA continuam apenas como contexto.
-- Nada aqui altera RLS de leitura, rodízio, disparo em massa ou envio para a Meta.
+- RLS, rodízio, disparo em massa e envio para a Meta.
+- Lógica de abertura da janela de 24h.
+- Triggers de banco existentes.
+- Deduplicação de leads/mensagens.
+
+## O que será alterado (mínimo possível)
+
+### 1. Explicar na tela quando o chat está vazio por falta de permissão
+
+Em `src/components/chat/ChatWindow.tsx`, quando `messages.length === 0` e o usuário não tem acesso (não-admin e lead não atribuído a ele), mostrar um aviso amigável em vez de tela em branco.
+
+Texto sugerido:  
+"Este lead não está atribuído a você. Para visualizar o histórico, peça ao administrador para atribuir o lead."
+
+Isso remove a sensação de "bug" e confirma que a restrição é intencional.
+
+### 2. Melhorar a verificação de atribuição no hook `useChatMessages`
+
+Hoje a validação busca `telefone` exatamente da tabela `leads`. Vamos ajustar para usar `telefone_key` da mesma forma que o resto do sistema, evitando que pequenas diferenças de formatação (com/sem 9, com/sem 55) façam o chat ficar vazio para um lead que deveria estar atribuído.
+
+Não muda a regra: se não for admin e não for responsável, continua sem ver as mensagens — só fica mais preciso.
+
+### 3. Logs de diagnóstico no console (não visuais)
+
+Adicionar mensagens de log no `useChatMessages` quando a lista voltar vazia por segurança, para facilitar investigação futura sem alterar a experiência do usuário.
+
+## Resultado esperado
+
+- Davi e os demais assessores não vão mais ver uma tela branca sem explicação.
+- Se o chat estiver vazio, será óbvio se é por permissão ou por falta real de mensagens.
+- O resto do sistema permanece inalterado.
+
+## Nota técnica
+
+Não será feito nenhum `UPDATE` em massa, `CREATE TRIGGER` novo ou alteração de políticas de RLS. A mudança é 100% no front-end e no filtro de telefone do hook.
