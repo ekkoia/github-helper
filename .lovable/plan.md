@@ -1,41 +1,36 @@
-# Auditoria do /chat — o que encontrei e o que corrigir
+# Auditoria do chat — revisão com dados reais
 
-Fiz uma auditoria de dados + código do chat. Existem 3 bugs silenciosos. A janela de 24h continua sendo aberta **somente** por inbound real da Meta (com `meta_message_id`) — mensagens do fluxo da IA usam outro número e servem apenas de contexto no chat.
+Você está certo sobre o ` inbound`: a exibição já está corrigida. O `MessageBubble` renderiza **dois balões** quando a linha tem `user_message` e `bot_message` juntos (formato legado n8n/IA) — e **100% das 3.383 linhas com espaço** estão nesse formato. Ou seja, a conversa da IA aparece do lado certo. Não é a causa do relato do Davi.
 
-## Achados (verificados no banco)
+## O que realmente está errado (verificado no banco)
 
-### 1. `message_direction` gravado com espaço à esquerda (` inbound`) — 3.383 linhas
-As mensagens inseridas pelo fluxo externo/IA (n8n) chegam com `' inbound'` em vez de `'inbound'`, e sem `meta_message_id`/`meta_account_id`.
-Volume: junho 58, julho 2.890, agosto (até hoje) 435 — **continua acontecendo**.
+### 1. Causa provável do relato do Davi: lead sem responsável = chat vazio
+- 1.943 leads estão com `responsavel_id` nulo, sendo **520** na etapa "Lead WhatsApp (não qualificado)" (criados automaticamente pela trigger a partir de mensagens).
+- Para não-admin, `useChatMessages` só retorna mensagens se o telefone estiver na lista de leads atribuídos a ele; caso contrário faz `setMessages([])` **sem nenhum aviso na tela**. A RLS de `chat_messages` aplica a mesma regra.
+- Resultado: se o assessor abre uma conversa cujo lead está sem responsável (ou é de outro assessor), ele vê o chat **em branco** — exatamente "a conversa da IA não apareceu". Ele não tem feedback nenhum explicando o motivo.
 
-Consequências no front (classificação/exibição, não janela):
-- `ChatWindow.tsx` e `ChatStatusSummary.tsx` usam comparação estrita (`=== "inbound"`); hoje se salvam pelo fallback (`user_message && !bot_message`), mas qualquer linha da IA que tenha os dois campos preenchidos é classificada como enviada pelo assessor — é o tipo de inconsistência que gera o relato do Davi ("a conversa da IA não apareceu / apareceu errado").
-- O "último inbound" usado no resumo de status e nos checks pode ficar errado, dando a impressão de que o lead não respondeu.
+### 2. `message_direction` com espaço continua sendo gravado (não foi corrigido na origem)
+- Não existe nenhuma trigger de normalização em `chat_messages`; a correção de 2 semanas atrás foi só no front (`MessageBubble` usa `.trim()`).
+- Ainda entrando hoje: 19 linhas em 04/08, 94 em 03/08, 185 em 02/08 — última às 16:32 de hoje.
+- Impacto residual (não é exibição): `ChatWindow` (cálculo do "último inbound", usado no ícone de mensagem não lida/visto) e `ChatStatusSummary` usam comparação estrita e a condição `user_message && !bot_message` — como essas linhas têm os dois campos, **elas são ignoradas na contagem de inbound**. O resumo pode dizer que o lead não respondeu quando respondeu via IA.
 
-### 2. Janela de 24h — comportamento atual está correto
-`upsert_window_from_inbound` só abre janela com `message_direction` inbound + `meta_official` + `meta_message_id` preenchido. Isso é o desejado: a IA fala por outro número, então nada nesse plano altera essa regra. A janela abre quando o lead responde ao template pelo número oficial.
+### 3. Duplicação de mensagens inbound
+- 128 linhas duplicadas (mesmo telefone + mesmo texto no mesmo minuto) nos últimos 30 dias, por corrida entre webhook da Meta e inserção da IA. Não há índice único por `meta_message_id`.
 
-### 3. Mensagens inbound duplicadas
-39 grupos / 128 linhas duplicadas nos últimos 30 dias (mesmo telefone, mesmo texto, no mesmo minuto) — webhook Meta + inserção n8n gravando o mesmo evento. Polui a conversa e distorce a leitura de "quem falou por último".
-
-### 4. Criação automática de lead sem normalização de telefone
-`create_lead_from_chat_message` compara só dígitos crus, enquanto o resto do sistema usa `telefone_key`/`normalize_telefone_br`. Um número com/sem o 9 gera **lead duplicado** em vez de reaproveitar o existente.
-
-
-### O que está saudável
-- Visibilidade: de 1.616 telefones com conversa, 1.614 casam com um lead pela regra estrita da RLS — o isolamento admin/assessor/SDR está consistente (2 telefones órfãos, sem lead).
-- Entrega Meta: nos últimos 14 dias, 64 falhas de 2.183 envios (~3%), todas por motivo do lado da Meta ("Message undeliverable", limite de engajamento, experimento) — não é bug do CRM.
-- Nenhum registro fora de `meta_official`; nenhuma perda visível de histórico.
+### 4. Trigger de criação de lead usa telefone cru
+- `create_lead_from_chat_message` compara `regexp_replace(telefone)` em vez de `telefone_key`. Hoje não há duplicidade em aberto (0 chaves duplicadas), porque a trigger de dedupe segura — mas a comparação errada pode criar lead novo sem responsável (alimentando o problema 1).
 
 ## Correções propostas
 
-1. **Normalizar direção na origem (banco):** trigger `BEFORE INSERT/UPDATE` em `chat_messages` aplicando `lower(trim(message_direction))`, mais backfill das 3.383 linhas existentes. Resolve a causa raiz sem depender do n8n. Não muda a regra da janela (que exige `meta_message_id`).
-2. **Front defensivo:** normalizar a comparação de direção (`(d ?? "").trim().toLowerCase()`) em `ChatWindow.tsx` e `ChatStatusSummary.tsx`, para a mensagem da IA aparecer no lado correto e o "último inbound" ficar certo. Sem alterar layout, envio ou desbloqueio de janela.
-3. **Deduplicação de inbound:** índice único parcial por `meta_message_id` + guarda na trigger para ignorar inbound idêntico (mesmo `phone_key` + texto) dentro de ~60s.
-4. **Lead automático por `telefone_key`:** trocar a comparação crua por `phone_key`/`telefone_key` em `create_lead_from_chat_message`.
+1. **Feedback quando o chat está bloqueado (front):** em vez de chat em branco, mostrar aviso claro — "Este lead não está atribuído a você / sem responsável — histórico não disponível" — com o nome do responsável quando houver. Sem afrouxar RLS nem permissões.
+2. **Rotina/visão de leads sem responsável:** sinalizar no painel do chat quando a conversa não tem lead com responsável, para o gestor atribuir (usa o fluxo de atribuição já existente).
+3. **Normalizar `message_direction` na origem:** trigger `BEFORE INSERT/UPDATE` em `chat_messages` com `lower(trim(...))` + backfill das linhas antigas.
+4. **Front defensivo nas contagens:** normalizar direção e considerar linhas legado (com os dois campos) como tendo inbound, em `ChatWindow.tsx` e `ChatStatusSummary.tsx`.
+5. **Deduplicação:** índice único parcial por `meta_message_id` (quando não nulo) + guarda na trigger para inbound idêntico dentro de ~60s.
+6. **`create_lead_from_chat_message` por `telefone_key`** em vez de telefone cru.
 
 ## Notas técnicas
-- Itens 1, 3 e 4 são migrações SQL (triggers/funções + backfill), sem mudança de colunas.
-- Item 2 é apenas comparação de string no front; nada de UI ou regra de negócio muda.
-- A lógica de janela de 24h (`upsert_window_from_inbound`) fica **intacta**: só abre com inbound real da Meta.
-- Nada aqui altera RLS, rodízio, disparo em massa ou envio para a Meta.
+- Itens 3, 5 e 6 são migrações SQL (triggers/funções + backfill), sem alterar colunas.
+- Itens 1, 2 e 4 são front (mensagem de estado e comparação de string) — sem mudar layout de envio.
+- A janela de 24h (`upsert_window_from_inbound`) fica **intacta**: só abre com inbound real da Meta (`meta_message_id` + `meta_official`). Mensagens da IA continuam apenas como contexto.
+- Nada aqui altera RLS de leitura, rodízio, disparo em massa ou envio para a Meta.
