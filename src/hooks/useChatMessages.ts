@@ -107,10 +107,28 @@ export const useChatMessages = (phone: string | null) => {
     }
     const { data, error } = await query;
     if (error) { console.error("Erro ao buscar mensagens:", error); }
-    const serverMsgs = (data || [])
+    const rawMsgs = (data || [])
       .filter((m: any) => normalizePhoneForMatch(m.phone) === matchKey)
-      .filter((m: any) => m.user_message || m.bot_message || m.media_url)
-      .map(normalizeChatMessage);
+      .filter((m: any) => m.user_message || m.bot_message || m.media_url);
+
+    // Dedupe de buffer do n8n: a IA às vezes regrava a mesma resposta com o
+    // texto do lead acumulado. Mantém apenas a linha mais recente do par.
+    const dedupedRaw: any[] = [];
+    for (const m of rawMsgs) {
+      const prev = dedupedRaw[dedupedRaw.length - 1];
+      const bot = (m.bot_message || "").trim();
+      const prevBot = (prev?.bot_message || "").trim();
+      const isIa = !m.meta_message_id && !prev?.meta_message_id;
+      const dt = prev ? Math.abs(new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()) : Infinity;
+      if (prev && isIa && bot && bot === prevBot && dt < 120000) {
+        dedupedRaw[dedupedRaw.length - 1] = m;
+        continue;
+      }
+      dedupedRaw.push(m);
+    }
+
+    const serverMsgs = dedupedRaw.map(normalizeChatMessage);
+
     // Preserva otimistas ainda pendentes (não reconciliadas)
     setMessages((prev) => {
       const stillPending = prev.filter((m) => m.status === "pending" || m.status === "failed");
