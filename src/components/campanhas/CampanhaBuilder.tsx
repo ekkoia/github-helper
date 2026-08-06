@@ -189,10 +189,12 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
   const publico = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const tagSet = tagId !== "all" ? leadIdsByTag.get(tagId) : null;
+    const range = getPeriodoRange(periodo, dataInicio, dataFim);
 
     return leads.filter((l) => {
       if (etapa !== "all" && l.etapa_funil !== etapa) return false;
       if (origem !== "all" && l.origem !== origem) return false;
+      if (!isWithinPeriodo(l.data_criacao, range)) return false;
       if (responsavel !== "all") {
         if (responsavel === "none" && l.responsavel_id) return false;
         if (responsavel !== "none" && l.responsavel_id !== responsavel) return false;
@@ -207,7 +209,18 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
       }
       return true;
     });
-  }, [leads, etapa, origem, responsavel, tagId, busca, leadIdsByTag]);
+  }, [
+    leads,
+    etapa,
+    origem,
+    responsavel,
+    tagId,
+    busca,
+    leadIdsByTag,
+    periodo,
+    dataInicio,
+    dataFim,
+  ]);
 
   const statusDoLead = (lead: LeadRow): "sem_telefone" | "bloqueado" | "elegivel" => {
     if (!formatPhoneForMeta(lead.telefone)) return "sem_telefone";
