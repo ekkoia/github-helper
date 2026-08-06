@@ -104,6 +104,82 @@ export const encerrarCampanha = async (campanhaId: string) => {
   return !error;
 };
 
+/**
+ * Falha recuperável = problema da conta (pagamento/elegibilidade/token), não do
+ * número. Reenviar só faz sentido nesses casos; "undeliverable", bloqueio por
+ * engajamento e experimentos da Meta são definitivos.
+ */
+export const isFalhaRecuperavel = (motivo: string | null | undefined) => {
+  if (!motivo) return false;
+  const m = motivo.toLowerCase();
+  if (
+    m.includes("undeliverable") ||
+    m.includes("ecosystem") ||
+    m.includes("experiment")
+  ) {
+    return false;
+  }
+  return (
+    m.includes("payment") ||
+    m.includes("pagamento") ||
+    m.includes("eligibility") ||
+    m.includes("account has been restricted") ||
+    m.includes("business account") ||
+    m.includes("not configured") ||
+    m.includes("access token")
+  );
+};
+
+export interface FalhaRecuperavel extends CampanhaDestinatario {
+  motivo: string;
+}
+
+/** Destinatários da campanha cuja falha é recuperável (erro de conta na Meta). */
+export const fetchFalhasRecuperaveis = async (
+  campanhaId: string,
+): Promise<FalhaRecuperavel[]> => {
+  const rows = await fetchDestinatarios(campanhaId);
+  const mids = rows.map((r) => r.meta_message_id).filter(Boolean) as string[];
+  const entregas = mids.length > 0 ? await fetchDeliveryByMids(mids) : {};
+
+  const out: FalhaRecuperavel[] = [];
+  for (const d of rows) {
+    if (d.status === "sem_telefone" || !d.telefone) continue;
+    const info = d.meta_message_id ? entregas[d.meta_message_id] : undefined;
+    // Já chegou: nunca reenviar.
+    if (
+      info?.delivery_status === "delivered" ||
+      info?.delivery_status === "read" ||
+      info?.delivery_status === "played"
+    ) {
+      continue;
+    }
+    const motivo =
+      (info?.delivery_status === "failed" ? info?.failure_reason : null) ||
+      (d.status === "falha" ? d.erro : null);
+    if (isFalhaRecuperavel(motivo)) out.push({ ...d, motivo: motivo as string });
+  }
+  return out;
+};
+
+/** Atualiza o destinatário depois de um reenvio bem-sucedido ou com novo erro. */
+export const atualizarDestinatarioReenvio = async (
+  destinatarioId: string,
+  patch: { status: string; meta_message_id?: string | null; erro?: string | null },
+) => {
+  const { error } = await (supabase as any)
+    .from("campanha_destinatarios")
+    .update({
+      status: patch.status,
+      meta_message_id: patch.meta_message_id ?? null,
+      erro: patch.erro ?? null,
+    })
+    .eq("id", destinatarioId);
+  if (error) console.error("Erro ao atualizar destinatário:", error);
+  return !error;
+};
+
+
 export interface CampanhaMetrics {
   enviado: number;
   entregue: number;
