@@ -31,6 +31,8 @@ import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useLeadTagsCatalog } from "@/hooks/useLeadTags";
 import { useUsers } from "@/hooks/useUsers";
 import { normalizePhoneForMatch } from "@/lib/phoneMatch";
+import { PeriodoFilter } from "./PeriodoFilter";
+import { getPeriodoRange, isWithinPeriodo, PeriodoValue } from "./dateFilter";
 import {
   buildTemplateComponents,
   CampanhaTemplate,
@@ -81,6 +83,9 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
   const [origem, setOrigem] = useState("all");
   const [tagId, setTagId] = useState("all");
   const [responsavel, setResponsavel] = useState("all");
+  const [periodo, setPeriodo] = useState<PeriodoValue>("all");
+  const [dataInicio, setDataInicio] = useState<Date | undefined>();
+  const [dataFim, setDataFim] = useState<Date | undefined>();
 
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
