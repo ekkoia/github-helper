@@ -831,9 +831,27 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
         </div>
 
         {sending && (
-          <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Enviando {progress.done}/{progress.total}...
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Enviando {progress.done}/{progress.total}...
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="gap-1.5"
+              disabled={cancelRef.current}
+              onClick={() => {
+                cancelRef.current = true;
+                toast.info(
+                  "Interrompendo o disparo — o envio para no próximo lead da fila.",
+                );
+              }}
+            >
+              <StopCircle className="h-3.5 w-3.5" />
+              Interromper envio
+            </Button>
           </div>
         )}
 
