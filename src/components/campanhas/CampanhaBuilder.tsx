@@ -705,7 +705,11 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
                   A campanha <span className="font-semibold">{nome}</span> vai
                   enviar o template{" "}
                   <span className="font-semibold">{selectedTemplate?.name}</span>{" "}
-                  para <span className="font-semibold">{elegiveis.length}</span>{" "}
+                  para{" "}
+                  <span className="font-semibold">
+                    {elegiveisParaEnvio.length}
+                  </span>{" "}
+
                   lead(s). Esta ação não pode ser desfeita.
                 </div>
                 {bloqueadosCount > 0 && (
