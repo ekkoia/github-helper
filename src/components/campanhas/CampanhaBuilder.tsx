@@ -669,12 +669,57 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
           </table>
         </div>
 
-        {publico.length > 500 && (
-          <p className="text-xs text-muted-foreground">
-            Exibindo os 500 primeiros na pré-visualização. O disparo considera
-            todos os {publico.length} leads do filtro que estiverem marcados.
-          </p>
-        )}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>Itens por página</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => setPageSize(Number(v))}
+            >
+              <SelectTrigger className="h-8 w-[80px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[20, 50, 100, 500].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <span>
+            {publico.length === 0
+              ? "0 leads"
+              : `Mostrando ${(page - 1) * pageSize + 1}–${Math.min(
+                  page * pageSize,
+                  publico.length,
+                )} de ${publico.length}`}
+          </span>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Anterior
+            </Button>
+            <span>
+              Página {page} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
 
         {sending && (
           <div className="text-xs text-muted-foreground flex items-center gap-2">
@@ -690,7 +735,8 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
             className="gap-1.5"
           >
             <Send className="h-3.5 w-3.5" />
-            Disparar para {elegiveis.length}
+            Disparar para {elegiveisParaEnvio.length}
+
           </Button>
         </div>
       </Card>
