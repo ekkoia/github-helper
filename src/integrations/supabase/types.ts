@@ -191,6 +191,98 @@ export type Database = {
         }
         Relationships: []
       }
+      campanha_destinatarios: {
+        Row: {
+          campanha_id: string
+          created_at: string
+          erro: string | null
+          id: string
+          lead_id: string | null
+          meta_message_id: string | null
+          nome: string | null
+          responsavel_id: string | null
+          status: string
+          telefone: string | null
+        }
+        Insert: {
+          campanha_id: string
+          created_at?: string
+          erro?: string | null
+          id?: string
+          lead_id?: string | null
+          meta_message_id?: string | null
+          nome?: string | null
+          responsavel_id?: string | null
+          status?: string
+          telefone?: string | null
+        }
+        Update: {
+          campanha_id?: string
+          created_at?: string
+          erro?: string | null
+          id?: string
+          lead_id?: string | null
+          meta_message_id?: string | null
+          nome?: string | null
+          responsavel_id?: string | null
+          status?: string
+          telefone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanha_destinatarios_campanha_id_fkey"
+            columns: ["campanha_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campanhas: {
+        Row: {
+          created_at: string
+          criado_por: string
+          id: string
+          nome: string
+          status: string
+          template_language: string
+          template_name: string | null
+          total_bloqueado: number
+          total_enviado: number
+          total_falha: number
+          total_publico: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por: string
+          id?: string
+          nome: string
+          status?: string
+          template_language?: string
+          template_name?: string | null
+          total_bloqueado?: number
+          total_enviado?: number
+          total_falha?: number
+          total_publico?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string
+          id?: string
+          nome?: string
+          status?: string
+          template_language?: string
+          template_name?: string | null
+          total_bloqueado?: number
+          total_enviado?: number
+          total_falha?: number
+          total_publico?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           active: boolean | null

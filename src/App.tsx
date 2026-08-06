@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import Leads from "./pages/Leads";
+import Campanhas from "./pages/Campanhas";
 import Auth from "./pages/Auth";
 import SetPassword from "./pages/SetPassword";
 import NotFound from "./pages/NotFound";
@@ -51,6 +52,7 @@ const App = () => {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                   <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+                  <Route path="/campanhas" element={<ProtectedRoute><Campanhas /></ProtectedRoute>} />
                   <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
                   <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
                   <Route path="/equipe" element={<ProtectedRoute><Equipe /></ProtectedRoute>} />
