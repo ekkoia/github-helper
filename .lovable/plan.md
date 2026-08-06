@@ -39,6 +39,6 @@ Front-end:
 - `src/pages/Campanhas.tsx` + rota `/campanhas` em `App.tsx` e item no `AppSidebar.tsx`.
 - `src/components/campanhas/CampanhaBuilder.tsx` (filtros + tabela de seleção), `CampanhaSendDialog.tsx` (confirmação e progresso), `CampanhasHistory.tsx` (histórico + detalhe).
 - `src/hooks/useCampanhas.ts`: carrega campanhas/destinatários e grava o resultado do envio.
-- Cálculo do bloqueio reaproveitando o que já existe: `whatsapp_conversation_windows.expires_at > now()` e última mensagem em `chat_messages` por `phone` (normalização via `src/lib/phoneMatch.ts`).
+- Cálculo do bloqueio reaproveitando o que já existe: `whatsapp_conversation_windows.expires_at > now()` (normalização de telefone via `src/lib/phoneMatch.ts`).
 - Envio reaproveita a lógica já validada de `BulkTemplateDialog.tsx` (montagem de componentes de header/variáveis, `supabase.functions.invoke("send-whatsapp-message")`, insert em `chat_messages` com `message_direction: "outbound"`).
 - O disparo em massa atual em /leads permanece intacto.
