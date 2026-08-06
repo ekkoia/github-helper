@@ -605,7 +605,10 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
               <tr>
                 <th className="p-2 w-10">
                   <Checkbox
-                    checked={publico.length > 0 && marcados.length === publico.length}
+                    checked={
+                      paginaAtual.length > 0 &&
+                      paginaMarcados === paginaAtual.length
+                    }
                     onCheckedChange={toggleAll}
                   />
                 </th>
