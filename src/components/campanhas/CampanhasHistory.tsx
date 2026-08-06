@@ -16,7 +16,9 @@ import {
 } from "@/hooks/useCampanhas";
 import { useUsers } from "@/hooks/useUsers";
 import { PeriodoFilter } from "./PeriodoFilter";
+import { ReenviarFalhas } from "./ReenviarFalhas";
 import { getPeriodoRange, isWithinPeriodo, PeriodoValue } from "./dateFilter";
+
 
 const statusLabel: Record<string, string> = {
   enviado: "Enviado",
