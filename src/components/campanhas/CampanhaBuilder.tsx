@@ -332,6 +332,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
       return;
     }
 
+    cancelRef.current = false;
     setSending(true);
     setProgress({ done: 0, total: elegiveisParaEnvio.length });
 
