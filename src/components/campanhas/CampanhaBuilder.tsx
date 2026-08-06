@@ -221,6 +221,11 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     [marcados, activeKeys],
   );
 
+  const elegiveisParaEnvio = useMemo(
+    () => (limite === "all" ? elegiveis : elegiveis.slice(0, Number(limite))),
+    [elegiveis, limite],
+  );
+
   const bloqueadosCount = useMemo(
     () => publico.filter((l) => statusDoLead(l) === "bloqueado").length,
     [publico, activeKeys],
@@ -231,9 +236,23 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     [publico],
   );
 
+  const totalPages = Math.max(1, Math.ceil(publico.length / pageSize));
+  const paginaAtual = useMemo(
+    () => publico.slice((page - 1) * pageSize, page * pageSize),
+    [publico, page, pageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [etapa, origem, responsavel, tagId, busca, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [page, totalPages]);
+
   const selectedTemplate = templates.find((t) => t.id === templateId);
   const canSend =
-    !!nome.trim() && !!selectedTemplate && elegiveis.length > 0 && !sending;
+    !!nome.trim() && !!selectedTemplate && elegiveisParaEnvio.length > 0 && !sending;
 
   const toggleLead = (id: string) => {
     setUnchecked((prev) => {
@@ -244,13 +263,37 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     });
   };
 
+  const paginaMarcados = paginaAtual.filter((l) => !unchecked.has(l.id)).length;
+
   const toggleAll = () => {
-    if (marcados.length === publico.length) {
-      setUnchecked(new Set(publico.map((l) => l.id)));
-    } else {
-      setUnchecked(new Set());
-    }
+    const todosMarcados =
+      paginaAtual.length > 0 && paginaMarcados === paginaAtual.length;
+    setUnchecked((prev) => {
+      const next = new Set(prev);
+      for (const l of paginaAtual) {
+        if (todosMarcados) next.add(l.id);
+        else next.delete(l.id);
+      }
+      return next;
+    });
   };
+
+  const marcarTodosFiltro = () => {
+    setUnchecked((prev) => {
+      const next = new Set(prev);
+      for (const l of publico) next.delete(l.id);
+      return next;
+    });
+  };
+
+  const desmarcarTodosFiltro = () => {
+    setUnchecked((prev) => {
+      const next = new Set(prev);
+      for (const l of publico) next.add(l.id);
+      return next;
+    });
+  };
+
 
   const executeSend = async () => {
     if (!selectedTemplate || !user?.id || !account) return;
