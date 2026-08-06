@@ -575,13 +575,43 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
           </Select>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Limite de envios</span>
+            <Select value={limite} onValueChange={setLimite}>
+              <SelectTrigger className="h-9 w-[110px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {[20, 50, 100, 500].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="outline" size="sm" onClick={marcarTodosFiltro}>
+            Marcar todos do filtro
+          </Button>
+          <Button variant="outline" size="sm" onClick={desmarcarTodosFiltro}>
+            Desmarcar todos
+          </Button>
+        </div>
+
         <div className="rounded-md border border-border bg-muted/30 p-3 text-sm grid gap-1 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <span className="font-medium">{publico.length}</span> no filtro
           </div>
           <div>
-            <span className="font-medium text-primary">{elegiveis.length}</span>{" "}
-            elegível(is)
+            <span className="font-medium text-primary">
+              {elegiveisParaEnvio.length}
+            </span>{" "}
+            serão enviados{" "}
+            {limite === "all"
+              ? `(${elegiveis.length} elegíveis)`
+              : `(limite ${limite} de ${elegiveis.length} elegíveis)`}
           </div>
           <div className="text-muted-foreground">
             {bloqueadosCount} em conversa ativa
@@ -590,6 +620,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
             {semTelefoneCount} sem telefone
           </div>
         </div>
+
 
         <div className="flex items-start gap-2 rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
