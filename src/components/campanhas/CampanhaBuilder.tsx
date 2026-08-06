@@ -636,6 +636,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
               <tr>
                 <th className="p-2 w-10">
                   <Checkbox
+                    className="border-foreground/50 bg-background/50 dark:border-foreground/60"
                     checked={
                       paginaAtual.length > 0 &&
                       paginaMarcados === paginaAtual.length
@@ -672,6 +673,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
                     <tr key={lead.id} className="border-t border-border">
                       <td className="p-2">
                         <Checkbox
+                          className="border-foreground/50 bg-background/50 dark:border-foreground/60"
                           checked={!unchecked.has(lead.id)}
                           onCheckedChange={() => toggleLead(lead.id)}
                         />
