@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, StopCircle } from "lucide-react";
+import { toast } from "sonner";
 import {
   Campanha,
   CampanhaDestinatario,
   CampanhaMetrics,
+  DeliveryInfo,
+  encerrarCampanha,
   fetchCampanhasMetrics,
+  fetchDeliveryByMids,
   fetchDestinatarios,
 } from "@/hooks/useCampanhas";
 import { useUsers } from "@/hooks/useUsers";
@@ -19,6 +23,24 @@ const statusLabel: Record<string, string> = {
   falha: "Falha",
   bloqueado_conversa_ativa: "Bloqueado (conversa ativa)",
   sem_telefone: "Sem telefone",
+};
+
+const entregaLabel: Record<string, string> = {
+  sent: "Aguardando entrega",
+  delivered: "Entregue",
+  read: "Lido",
+  played: "Lido",
+  failed: "Falhou na Meta",
+};
+
+const motivoAmigavel = (reason: string | null) => {
+  if (!reason) return null;
+  const r = reason.toLowerCase();
+  if (r.includes("payment") || r.includes("eligibility"))
+    return "Problema de pagamento/elegibilidade da conta";
+  if (r.includes("undeliverable")) return "Número não recebe WhatsApp";
+  if (r.includes("ecosystem")) return "Bloqueado pela Meta (engajamento)";
+  return reason;
 };
 
 const MetricTile = ({
