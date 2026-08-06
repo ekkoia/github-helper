@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AlertCircle, Loader2, Megaphone, Search, Send } from "lucide-react";
+import { AlertCircle, Loader2, Megaphone, Search, Send, StopCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -94,6 +94,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const cancelRef = useRef(false);
 
 
   // Templates aprovados
@@ -331,6 +332,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
       return;
     }
 
+    cancelRef.current = false;
     setSending(true);
     setProgress({ done: 0, total: elegiveisParaEnvio.length });
 
@@ -375,8 +377,27 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
 
     let sent = 0;
     let failed = 0;
+    let interrompida = false;
+    let motivoConta: string | null = null;
+
+    const isErroDeConta = (msg: string) => {
+      const m = msg.toLowerCase();
+      return (
+        m.includes("payment") ||
+        m.includes("pagamento") ||
+        m.includes("eligibility") ||
+        m.includes("account has been restricted") ||
+        m.includes("business account") ||
+        m.includes("not configured") ||
+        m.includes("access token")
+      );
+    };
 
     for (const lead of elegiveisParaEnvio) {
+      if (cancelRef.current) {
+        interrompida = true;
+        break;
+      }
       const phone = formatPhoneForMeta(lead.telefone);
       let metaMessageId: string | null = null;
       let erro: string | null = null;
@@ -437,12 +458,20 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
       });
 
       setProgress((p) => ({ ...p, done: p.done + 1 }));
+
+      // Para automaticamente se o erro indicar problema na conta (pagamento,
+      // elegibilidade, token) — evita queimar milhares de tentativas.
+      if (erro && isErroDeConta(erro)) {
+        interrompida = true;
+        motivoConta = erro;
+        break;
+      }
     }
 
     await (supabase as any)
       .from("campanhas")
       .update({
-        status: "concluida",
+        status: interrompida ? "interrompida" : "concluida",
         total_enviado: sent,
         total_falha: failed,
       })
@@ -454,12 +483,26 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     setTemplateId("");
     setUnchecked(new Set());
     setProgress({ done: 0, total: 0 });
+    cancelRef.current = false;
 
-    toast.success(
-      `Campanha concluída: ${sent} enviado(s)${failed ? `, ${failed} falha(s)` : ""}${
-        bloqueadosCount ? `, ${bloqueadosCount} bloqueado(s) por conversa ativa` : ""
-      }.`,
-    );
+    if (interrompida) {
+      if (motivoConta) {
+        toast.error(
+          `Disparo interrompido: problema na conta do WhatsApp (${motivoConta}). ${sent} enviado(s) antes da parada.`,
+          { duration: 12000 },
+        );
+      } else {
+        toast.warning(
+          `Campanha interrompida: ${sent} enviado(s), ${failed} falha(s).`,
+        );
+      }
+    } else {
+      toast.success(
+        `Campanha concluída: ${sent} enviado(s)${failed ? `, ${failed} falha(s)` : ""}${
+          bloqueadosCount ? `, ${bloqueadosCount} bloqueado(s) por conversa ativa` : ""
+        }.`,
+      );
+    }
     onCampanhaCriada?.();
   };
 
@@ -788,9 +831,27 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
         </div>
 
         {sending && (
-          <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Enviando {progress.done}/{progress.total}...
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Enviando {progress.done}/{progress.total}...
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="gap-1.5"
+              disabled={cancelRef.current}
+              onClick={() => {
+                cancelRef.current = true;
+                toast.info(
+                  "Interrompendo o disparo — o envio para no próximo lead da fila.",
+                );
+              }}
+            >
+              <StopCircle className="h-3.5 w-3.5" />
+              Interromper envio
+            </Button>
           </div>
         )}
 
