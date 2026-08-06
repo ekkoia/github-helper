@@ -377,8 +377,27 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
 
     let sent = 0;
     let failed = 0;
+    let interrompida = false;
+    let motivoConta: string | null = null;
+
+    const isErroDeConta = (msg: string) => {
+      const m = msg.toLowerCase();
+      return (
+        m.includes("payment") ||
+        m.includes("pagamento") ||
+        m.includes("eligibility") ||
+        m.includes("account has been restricted") ||
+        m.includes("business account") ||
+        m.includes("not configured") ||
+        m.includes("access token")
+      );
+    };
 
     for (const lead of elegiveisParaEnvio) {
+      if (cancelRef.current) {
+        interrompida = true;
+        break;
+      }
       const phone = formatPhoneForMeta(lead.telefone);
       let metaMessageId: string | null = null;
       let erro: string | null = null;
