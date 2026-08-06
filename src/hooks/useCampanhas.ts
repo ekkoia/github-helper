@@ -64,6 +64,46 @@ export const fetchDestinatarios = async (
   return (data as CampanhaDestinatario[]) || [];
 };
 
+export interface DeliveryInfo {
+  delivery_status: string | null;
+  failure_reason: string | null;
+}
+
+/** Status real de entrega (webhook Meta) por meta_message_id. */
+export const fetchDeliveryByMids = async (
+  mids: string[],
+): Promise<Record<string, DeliveryInfo>> => {
+  const map: Record<string, DeliveryInfo> = {};
+  for (let i = 0; i < mids.length; i += 200) {
+    const chunk = mids.slice(i, i + 200);
+    const { data } = await (supabase as any)
+      .from("chat_messages")
+      .select("meta_message_id, delivery_status, failure_reason")
+      .in("meta_message_id", chunk);
+    for (const m of (data as Array<
+      { meta_message_id: string } & DeliveryInfo
+    >) || []) {
+      if (m.meta_message_id) {
+        map[m.meta_message_id] = {
+          delivery_status: m.delivery_status,
+          failure_reason: m.failure_reason,
+        };
+      }
+    }
+  }
+  return map;
+};
+
+/** Marca uma campanha travada em "enviando" como interrompida. */
+export const encerrarCampanha = async (campanhaId: string) => {
+  const { error } = await (supabase as any)
+    .from("campanhas")
+    .update({ status: "interrompida" })
+    .eq("id", campanhaId);
+  if (error) console.error("Erro ao encerrar campanha:", error);
+  return !error;
+};
+
 export interface CampanhaMetrics {
   enviado: number;
   entregue: number;
