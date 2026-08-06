@@ -90,17 +90,42 @@ const CampanhaRow = ({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [destinatarios, setDestinatarios] = useState<CampanhaDestinatario[]>([]);
+  const [entregas, setEntregas] = useState<Record<string, DeliveryInfo>>({});
+  const [statusLocal, setStatusLocal] = useState(campanha.status);
+  const [encerrando, setEncerrando] = useState(false);
 
   useEffect(() => {
     if (!open || destinatarios.length > 0) return;
     setLoading(true);
-    fetchDestinatarios(campanha.id).then((rows) => {
+    fetchDestinatarios(campanha.id).then(async (rows) => {
       setDestinatarios(rows);
+      const mids = rows
+        .map((r) => r.meta_message_id)
+        .filter(Boolean) as string[];
+      if (mids.length > 0) setEntregas(await fetchDeliveryByMids(mids));
       setLoading(false);
     });
   }, [open, campanha.id, destinatarios.length]);
 
   const enviado = metrics?.enviado ?? campanha.total_enviado;
+
+  // Campanha presa em "enviando": o loop roda no navegador, então se a aba
+  // foi fechada ela nunca é marcada como concluída.
+  const travada =
+    statusLocal === "enviando" &&
+    Date.now() - new Date(campanha.created_at).getTime() > 20 * 60 * 1000;
+
+  const handleEncerrar = async () => {
+    setEncerrando(true);
+    const ok = await encerrarCampanha(campanha.id);
+    setEncerrando(false);
+    if (ok) {
+      setStatusLocal("interrompida");
+      toast.success("Campanha marcada como interrompida.");
+    } else {
+      toast.error("Não foi possível encerrar a campanha.");
+    }
+  };
 
   return (
     <Card className="p-4">
@@ -118,6 +143,16 @@ const CampanhaRow = ({
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {statusLocal === "interrompida" && (
+            <Badge variant="outline" className="border-destructive text-destructive">
+              Interrompida
+            </Badge>
+          )}
+          {statusLocal === "enviando" && (
+            <Badge variant="outline">
+              {travada ? "Interrompida (sem resposta)" : "Enviando..."}
+            </Badge>
+          )}
           <Badge variant="secondary">{enviado} enviados</Badge>
           {(metrics?.erro ?? campanha.total_falha) > 0 && (
             <Badge variant="destructive">
@@ -129,6 +164,22 @@ const CampanhaRow = ({
               {metrics?.bloqueado ?? campanha.total_bloqueado} bloqueados
             </Badge>
           )}
+          {travada && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={encerrando}
+              onClick={handleEncerrar}
+            >
+              {encerrando ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <StopCircle className="h-3.5 w-3.5" />
+              )}
+              Encerrar campanha
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)}>
             {open ? (
               <ChevronUp className="h-4 w-4" />
@@ -138,6 +189,7 @@ const CampanhaRow = ({
           </Button>
         </div>
       </div>
+
 
       {metrics && (
         <>
