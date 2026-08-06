@@ -6,10 +6,7 @@ Uma página nova onde qualquer usuário monta uma campanha de template, escolhe 
 
 ## Regra de proteção (conversa ativa)
 
-Um lead é **automaticamente excluído** da campanha quando:
-
-- tem janela de 24h da Meta aberta (o lead respondeu recentemente), ou
-- existe qualquer mensagem (recebida ou enviada) para aquele telefone nos **últimos 7 dias**.
+Um lead é **automaticamente excluído** da campanha quando tem a **janela de 24h da Meta aberta** (o lead respondeu recentemente e pode estar em conversa com o assessor). Nenhuma outra regra de tempo é aplicada — mensagens antigas ou envios anteriores não bloqueiam.
 
 Esses leads aparecem na tela como "em conversa ativa — bloqueados", com a contagem, e nunca entram no envio, mesmo que estejam marcados.
 
