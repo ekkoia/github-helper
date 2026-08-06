@@ -31,6 +31,8 @@ import { useFunilEtapas } from "@/hooks/useFunilEtapas";
 import { useLeadTagsCatalog } from "@/hooks/useLeadTags";
 import { useUsers } from "@/hooks/useUsers";
 import { normalizePhoneForMatch } from "@/lib/phoneMatch";
+import { PeriodoFilter } from "./PeriodoFilter";
+import { getPeriodoRange, isWithinPeriodo, PeriodoValue } from "./dateFilter";
 import {
   buildTemplateComponents,
   CampanhaTemplate,
@@ -81,6 +83,9 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
   const [origem, setOrigem] = useState("all");
   const [tagId, setTagId] = useState("all");
   const [responsavel, setResponsavel] = useState("all");
+  const [periodo, setPeriodo] = useState<PeriodoValue>("all");
+  const [dataInicio, setDataInicio] = useState<Date | undefined>();
+  const [dataFim, setDataFim] = useState<Date | undefined>();
 
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
@@ -184,10 +189,12 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
   const publico = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const tagSet = tagId !== "all" ? leadIdsByTag.get(tagId) : null;
+    const range = getPeriodoRange(periodo, dataInicio, dataFim);
 
     return leads.filter((l) => {
       if (etapa !== "all" && l.etapa_funil !== etapa) return false;
       if (origem !== "all" && l.origem !== origem) return false;
+      if (!isWithinPeriodo(l.data_criacao, range)) return false;
       if (responsavel !== "all") {
         if (responsavel === "none" && l.responsavel_id) return false;
         if (responsavel !== "none" && l.responsavel_id !== responsavel) return false;
@@ -202,7 +209,18 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
       }
       return true;
     });
-  }, [leads, etapa, origem, responsavel, tagId, busca, leadIdsByTag]);
+  }, [
+    leads,
+    etapa,
+    origem,
+    responsavel,
+    tagId,
+    busca,
+    leadIdsByTag,
+    periodo,
+    dataInicio,
+    dataFim,
+  ]);
 
   const statusDoLead = (lead: LeadRow): "sem_telefone" | "bloqueado" | "elegivel" => {
     if (!formatPhoneForMeta(lead.telefone)) return "sem_telefone";
@@ -244,7 +262,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
 
   useEffect(() => {
     setPage(1);
-  }, [etapa, origem, responsavel, tagId, busca, pageSize]);
+  }, [etapa, origem, responsavel, tagId, busca, pageSize, periodo, dataInicio, dataFim]);
 
   useEffect(() => {
     if (page > totalPages) setPage(1);
@@ -573,6 +591,18 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-muted-foreground">Período de criação</span>
+          <PeriodoFilter
+            periodo={periodo}
+            onPeriodoChange={setPeriodo}
+            dataInicio={dataInicio}
+            dataFim={dataFim}
+            onDataInicioChange={setDataInicio}
+            onDataFimChange={setDataFim}
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

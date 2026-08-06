@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,13 @@ import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import {
   Campanha,
   CampanhaDestinatario,
+  CampanhaMetrics,
+  fetchCampanhasMetrics,
   fetchDestinatarios,
 } from "@/hooks/useCampanhas";
 import { useUsers } from "@/hooks/useUsers";
+import { PeriodoFilter } from "./PeriodoFilter";
+import { getPeriodoRange, isWithinPeriodo, PeriodoValue } from "./dateFilter";
 
 const statusLabel: Record<string, string> = {
   enviado: "Enviado",
@@ -17,7 +21,49 @@ const statusLabel: Record<string, string> = {
   sem_telefone: "Sem telefone",
 };
 
-const CampanhaRow = ({ campanha }: { campanha: Campanha }) => {
+const MetricTile = ({
+  label,
+  value,
+  total,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  total?: number;
+  tone?: "default" | "positive" | "negative";
+}) => {
+  const pct =
+    total && total > 0 ? `${Math.round((value / total) * 100)}%` : null;
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-2.5">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div
+        className={
+          tone === "positive"
+            ? "text-lg font-semibold text-primary"
+            : tone === "negative"
+              ? "text-lg font-semibold text-destructive"
+              : "text-lg font-semibold text-foreground"
+        }
+      >
+        {value}
+        {pct && (
+          <span className="ml-1 text-xs font-normal text-muted-foreground">
+            {pct}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const CampanhaRow = ({
+  campanha,
+  metrics,
+}: {
+  campanha: Campanha;
+  metrics?: CampanhaMetrics;
+}) => {
   const { usersMap } = useUsers();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,6 +77,8 @@ const CampanhaRow = ({ campanha }: { campanha: Campanha }) => {
       setLoading(false);
     });
   }, [open, campanha.id, destinatarios.length]);
+
+  const enviado = metrics?.enviado ?? campanha.total_enviado;
 
   return (
     <Card className="p-4">
@@ -48,12 +96,16 @@ const CampanhaRow = ({ campanha }: { campanha: Campanha }) => {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="secondary">{campanha.total_enviado} enviados</Badge>
-          {campanha.total_falha > 0 && (
-            <Badge variant="destructive">{campanha.total_falha} falhas</Badge>
+          <Badge variant="secondary">{enviado} enviados</Badge>
+          {(metrics?.erro ?? campanha.total_falha) > 0 && (
+            <Badge variant="destructive">
+              {metrics?.erro ?? campanha.total_falha} erros
+            </Badge>
           )}
-          {campanha.total_bloqueado > 0 && (
-            <Badge variant="outline">{campanha.total_bloqueado} bloqueados</Badge>
+          {(metrics?.bloqueado ?? campanha.total_bloqueado) > 0 && (
+            <Badge variant="outline">
+              {metrics?.bloqueado ?? campanha.total_bloqueado} bloqueados
+            </Badge>
           )}
           <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)}>
             {open ? (
@@ -64,6 +116,33 @@ const CampanhaRow = ({ campanha }: { campanha: Campanha }) => {
           </Button>
         </div>
       </div>
+
+      {metrics && (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <MetricTile label="Enviados" value={metrics.enviado} />
+            <MetricTile
+              label="Entregues"
+              value={metrics.entregue}
+              total={metrics.enviado}
+            />
+            <MetricTile
+              label="Lidos (abertos)"
+              value={metrics.lido}
+              total={metrics.enviado}
+              tone="positive"
+            />
+            <MetricTile label="Erros" value={metrics.erro} tone="negative" />
+            <MetricTile label="Bloqueados" value={metrics.bloqueado} />
+          </div>
+          {metrics.semStatus > 0 && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              {metrics.semStatus} envio(s) sem confirmação de entrega da Meta
+              (registros antigos ou status ainda não recebido).
+            </div>
+          )}
+        </>
+      )}
 
       {open && (
         <div className="mt-3 max-h-72 overflow-auto rounded-md border border-border">
@@ -116,6 +195,45 @@ export const CampanhasHistory = ({
   campanhas: Campanha[];
   loading: boolean;
 }) => {
+  const [periodo, setPeriodo] = useState<PeriodoValue>("all");
+  const [dataInicio, setDataInicio] = useState<Date | undefined>();
+  const [dataFim, setDataFim] = useState<Date | undefined>();
+  const [metrics, setMetrics] = useState<Record<string, CampanhaMetrics>>({});
+
+  const filtradas = useMemo(() => {
+    const range = getPeriodoRange(periodo, dataInicio, dataFim);
+    return campanhas.filter((c) => isWithinPeriodo(c.created_at, range));
+  }, [campanhas, periodo, dataInicio, dataFim]);
+
+  const ids = useMemo(() => filtradas.map((c) => c.id), [filtradas]);
+
+  useEffect(() => {
+    if (ids.length === 0) {
+      setMetrics({});
+      return;
+    }
+    let cancelled = false;
+    fetchCampanhasMetrics(ids).then((res) => {
+      if (!cancelled) setMetrics(res);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ids.join(",")]);
+
+  const totais = useMemo(() => {
+    return Object.values(metrics).reduce(
+      (acc, m) => ({
+        enviado: acc.enviado + m.enviado,
+        entregue: acc.entregue + m.entregue,
+        lido: acc.lido + m.lido,
+        erro: acc.erro + m.erro,
+        bloqueado: acc.bloqueado + m.bloqueado,
+      }),
+      { enviado: 0, entregue: 0, lido: 0, erro: 0, bloqueado: 0 },
+    );
+  }, [metrics]);
+
   if (loading) {
     return (
       <div className="p-8 text-center text-muted-foreground">
@@ -125,19 +243,52 @@ export const CampanhasHistory = ({
     );
   }
 
-  if (campanhas.length === 0) {
-    return (
-      <Card className="p-8 text-center text-muted-foreground">
-        Nenhuma campanha criada ainda.
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-3">
-      {campanhas.map((c) => (
-        <CampanhaRow key={c.id} campanha={c} />
-      ))}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base font-semibold">Histórico de campanhas</h2>
+        <PeriodoFilter
+          periodo={periodo}
+          onPeriodoChange={setPeriodo}
+          dataInicio={dataInicio}
+          dataFim={dataFim}
+          onDataInicioChange={setDataInicio}
+          onDataFimChange={setDataFim}
+        />
+      </div>
+
+      {filtradas.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <MetricTile label="Total enviado" value={totais.enviado} />
+          <MetricTile
+            label="Entregues"
+            value={totais.entregue}
+            total={totais.enviado}
+          />
+          <MetricTile
+            label="Lidos (abertos)"
+            value={totais.lido}
+            total={totais.enviado}
+            tone="positive"
+          />
+          <MetricTile label="Erros" value={totais.erro} tone="negative" />
+          <MetricTile label="Bloqueados" value={totais.bloqueado} />
+        </div>
+      )}
+
+      {filtradas.length === 0 ? (
+        <Card className="p-8 text-center text-muted-foreground">
+          {campanhas.length === 0
+            ? "Nenhuma campanha criada ainda."
+            : "Nenhuma campanha no período selecionado."}
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filtradas.map((c) => (
+            <CampanhaRow key={c.id} campanha={c} metrics={metrics[c.id]} />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
