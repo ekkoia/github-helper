@@ -314,7 +314,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     }
 
     setSending(true);
-    setProgress({ done: 0, total: elegiveis.length });
+    setProgress({ done: 0, total: elegiveisParaEnvio.length });
 
     const { data: campanha, error: campErr } = await (supabase as any)
       .from("campanhas")
@@ -358,7 +358,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     let sent = 0;
     let failed = 0;
 
-    for (const lead of elegiveis) {
+    for (const lead of elegiveisParaEnvio) {
       const phone = formatPhoneForMeta(lead.telefone);
       let metaMessageId: string | null = null;
       let erro: string | null = null;
