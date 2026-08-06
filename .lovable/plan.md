@@ -6,10 +6,7 @@ Uma página nova onde qualquer usuário monta uma campanha de template, escolhe 
 
 ## Regra de proteção (conversa ativa)
 
-Um lead é **automaticamente excluído** da campanha quando:
-
-- tem janela de 24h da Meta aberta (o lead respondeu recentemente), ou
-- existe qualquer mensagem (recebida ou enviada) para aquele telefone nos **últimos 7 dias**.
+Um lead é **automaticamente excluído** da campanha quando tem a **janela de 24h da Meta aberta** (o lead respondeu recentemente e pode estar em conversa com o assessor). Nenhuma outra regra de tempo é aplicada — mensagens antigas ou envios anteriores não bloqueiam.
 
 Esses leads aparecem na tela como "em conversa ativa — bloqueados", com a contagem, e nunca entram no envio, mesmo que estejam marcados.
 
@@ -42,6 +39,6 @@ Front-end:
 - `src/pages/Campanhas.tsx` + rota `/campanhas` em `App.tsx` e item no `AppSidebar.tsx`.
 - `src/components/campanhas/CampanhaBuilder.tsx` (filtros + tabela de seleção), `CampanhaSendDialog.tsx` (confirmação e progresso), `CampanhasHistory.tsx` (histórico + detalhe).
 - `src/hooks/useCampanhas.ts`: carrega campanhas/destinatários e grava o resultado do envio.
-- Cálculo do bloqueio reaproveitando o que já existe: `whatsapp_conversation_windows.expires_at > now()` e última mensagem em `chat_messages` por `phone` (normalização via `src/lib/phoneMatch.ts`).
+- Cálculo do bloqueio reaproveitando o que já existe: `whatsapp_conversation_windows.expires_at > now()` (normalização de telefone via `src/lib/phoneMatch.ts`).
 - Envio reaproveita a lógica já validada de `BulkTemplateDialog.tsx` (montagem de componentes de header/variáveis, `supabase.functions.invoke("send-whatsapp-message")`, insert em `chat_messages` com `message_direction: "outbound"`).
 - O disparo em massa atual em /leads permanece intacto.
