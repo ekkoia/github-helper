@@ -458,12 +458,20 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
       });
 
       setProgress((p) => ({ ...p, done: p.done + 1 }));
+
+      // Para automaticamente se o erro indicar problema na conta (pagamento,
+      // elegibilidade, token) — evita queimar milhares de tentativas.
+      if (erro && isErroDeConta(erro)) {
+        interrompida = true;
+        motivoConta = erro;
+        break;
+      }
     }
 
     await (supabase as any)
       .from("campanhas")
       .update({
-        status: "concluida",
+        status: interrompida ? "interrompida" : "concluida",
         total_enviado: sent,
         total_falha: failed,
       })
@@ -475,12 +483,26 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     setTemplateId("");
     setUnchecked(new Set());
     setProgress({ done: 0, total: 0 });
+    cancelRef.current = false;
 
-    toast.success(
-      `Campanha concluída: ${sent} enviado(s)${failed ? `, ${failed} falha(s)` : ""}${
-        bloqueadosCount ? `, ${bloqueadosCount} bloqueado(s) por conversa ativa` : ""
-      }.`,
-    );
+    if (interrompida) {
+      if (motivoConta) {
+        toast.error(
+          `Disparo interrompido: problema na conta do WhatsApp (${motivoConta}). ${sent} enviado(s) antes da parada.`,
+          { duration: 12000 },
+        );
+      } else {
+        toast.warning(
+          `Campanha interrompida: ${sent} enviado(s), ${failed} falha(s).`,
+        );
+      }
+    } else {
+      toast.success(
+        `Campanha concluída: ${sent} enviado(s)${failed ? `, ${failed} falha(s)` : ""}${
+          bloqueadosCount ? `, ${bloqueadosCount} bloqueado(s) por conversa ativa` : ""
+        }.`,
+      );
+    }
     onCampanhaCriada?.();
   };
 
