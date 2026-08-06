@@ -83,9 +83,13 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
   const [responsavel, setResponsavel] = useState("all");
 
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [limite, setLimite] = useState<string>("all");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+
 
   // Templates aprovados
   useEffect(() => {
