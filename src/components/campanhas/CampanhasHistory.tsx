@@ -232,23 +232,47 @@ const CampanhaRow = ({
                   <th className="p-2 text-left font-medium">Lead</th>
                   <th className="p-2 text-left font-medium">Telefone</th>
                   <th className="p-2 text-left font-medium">Status</th>
-                  <th className="p-2 text-left font-medium">Erro</th>
+                  <th className="p-2 text-left font-medium">Entrega</th>
+                  <th className="p-2 text-left font-medium">Motivo</th>
                 </tr>
               </thead>
               <tbody>
-                {destinatarios.map((d) => (
-                  <tr key={d.id} className="border-t border-border">
-                    <td className="p-2">{d.nome || "Sem nome"}</td>
-                    <td className="p-2 text-muted-foreground">{d.telefone || "-"}</td>
-                    <td className="p-2">{statusLabel[d.status] || d.status}</td>
-                    <td className="p-2 text-xs text-muted-foreground">
-                      {d.erro || "-"}
-                    </td>
-                  </tr>
-                ))}
+                {destinatarios.map((d) => {
+                  const info = d.meta_message_id
+                    ? entregas[d.meta_message_id]
+                    : undefined;
+                  const entrega = info?.delivery_status
+                    ? entregaLabel[info.delivery_status] || info.delivery_status
+                    : d.status === "enviado"
+                      ? "Sem confirmação"
+                      : "-";
+                  const motivo =
+                    motivoAmigavel(info?.failure_reason ?? null) || d.erro || "-";
+                  const falhou =
+                    info?.delivery_status === "failed" || d.status === "falha";
+                  return (
+                    <tr key={d.id} className="border-t border-border">
+                      <td className="p-2">{d.nome || "Sem nome"}</td>
+                      <td className="p-2 text-muted-foreground">
+                        {d.telefone || "-"}
+                      </td>
+                      <td className="p-2">{statusLabel[d.status] || d.status}</td>
+                      <td
+                        className={
+                          falhou ? "p-2 text-destructive" : "p-2 text-foreground"
+                        }
+                      >
+                        {entrega}
+                      </td>
+                      <td className="p-2 text-xs text-muted-foreground">
+                        {motivo}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {destinatarios.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                    <td colSpan={5} className="p-4 text-center text-muted-foreground">
                       Nenhum destinatário registrado.
                     </td>
                   </tr>
