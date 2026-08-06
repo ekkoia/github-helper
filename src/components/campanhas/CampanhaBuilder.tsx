@@ -83,9 +83,13 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
   const [responsavel, setResponsavel] = useState("all");
 
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [limite, setLimite] = useState<string>("all");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+
 
   // Templates aprovados
   useEffect(() => {
@@ -217,6 +221,11 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     [marcados, activeKeys],
   );
 
+  const elegiveisParaEnvio = useMemo(
+    () => (limite === "all" ? elegiveis : elegiveis.slice(0, Number(limite))),
+    [elegiveis, limite],
+  );
+
   const bloqueadosCount = useMemo(
     () => publico.filter((l) => statusDoLead(l) === "bloqueado").length,
     [publico, activeKeys],
@@ -227,9 +236,23 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     [publico],
   );
 
+  const totalPages = Math.max(1, Math.ceil(publico.length / pageSize));
+  const paginaAtual = useMemo(
+    () => publico.slice((page - 1) * pageSize, page * pageSize),
+    [publico, page, pageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [etapa, origem, responsavel, tagId, busca, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [page, totalPages]);
+
   const selectedTemplate = templates.find((t) => t.id === templateId);
   const canSend =
-    !!nome.trim() && !!selectedTemplate && elegiveis.length > 0 && !sending;
+    !!nome.trim() && !!selectedTemplate && elegiveisParaEnvio.length > 0 && !sending;
 
   const toggleLead = (id: string) => {
     setUnchecked((prev) => {
@@ -240,13 +263,37 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     });
   };
 
+  const paginaMarcados = paginaAtual.filter((l) => !unchecked.has(l.id)).length;
+
   const toggleAll = () => {
-    if (marcados.length === publico.length) {
-      setUnchecked(new Set(publico.map((l) => l.id)));
-    } else {
-      setUnchecked(new Set());
-    }
+    const todosMarcados =
+      paginaAtual.length > 0 && paginaMarcados === paginaAtual.length;
+    setUnchecked((prev) => {
+      const next = new Set(prev);
+      for (const l of paginaAtual) {
+        if (todosMarcados) next.add(l.id);
+        else next.delete(l.id);
+      }
+      return next;
+    });
   };
+
+  const marcarTodosFiltro = () => {
+    setUnchecked((prev) => {
+      const next = new Set(prev);
+      for (const l of publico) next.delete(l.id);
+      return next;
+    });
+  };
+
+  const desmarcarTodosFiltro = () => {
+    setUnchecked((prev) => {
+      const next = new Set(prev);
+      for (const l of publico) next.add(l.id);
+      return next;
+    });
+  };
+
 
   const executeSend = async () => {
     if (!selectedTemplate || !user?.id || !account) return;
@@ -267,7 +314,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     }
 
     setSending(true);
-    setProgress({ done: 0, total: elegiveis.length });
+    setProgress({ done: 0, total: elegiveisParaEnvio.length });
 
     const { data: campanha, error: campErr } = await (supabase as any)
       .from("campanhas")
@@ -311,7 +358,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
     let sent = 0;
     let failed = 0;
 
-    for (const lead of elegiveis) {
+    for (const lead of elegiveisParaEnvio) {
       const phone = formatPhoneForMeta(lead.telefone);
       let metaMessageId: string | null = null;
       let erro: string | null = null;
@@ -528,13 +575,43 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
           </Select>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Limite de envios</span>
+            <Select value={limite} onValueChange={setLimite}>
+              <SelectTrigger className="h-9 w-[110px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {[20, 50, 100, 500].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="outline" size="sm" onClick={marcarTodosFiltro}>
+            Marcar todos do filtro
+          </Button>
+          <Button variant="outline" size="sm" onClick={desmarcarTodosFiltro}>
+            Desmarcar todos
+          </Button>
+        </div>
+
         <div className="rounded-md border border-border bg-muted/30 p-3 text-sm grid gap-1 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <span className="font-medium">{publico.length}</span> no filtro
           </div>
           <div>
-            <span className="font-medium text-primary">{elegiveis.length}</span>{" "}
-            elegível(is)
+            <span className="font-medium text-primary">
+              {elegiveisParaEnvio.length}
+            </span>{" "}
+            serão enviados{" "}
+            {limite === "all"
+              ? `(${elegiveis.length} elegíveis)`
+              : `(limite ${limite} de ${elegiveis.length} elegíveis)`}
           </div>
           <div className="text-muted-foreground">
             {bloqueadosCount} em conversa ativa
@@ -543,6 +620,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
             {semTelefoneCount} sem telefone
           </div>
         </div>
+
 
         <div className="flex items-start gap-2 rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -558,7 +636,10 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
               <tr>
                 <th className="p-2 w-10">
                   <Checkbox
-                    checked={publico.length > 0 && marcados.length === publico.length}
+                    checked={
+                      paginaAtual.length > 0 &&
+                      paginaMarcados === paginaAtual.length
+                    }
                     onCheckedChange={toggleAll}
                   />
                 </th>
@@ -585,7 +666,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
                 </tr>
               )}
               {!loadingLeads &&
-                publico.slice(0, 500).map((lead) => {
+                paginaAtual.map((lead) => {
                   const st = statusDoLead(lead);
                   return (
                     <tr key={lead.id} className="border-t border-border">
@@ -622,12 +703,57 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
           </table>
         </div>
 
-        {publico.length > 500 && (
-          <p className="text-xs text-muted-foreground">
-            Exibindo os 500 primeiros na pré-visualização. O disparo considera
-            todos os {publico.length} leads do filtro que estiverem marcados.
-          </p>
-        )}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>Itens por página</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => setPageSize(Number(v))}
+            >
+              <SelectTrigger className="h-8 w-[80px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[20, 50, 100, 500].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <span>
+            {publico.length === 0
+              ? "0 leads"
+              : `Mostrando ${(page - 1) * pageSize + 1}–${Math.min(
+                  page * pageSize,
+                  publico.length,
+                )} de ${publico.length}`}
+          </span>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Anterior
+            </Button>
+            <span>
+              Página {page} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
 
         {sending && (
           <div className="text-xs text-muted-foreground flex items-center gap-2">
@@ -643,7 +769,8 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
             className="gap-1.5"
           >
             <Send className="h-3.5 w-3.5" />
-            Disparar para {elegiveis.length}
+            Disparar para {elegiveisParaEnvio.length}
+
           </Button>
         </div>
       </Card>
@@ -658,7 +785,11 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
                   A campanha <span className="font-semibold">{nome}</span> vai
                   enviar o template{" "}
                   <span className="font-semibold">{selectedTemplate?.name}</span>{" "}
-                  para <span className="font-semibold">{elegiveis.length}</span>{" "}
+                  para{" "}
+                  <span className="font-semibold">
+                    {elegiveisParaEnvio.length}
+                  </span>{" "}
+
                   lead(s). Esta ação não pode ser desfeita.
                 </div>
                 {bloqueadosCount > 0 && (
