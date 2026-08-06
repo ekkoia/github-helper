@@ -632,7 +632,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
                 </tr>
               )}
               {!loadingLeads &&
-                publico.slice(0, 500).map((lead) => {
+                paginaAtual.map((lead) => {
                   const st = statusDoLead(lead);
                   return (
                     <tr key={lead.id} className="border-t border-border">
