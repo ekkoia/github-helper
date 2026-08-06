@@ -594,6 +594,18 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-muted-foreground">Período de criação</span>
+          <PeriodoFilter
+            periodo={periodo}
+            onPeriodoChange={setPeriodo}
+            dataInicio={dataInicio}
+            dataFim={dataFim}
+            onDataInicioChange={setDataInicio}
+            onDataFimChange={setDataFim}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Limite de envios</span>
             <Select value={limite} onValueChange={setLimite}>
