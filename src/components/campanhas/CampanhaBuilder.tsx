@@ -262,7 +262,7 @@ export const CampanhaBuilder = ({ onCampanhaCriada }: CampanhaBuilderProps) => {
 
   useEffect(() => {
     setPage(1);
-  }, [etapa, origem, responsavel, tagId, busca, pageSize]);
+  }, [etapa, origem, responsavel, tagId, busca, pageSize, periodo, dataInicio, dataFim]);
 
   useEffect(() => {
     if (page > totalPages) setPage(1);
