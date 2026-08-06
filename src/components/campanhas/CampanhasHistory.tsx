@@ -16,7 +16,9 @@ import {
 } from "@/hooks/useCampanhas";
 import { useUsers } from "@/hooks/useUsers";
 import { PeriodoFilter } from "./PeriodoFilter";
+import { ReenviarFalhas } from "./ReenviarFalhas";
 import { getPeriodoRange, isWithinPeriodo, PeriodoValue } from "./dateFilter";
+
 
 const statusLabel: Record<string, string> = {
   enviado: "Enviado",
@@ -164,6 +166,7 @@ const CampanhaRow = ({
               {metrics?.bloqueado ?? campanha.total_bloqueado} bloqueados
             </Badge>
           )}
+          <ReenviarFalhas campanha={campanha} onDone={() => setDestinatarios([])} />
           {travada && (
             <Button
               variant="outline"
@@ -180,6 +183,7 @@ const CampanhaRow = ({
               Encerrar campanha
             </Button>
           )}
+
           <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)}>
             {open ? (
               <ChevronUp className="h-4 w-4" />
